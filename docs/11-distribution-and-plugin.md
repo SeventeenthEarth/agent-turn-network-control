@@ -1,0 +1,50 @@
+# Distribution and Plugin Compatibility
+
+## Goal
+
+A user should be able to install the Go core, start the daemon, verify the CLI, then optionally install the Python Hermes plugin from `kkachi-agent-network-plugin`.
+
+## Core distribution
+
+The core repository ships two binaries:
+
+- `kkachi-agent-networkd` — daemon, state authority, stream hub, storage owner
+- `kkachi-agent-network` — canonical CLI for diagnostics, recovery, manual operation, and tests
+
+Supported install shapes may include source build, release archives, Homebrew/tap, or `go install` once module paths are fixed. The exact distribution mechanism must not change the authority boundary: CLI and plugin remain clients of the daemon.
+
+## Companion plugin distribution
+
+The Hermes plugin is distributed separately from the core, in the companion `kkachi-agent-network-plugin` repository. It contains Python plugin code, a Python daemon client, tool/slash-command bindings, and a bundled skill. The plugin repo owns its Python packaging details.
+
+Core docs must specify the daemon contract the plugin consumes:
+
+- command envelope schema;
+- stream frame schema;
+- structured error schema;
+- version/feature compatibility endpoint;
+- delivery evidence command path;
+- conformance fixture version.
+
+## Compatibility rule
+
+The plugin may support multiple core protocol versions only when it can prove behavior through conformance tests. If the daemon reports an unsupported protocol or missing required feature, the plugin fails closed and points to the CLI fallback.
+
+## Root README requirements for this repo
+
+The core root README should include:
+
+1. What KAN core is and is not.
+2. How to build/install `kkachi-agent-networkd` and `kkachi-agent-network`.
+3. Data home resolution and registry setup.
+4. Daemon start/status/stop.
+5. First delegation example through CLI.
+6. Council example through CLI.
+7. Transcript/export example.
+8. How to run `make test`, `make test-prepare`, `make test-unit`, `make test-int`, `make test-e2e`.
+9. How to install the companion plugin and where its docs live.
+10. Fail-close and recovery guidance.
+
+## Deprecated distribution assumptions
+
+Pre-split Python package entry points for the core repo are no longer valid. The core repo must not describe itself as a Python package or as the owner of Hermes plugin implementation files.

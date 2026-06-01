@@ -1,0 +1,16 @@
+{
+  "manifest_version": 1,
+  "protocol_version": "kan-protocol-v1alpha0",
+  "stability": "draft-docs-scaffold",
+  "owner_repo": "kkachi-agent-network",
+  "consumer_repo": "kkachi-agent-network-plugin",
+  "fixtures": [],
+  "required_feature_groups": [
+    "version_features",
+    "command_envelope",
+    "stream_frame",
+    "structured_error",
+    "delivery_evidence"
+  ],
+  "notes": "Initial manifest placeholder for parallel development. Add fixture files as core protocol scaffolding lands."
+}
