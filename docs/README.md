@@ -82,4 +82,4 @@ The control repo Makefile owns Go checks and control docs guardrails. The plugin
 
 ## Current implementation state
 
-This repository is in documentation/scaffold preparation. Until Go code exists, Makefile test targets may skip code-specific checks but must still run docs guardrails and must not contact live Hermes or Discord resources by default.
+This repository is in BOOTS-001 scaffold implementation. The initial Go module, CLI/daemon help/version entrypoints, protocol metadata scaffold, local test layout, and help smoke gate exist. State-mutating daemon/runtime behavior remains intentionally out of scope, and default test targets must not contact live Hermes or Discord resources.

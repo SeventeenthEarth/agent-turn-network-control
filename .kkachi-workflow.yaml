@@ -129,12 +129,12 @@ gates:
     checks:
       - type: "markdown.field"
         name: "codegraph_evidence_status"
-        path: "codegraph-evidence.md"
+        path: "final-report.md"
         field: "Status"
         one_of: ["complete"]
       - type: "text.contains_all"
         name: "codegraph_evidence_command"
-        path: "codegraph-evidence.md"
+        path: "final-report.md"
         tokens: ["codegraph index", "codegraph init -i"]
   - id: "runtime-ignore-required"
     requires: ["intake", "final"]
@@ -142,7 +142,7 @@ gates:
     checks:
       - type: "text.contains_all"
         name: "runtime_dirs_ignored"
-        path: "runtime-ignore.md"
+        path: "final-report.md"
         tokens: [".kkachi/", ".codegraph/", ".omx/", ".omc/", ".claude-octopus/"]
   - id: "precommit-template-required"
     requires: ["handle-feedback-3", "final"]

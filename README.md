@@ -24,13 +24,13 @@ Key docs:
 
 ## Current state
 
-Documentation/scaffold stage. Go source scaffolding is not created yet, so Makefile code checks skip with explicit messages while docs guardrails still run.
+BOOTS-001 implementation is in progress. The initial Go module, CLI/daemon entrypoints, internal command scaffold, protocol version scaffold, test layout, and local help smoke tests exist. State-mutating daemon/runtime features are intentionally not implemented yet.
 
 ## Test targets
 
 ```bash
-make test-prepare  # gofmt/lint/vet/docs guardrails; no external resources
-make test-unit     # unit tests; currently docs-only scaffold pass
+make test-prepare  # gofmt/lint/vet/docs guardrails/help smoke; no external resources
+make test-unit     # Go unit tests for current scaffold
 make test-int      # fake/mock/stub integration; no external resources
 make test-e2e      # isolated external test environment only
 make test          # sequential all targets
@@ -39,6 +39,6 @@ make check-plugin-contract  # verify companion plugin milestone/contract readine
 
 `make test-e2e` must never use the currently running Hermes profile/gateway or production Discord rooms by default.
 
-## Next scaffold step
+## Next scaffold gate
 
-Create `go.mod`, `cmd/kkachi-agent-network`, `cmd/kkachi-agent-networkd`, `internal/protocol`, and first help smoke tests as described in `docs/09-implementation-epics.md`.
+Before BOOTS-001 can be reported complete, finish review/feedback handling, GLM Octo or an explicit waiver, post-fix verification, second color re-review when required, final KAH gate evidence, and commit approval.

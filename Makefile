@@ -1,11 +1,11 @@
 SHELL := /bin/sh
 
-.PHONY: test test-prepare test-unit test-int test-e2e docs-guardrails check-plugin-contract fmt lint vet
+.PHONY: test test-prepare test-unit test-int test-e2e docs-guardrails check-plugin-contract fmt lint vet help-smoke
 
 test: test-prepare test-unit test-int test-e2e
 
 # Preparation gate: local-only checks that never contact Hermes/Discord or other external services.
-test-prepare: fmt lint vet docs-guardrails
+test-prepare: fmt lint vet docs-guardrails help-smoke
 
 fmt:
 	@if command -v gofmt >/dev/null 2>&1 && [ -d ./cmd -o -d ./internal -o -d ./pkg ]; then \
@@ -31,6 +31,16 @@ vet:
 
 docs-guardrails:
 	@python3 scripts/guardrails.py
+
+help-smoke:
+	@if command -v go >/dev/null 2>&1 && [ -f go.mod ]; then \
+		cli_help=$$(go run ./cmd/kkachi-agent-network --help); \
+		printf '%s\n' "$$cli_help" | grep -q '^kkachi-agent-network$$'; \
+		daemon_help=$$(go run ./cmd/kkachi-agent-networkd --help); \
+		printf '%s\n' "$$daemon_help" | grep -q '^kkachi-agent-networkd$$'; \
+	else \
+		echo "help-smoke: go/go.mod unavailable; skipped until Go scaffold exists"; \
+	fi
 
 check-plugin-contract:
 	@python3 scripts/check_plugin_contract.py
