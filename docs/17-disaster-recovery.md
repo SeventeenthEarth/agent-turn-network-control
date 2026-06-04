@@ -71,7 +71,7 @@ Projection rebuild is the most common recovery operation. It is replay applied t
 ```text
 1. Stop the daemon.
 2. Run `kkachi-agent-network storage verify`.
-3. If verification passes, run `kkachi-agent-network storage rebuild-projection`.
+3. If verification reports only a missing, corrupt, or mismatched projection, run `kkachi-agent-network storage rebuild-projection`; rebuild performs its own event-log preflight before replacement.
 4. Start the daemon.
 5. Run `kkachi-agent-network doctor`.
 6. Confirm active session status and phase.
@@ -85,7 +85,7 @@ The rebuild must:
 - not invoke runners, not deliver escalations, not append events, and not invent timer-driven flushes;
 - not reread live `registry.yaml` to reinterpret historical sessions.
 
-If verification fails, do not run the rebuild without first following the corruption procedure in the relevant section below.
+If verification fails because `channel.jsonl` is corrupt, schema migration is missing, or the data home/projection path is unsafe, do not rebuild until the relevant safety or corruption recovery procedure below is complete.
 
 ## channel.jsonl corruption
 

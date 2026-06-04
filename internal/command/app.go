@@ -10,6 +10,7 @@ import (
 
 	"kkachi-agent-network-control/internal/protocol"
 	"kkachi-agent-network-control/internal/registry"
+	"kkachi-agent-network-control/internal/storage"
 )
 
 // App describes a minimal local-only command surface for a KAN binary.
@@ -50,6 +51,7 @@ func NewCLIWithRuntime(runtime registry.Runtime) App {
 			{Name: "doctor", Description: "Run read-only diagnostics for the control runtime."},
 			{Name: "init", Description: "Create a safe data home and sample registry when missing."},
 			{Name: "registry", Description: "Validate or show the local registry authority."},
+			{Name: "storage", Description: "Verify or rebuild the local SQLite storage projection."},
 			{Name: "status", Description: "Show daemon or session status."},
 			{Name: "version", Description: "Print protocol and binary version information."},
 		},
@@ -94,6 +96,8 @@ func (a App) Run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return a.runDoctor(args[1:], stdout, stderr)
 		case "registry":
 			return a.runRegistry(args[1:], stdout, stderr)
+		case "storage":
+			return a.runStorage(args[1:], stdout, stderr)
 		}
 	}
 
@@ -183,8 +187,75 @@ func (a App) runDoctor(args []string, stdout io.Writer, stderr io.Writer) int {
 	_, _ = fmt.Fprintln(stdout, "registry_status: valid")
 	_, _ = fmt.Fprintf(stdout, "registry_sha256: %s\n", loaded.SourceSHA256)
 	_, _ = fmt.Fprintln(stdout, "daemon_status: not_implemented")
-	_, _ = fmt.Fprintln(stdout, "storage_status: not_implemented")
+	report, err := storage.VerifyStorage(dataHome, storage.VerifyOptions{Runtime: a.Runtime})
+	if err != nil {
+		status := "invalid"
+		detail := err.Error()
+		if report != nil {
+			status = report.Status
+			detail = report.Detail
+		}
+		_, _ = fmt.Fprintf(stdout, "storage_status: %s\n", status)
+		if detail != "" {
+			_, _ = fmt.Fprintf(stdout, "storage_detail: %s\n", detail)
+		}
+		return 0
+	}
+	_, _ = fmt.Fprintf(stdout, "storage_status: %s\n", report.Status)
+	_, _ = fmt.Fprintf(stdout, "storage_source_hash: %s\n", report.ActualSourceHash)
 	return 0
+}
+
+func (a App) runStorage(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) == 0 || isHelp(args[0]) {
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s storage verify\n  %s storage rebuild-projection\n\nVerifies or rebuilds the read-only SQLite projection from channel.jsonl.\n", a.Name, a.Name)
+		return 0
+	}
+	switch args[0] {
+	case "verify":
+		if len(args) != 1 {
+			_, _ = fmt.Fprintf(stderr, "%s storage verify: unexpected arguments: %s\n", a.Name, strings.Join(args[1:], " "))
+			return 1
+		}
+		dataHome, err := registry.ResolveDataHome(a.Runtime)
+		if err != nil {
+			_, _ = fmt.Fprintf(stderr, "%s storage verify: %v\n", a.Name, err)
+			return 70
+		}
+		report, err := storage.VerifyStorage(dataHome, storage.VerifyOptions{Runtime: a.Runtime})
+		if err != nil {
+			return writeStorageError(stdout, stderr, "storage verify", report, err)
+		}
+		_, _ = fmt.Fprintf(stdout, "storage valid: %s\n", report.DBPath)
+		_, _ = fmt.Fprintf(stdout, "schema_version: %d\n", report.Expected.SchemaVersion)
+		_, _ = fmt.Fprintf(stdout, "source_sessions: %d\n", report.Expected.SessionCount)
+		_, _ = fmt.Fprintf(stdout, "source_events: %d\n", report.Expected.EventCount)
+		_, _ = fmt.Fprintf(stdout, "source_hash: %s\n", report.ActualSourceHash)
+		return 0
+	case "rebuild-projection":
+		if len(args) != 1 {
+			_, _ = fmt.Fprintf(stderr, "%s storage rebuild-projection: unexpected arguments: %s\n", a.Name, strings.Join(args[1:], " "))
+			return 1
+		}
+		dataHome, err := registry.ResolveDataHome(a.Runtime)
+		if err != nil {
+			_, _ = fmt.Fprintf(stderr, "%s storage rebuild-projection: %v\n", a.Name, err)
+			return 70
+		}
+		report, err := storage.RebuildProjection(dataHome, storage.ProjectionOptions{Runtime: a.Runtime})
+		if err != nil {
+			return writeStorageError(stdout, stderr, "storage rebuild-projection", nil, err)
+		}
+		_, _ = fmt.Fprintf(stdout, "projection rebuilt: %s\n", report.DBPath)
+		_, _ = fmt.Fprintf(stdout, "schema_version: %d\n", report.SchemaVersion)
+		_, _ = fmt.Fprintf(stdout, "source_sessions: %d\n", report.SessionCount)
+		_, _ = fmt.Fprintf(stdout, "source_events: %d\n", report.EventCount)
+		_, _ = fmt.Fprintf(stdout, "source_hash: %s\n", report.SourceHash)
+		return 0
+	default:
+		_, _ = fmt.Fprintf(stderr, "%s storage: unsupported command %q\n", a.Name, args[0])
+		return 1
+	}
 }
 
 func (a App) runRegistry(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -242,6 +313,29 @@ func writeRegistryError(stderr io.Writer, command string, err error) int {
 	}
 	_, _ = fmt.Fprintf(stderr, "%s failed: %v\n", command, err)
 	return 70
+}
+
+func writeStorageError(stdout io.Writer, stderr io.Writer, command string, report *storage.VerifyReport, err error) int {
+	if report != nil {
+		_, _ = fmt.Fprintf(stdout, "storage_status: %s\n", report.Status)
+		if report.RecoverableProjectionOnly {
+			_, _ = fmt.Fprintln(stdout, "recoverable_projection_only: true")
+		}
+		if report.Detail != "" {
+			_, _ = fmt.Fprintf(stdout, "storage_detail: %s\n", report.Detail)
+		}
+	}
+	_, _ = fmt.Fprintf(stderr, "%s failed: %v\n", command, err)
+	switch storage.ProjectionKind(err) {
+	case storage.ProjectionErrorValidation:
+		return 1
+	case storage.ProjectionErrorUnsafeDataHome:
+		return 3
+	case storage.ProjectionErrorReplay, storage.ProjectionErrorMigration, storage.ProjectionErrorStorage:
+		return 6
+	default:
+		return 70
+	}
 }
 
 func writeSampleRegistry(path string, dataHome string) error {

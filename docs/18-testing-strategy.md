@@ -24,7 +24,7 @@ Both repositories must expose these targets:
 | --- | --- | --- |
 | Unit | protocol, engine, registry, security helpers | phase transitions, strict schema, safe path validation |
 | Unit | storage primitives | event envelope validation, cursor math, redaction helper |
-| Integration | daemon + storage + CLI using temp data home | append/replay/projection, idempotency, JSON errors |
+| Integration | daemon + storage + CLI using temp data home | append/replay/projection, storage verify/rebuild exit codes, idempotency, JSON errors |
 | Integration | fake member/runtime/runner | stream reconnect, cursor ack, timeout, cost parsing |
 | E2E | isolated Hermes/Discord test environment | plugin-visible session flow, Discord delivery evidence in a sandbox thread |
 | Fault injection | failure paths | truncation, projection corruption, late runner result, incompatible protocol |
@@ -46,6 +46,7 @@ Both repositories must expose these targets:
 
 - `temp_data_home` with safe permissions.
 - `safe_registry` and unsafe registry variants.
+- projection fixtures with missing, mismatched, corrupt, and rebuilt `network.sqlite`.
 - fake Hermes wrapper that returns deterministic semantic output and optional cost JSON.
 - fake runner timeout/nonzero/malformed-output variants.
 - fake stream client with durable cursor file.

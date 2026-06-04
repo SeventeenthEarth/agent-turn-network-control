@@ -90,6 +90,7 @@ Rules:
 - Does not invoke runners.
 - Does not deliver escalations.
 - Does not append events.
+- Exit codes are storage-specific: `0` valid logs and projection; `1` bad storage CLI arguments; `3` unsafe registry/data-home; `6` log, replay, migration, SQLite, missing projection, corrupt projection, or projection mismatch failure; `70` unexpected internal failure.
 
 ### `kkachi-agent-network storage rebuild-projection`
 
@@ -100,7 +101,8 @@ Rules:
 - Must not run member wrappers.
 - Must not deliver escalations.
 - Must not invent timer-based events.
-- Requires storage verification to pass first, unless an explicit recovery mode is documented in `17-disaster-recovery.md`.
+- Performs event-log preflight before replacing `network.sqlite`. Rebuild is allowed when only the projection is missing, corrupt, or mismatched, but refuses unsafe data homes, unsafe existing projection paths, corrupt logs, schema gaps, replay failures, and migration failures.
+- Exit codes are storage-specific: `0` rebuild completed; `1` bad storage CLI arguments; `3` unsafe registry/data-home; `6` log, replay, migration, SQLite, unsafe existing projection, integrity, or atomic replace failure; `70` unexpected internal failure.
 
 ## Registry commands
 

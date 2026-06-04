@@ -105,6 +105,8 @@ members:
 
 `kkachi-agent-network storage rebuild-projection` (defined in `04-cli-spec.md`) rebuilds `network.sqlite` and other projections from `channel.jsonl`. It is an operational command and must not append events, invoke runners, deliver escalations, or invent timer-driven events. Detailed disaster-recovery procedure lives in `17-disaster-recovery.md`.
 
+Release v1 schema implementation creates all named projection tables plus `projection_metadata`. Metadata records `schema_version`, `source_session_count`, `source_event_count`, and deterministic `source_hash`. Empty event-specific tables mean no matching durable event was replayed; they are not deferred schema.
+
 ## Session YAML
 
 ```yaml
@@ -179,6 +181,8 @@ For a Discord-thread-bound council, storage and projection are mandatory for the
 `user_escalations_total` belongs to the `escalations` projection summary, not to the `cost` block. The `escalations` block is a projection summary (source of truth remains `channel.jsonl`). When the session is in `waiting_user`, `escalations.waiting_user` carries the active `escalation_event_id`, `batch_id`, `delivered` flag, and `response_timeout_at`. `user_escalations_total` counts only `user_escalation_requested` events; `escalation_batched` does not count.
 
 `runner_calls_total` is projected from `runner_invocation_started` events. `missing_cost_runner_calls_total` is projected from terminal runner events whose `cost` is null. Token and USD totals are projected only from terminal runner events with parsed cost. See `13-operational-contracts.md` §3.
+
+Replay handlers populate event-specific tables from durable events only: runner invocation lifecycle, escalation batching and batched user escalation, council attendance/agenda/hand-raise/vote/linked-authority results, stream cursor/subscriber events, review verdict/submission events, command-id summaries, event recipients, and artifact references from artifact-bearing work/review events.
 
 Unknown forward-compatibility keys (limits introduced after Release v1) must not error on a Release v1 reader. See the forward-compatibility rule in `13-operational-contracts.md`.
 

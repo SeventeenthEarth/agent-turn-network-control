@@ -21,6 +21,10 @@ const (
 	CategoryAppendFailed     = "storage_append_failed"
 	CategoryPrincipalInvalid = "storage_principal_invalid"
 	CategoryRegistryMismatch = "storage_registry_mismatch"
+	CategoryProjectionFailed = "storage_projection_failed"
+	CategoryProjectionUnsafe = "storage_projection_unsafe"
+	CategoryProjectionVerify = "storage_projection_verify_failed"
+	CategoryCommandConflict  = "storage_command_conflict"
 )
 
 // Issue is a fail-closed storage validation finding.
