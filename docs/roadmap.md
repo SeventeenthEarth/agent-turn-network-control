@@ -24,7 +24,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs are derived from the 
 
 | Task ID | Task Title | Task Status | Task Description |
 | --- | --- | --- | --- |
-| STORE-001 | Event-store append | planned | Implement safe session directories, session metadata, registry snapshot metadata, canonical `channel.jsonl` event append, and surface/linked-authority evidence fields with unit and integration coverage. |
+| STORE-001 | Event-store append | completed | Implement safe session directories, session metadata, registry snapshot metadata, canonical `channel.jsonl` event append, and surface/linked-authority evidence fields with unit and integration coverage. |
 | STORE-002 | Projection and replay | planned | Implement SQLite projection as a rebuildable cache, deterministic replay/rebuild, storage verify/rebuild commands or equivalent diagnostics, and projection/replay tests. |
 
 ## DAEMN — Daemon/CLI/protocol
