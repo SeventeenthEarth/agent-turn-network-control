@@ -1,6 +1,6 @@
 # Operational Contracts
 
-These contracts are cross-cutting and apply to every epic. Streaming, runner, protocol, storage, and engine modules depend on them. They must be fixed before Epic 4 (Member runtime and runner adapter).
+These contracts are cross-cutting and apply to every epic. Streaming, runner, protocol, storage, and engine modules depend on them. They must be fixed before RUNRT (member runtime and runner adapter).
 
 ## 0. Stream and member runtime contract
 

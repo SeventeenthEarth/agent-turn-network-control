@@ -1,0 +1,157 @@
+version: "workflow-graph/v1"
+graph_id: "graph-kkachi-project-kkachi-agent-network-control-d7badb20504b"
+metadata:
+  project: "kkachi-agent-network-control"
+  created_by: "khs"
+  managed_by: "kah"
+  source_template: "kan-control-kas+glm-octo-precommit"
+  last_applied_event_id: "evt-000002"
+phases:
+  - id: "intake"
+    title: "Intake"
+    owner_layer: "khs"
+    required: true
+  - id: "sot"
+    title: "Sot"
+    owner_layer: "khs"
+    required: true
+  - id: "roadmap"
+    title: "Roadmap"
+    owner_layer: "khs"
+    required: true
+  - id: "plan"
+    title: "Plan"
+    owner_layer: "khs"
+    required: true
+  - id: "ask"
+    title: "Ask"
+    owner_layer: "khs"
+    required: true
+  - id: "implement"
+    title: "Implement"
+    owner_layer: "khs"
+    required: true
+  - id: "optimize"
+    title: "Optimize"
+    owner_layer: "khs"
+    required: true
+  - id: "request-feedback-1"
+    title: "Initial External Feedback / Role Review Request"
+    owner_layer: "khs"
+    required: true
+    evidence: ["feedback-request.md", "role-review-cards.json"]
+  - id: "handle-feedback-1"
+    title: "Handle Initial Feedback"
+    owner_layer: "khs"
+    required: true
+    evidence: ["handle-feedback-1.md"]
+  - id: "review"
+    title: "First Blue Red Orange Gray Review"
+    owner_layer: "khs"
+    required: true
+    evidence: ["review.md", "redteam/"]
+  - id: "verify"
+    title: "Verification After First Review Fixes"
+    owner_layer: "khs"
+    required: true
+    evidence: ["verification.md", "test-log.md"]
+  - id: "docs"
+    title: "Docs and Roadmap Update"
+    owner_layer: "khs"
+    required: true
+    evidence: ["docs-update.md", "roadmap-update.md"]
+  - id: "request-feedback-2"
+    title: "Official GLM Octo Review Request"
+    owner_layer: "khs"
+    required: true
+    evidence: ["glm-octo-prompt.txt", "glm-octo-start-readback.json", "glm-octo-active-readback.json"]
+  - id: "handle-feedback-2"
+    title: "Handle Official GLM Octo Feedback"
+    owner_layer: "khs"
+    required: true
+    evidence: ["glm-octo-feedback.md", "handle-feedback-2.md", "verification-after-octo.md"]
+  - id: "request-feedback-3"
+    title: "Post-Octo Blue Red Orange Gray Re-Review Request"
+    owner_layer: "khs"
+    required: true
+    evidence: ["post-octo-blue-review.md", "role-review-post-octo-cards.json"]
+  - id: "handle-feedback-3"
+    title: "Pre-Commit Template Report and Remaining Risk Closure"
+    owner_layer: "khs"
+    required: true
+    evidence: ["final-report.md", "gate-reports/final.json"]
+  - id: "final"
+    title: "Final Gate / Commit Approval Report"
+    owner_layer: "khs"
+    required: true
+    evidence: ["final-report.md", "gate-reports/final.json"]
+edges:
+  - from: "intake"
+    to: "sot"
+  - from: "sot"
+    to: "roadmap"
+  - from: "roadmap"
+    to: "plan"
+  - from: "plan"
+    to: "ask"
+  - from: "ask"
+    to: "implement"
+  - from: "implement"
+    to: "optimize"
+  - from: "optimize"
+    to: "request-feedback-1"
+  - from: "request-feedback-1"
+    to: "handle-feedback-1"
+  - from: "handle-feedback-1"
+    to: "review"
+  - from: "review"
+    to: "verify"
+  - from: "verify"
+    to: "docs"
+  - from: "docs"
+    to: "request-feedback-2"
+  - from: "request-feedback-2"
+    to: "handle-feedback-2"
+  - from: "handle-feedback-2"
+    to: "request-feedback-3"
+  - from: "request-feedback-3"
+    to: "handle-feedback-3"
+  - from: "handle-feedback-3"
+    to: "final"
+gates:
+  - id: "glm-octo-required"
+    requires: ["request-feedback-2", "handle-feedback-2"]
+  - id: "post-octo-review-required"
+    requires: ["request-feedback-3", "handle-feedback-3"]
+  - id: "codegraph-refresh-required"
+    requires: ["intake", "final"]
+    final_required: true
+    checks:
+      - type: "markdown.field"
+        name: "codegraph_evidence_status"
+        path: "codegraph-evidence.md"
+        field: "Status"
+        one_of: ["complete"]
+      - type: "text.contains_all"
+        name: "codegraph_evidence_command"
+        path: "codegraph-evidence.md"
+        tokens: ["codegraph index", "codegraph init -i"]
+  - id: "runtime-ignore-required"
+    requires: ["intake", "final"]
+    final_required: true
+    checks:
+      - type: "text.contains_all"
+        name: "runtime_dirs_ignored"
+        path: "runtime-ignore.md"
+        tokens: [".kkachi/", ".codegraph/", ".omx/", ".omc/", ".claude-octopus/"]
+  - id: "precommit-template-required"
+    requires: ["handle-feedback-3", "final"]
+proposals:
+  policy: "proposal-first"
+feedback_intake:
+  policy: "EXTERNAL_FEEDBACK_INTAKE"
+  schema_version: "external-feedback-intake/v1"
+  min_rounds: 1
+  max_rounds: 5
+  required_rounds: [1]
+  optional_rounds: [2, 3, 4, 5]

@@ -33,16 +33,16 @@ The control repo can move without waiting for plugin UX work. The plugin can mov
 
 | Control milestone | Control output | Plugin work unlocked | Plugin limit before control exists |
 | --- | --- | --- | --- |
-| Control Bootstrap | Go module, CLI/daemon help, Makefile | Plugin P0 scaffold can proceed independently | plugin uses fake daemon only |
-| Control 3A.1 Version/feature contract | daemon status shape, protocol version, feature list | Plugin P1 compatibility check | fake status fixture until daemon exists |
-| Control 3A.2 Command envelope fixture | request/response/idempotency/error fixture | Python daemon client request builder | no write tools marked release-ready |
-| Control 3A.3 Stream frame fixture | replay/follow/cursor frame fixture | stream parser and tail/diagnostic tools | fake stream only |
-| Control 3A.4 Structured error fixture | error categories and JSON shape | plugin error rendering and fail-closed UX | no success reinterpretation allowed |
-| Control Epic 5 Delegation commands | implemented daemon/CLI delegation commands | Plugin P3 delegation tools | skeleton/fake-daemon tests only |
-| Control Epic 6 Review commands | review/revision/accept commands | Plugin review tools | skeleton/fake-daemon tests only |
-| Control Epic 7-8 Council commands | council prepare/speak/vote/finalize commands | Plugin P4 council tools | skeleton/fake-daemon tests only |
-| Control delivery evidence commands | delivery success/failure typed commands | Discord surface helper audit | fake gateway only until isolated e2e target exists |
-| Control transcript/export | transcript and export commands | Plugin transcript/export tools | fixture rendering only |
+| BOOTS-001 | Go module, CLI/daemon help, Makefile | Plugin P0 scaffold can proceed independently | plugin uses fake daemon only |
+| DAEMN-002 version/feature contract | daemon status shape, protocol version, feature list | Plugin P1 compatibility check | fake status fixture until daemon exists |
+| DAEMN-002 command envelope fixture | request/response/idempotency/error fixture | Python daemon client request builder | no write tools marked release-ready |
+| DAEMN-002 stream frame fixture | replay/follow/cursor frame fixture | stream parser and tail/diagnostic tools | fake stream only |
+| DAEMN-002 structured error fixture | error categories and JSON shape | plugin error rendering and fail-closed UX | no success reinterpretation allowed |
+| DELEG-001 delegation commands | implemented daemon/CLI delegation commands | Plugin P3 delegation tools | skeleton/fake-daemon tests only |
+| DELEG-001 review commands | review/revision/accept commands | Plugin review tools | skeleton/fake-daemon tests only |
+| COUNC-001 council commands | council prepare/speak/vote/finalize commands | Plugin P4 council tools | skeleton/fake-daemon tests only |
+| DAEMN-002 delivery evidence commands | delivery success/failure typed commands | Discord surface helper audit | fake gateway only until isolated e2e target exists |
+| TRANS-001 transcript/export | transcript and export commands | Plugin transcript/export tools | fixture rendering only |
 
 ## Plugin milestone expectations
 

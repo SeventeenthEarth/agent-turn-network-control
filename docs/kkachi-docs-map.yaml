@@ -1,0 +1,13 @@
+# kkachi-agent-helper:managed
+project: "kkachi-agent-network-control"
+roadmap: "docs/roadmap.md"
+sot_docs:
+  - "docs/03-protocol-spec.md"
+  - "docs/02-architecture.md"
+adr_dir: "docs"
+todo_dir: "docs"
+spec_dir: "docs"
+test_commands:
+  - "make test-prepare"
+  - "make check-plugin-contract"
+  - "make test"

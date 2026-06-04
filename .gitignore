@@ -1,4 +1,19 @@
-.omc/
-.omx/
+# Go build/test artifacts
+bin/
+build/
+dist/
+*.test
+*.out
+*.prof
+coverage.out
+.coverprofile
 
+# Kkachi/Hermes local runtime state
+.kkachi/
+.codegraph/
+.omx/
+.omc/
+.claude-octopus/
+
+# OS/editor noise
 .DS_Store

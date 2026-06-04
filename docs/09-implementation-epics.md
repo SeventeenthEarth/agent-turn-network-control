@@ -8,45 +8,57 @@ Control scope: registry, storage, daemon, CLI, protocol/conformance, stream, mem
 
 Plugin scope: Hermes plugin manifest/entrypoint, Python daemon client, tools/slash commands, bundled skill, Discord surface helper, plugin UX diagnostics, and plugin conformance tests.
 
+## Epic and task ID convention
+
+Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{EPIC}-002`, and so on. The current Release v1 epic IDs are:
+
+| Epic ID | Epic Title | Scope |
+| --- | --- | --- |
+| BOOTS | Bootstrap | Go scaffold and local gates |
+| REGST | Registry/security | identity and file-safety boundary |
+| STORE | Storage/event SOT | session directory, event log, projection, replay |
+| DAEMN | Daemon/CLI/protocol | daemon, command transport, stream, conformance |
+| RUNRT | Runtime/runner | member runtime loop and bounded runner adapter |
+| DELEG | Delegation/review | delegation lifecycle and review gates |
+| COUNC | Council/consensus | council discussion, voting, and consensus state |
+| TRANS | Transcript/distribution | transcript/export, distribution docs, plugin handoff |
+| RELIA | Reliability/release | observability, disaster recovery, release acceptance |
+
 ## Epic dependency graph
 
-| Epic | Depends on | Reason |
+| Epic ID | Depends on | Reason |
 | --- | --- | --- |
-| Bootstrap | none | Go scaffold and test gates |
-| Epic 1 Registry/security | Bootstrap | identity and file-safety boundary |
-| Epic 2 Storage/event SOT | Epic 1 | session snapshot and append require registry authority |
-| Epic 3 Daemon/CLI/protocol | Epic 1,2 | command path, stream, active-session lock |
-| Epic 3A Protocol/conformance contract | Bootstrap | plugin/client compatibility and fake-daemon development before full control implementation; finalized alongside Epic 3 |
-| Epic 4 Runtime/runner | Epic 1-3A | stream and wrapper accounting prerequisites |
-| Epic 5 Delegation | Epic 1-4 | control delegation lifecycle |
-| Epic 6 Review gate | Epic 5 | review is a delegation quality gate |
-| Epic 7 Council discussion | Epic 1-4 | council depends on stream-driven runtimes |
-| Epic 8 Consensus | Epic 7 | voting depends on council state |
-| Epic 9 Transcript/export | Epic 2,5,7,8 | rendering depends on event log |
-| Epic 10 Distribution/docs | Epic 3,5-9 | install and operator docs must match commands |
-| Epic 11 Reliability/ops | Epic 1-10 | full acceptance, recovery, observability |
+| BOOTS | none | Go scaffold and test gates |
+| REGST | BOOTS | identity and file-safety boundary |
+| STORE | REGST | session snapshot and append require registry authority |
+| DAEMN | REGST, STORE | command path, stream, active-session lock; protocol/conformance can start from BOOTS and is finalized here |
+| RUNRT | REGST, STORE, DAEMN | stream and wrapper accounting prerequisites |
+| DELEG | RUNRT | delegation lifecycle and review gates depend on runtime sessions |
+| COUNC | DAEMN, RUNRT | council depends on stream-driven runtimes |
+| TRANS | STORE, DELEG, COUNC | rendering depends on event log and collaboration events |
+| RELIA | REGST, STORE, DAEMN, RUNRT, DELEG, COUNC, TRANS | full acceptance, recovery, observability |
 
-## Implementation Phase grouping
+## Implementation phase grouping
 
-| Implementation Phase | Scope | Primary output | Exit gate |
+| Phase | Epic IDs | Primary output | Exit gate |
 | --- | --- | --- | --- |
-| Bootstrap | Go repo scaffold | `go.mod`, `cmd/`, `internal/`, `Makefile`, docs guardrails, help smoke tests | `make test` passes without external resources |
-| Implementation Phase 1 | Epic 1 | data-home and registry validation | registry/security tests pass |
-| Implementation Phase 2 | Epic 2 | `channel.jsonl`, SQLite projection, replay | append/replay/projection tests pass |
-| Implementation Phase 3 | Epic 3 + 3A | daemon, CLI, stream, structured errors, conformance fixtures | CLI integration + conformance tests pass |
-| Implementation Phase 4 | Epic 4 | member runtime loop contract and bounded `hermes-agent` runner | fake runner/runtime tests pass |
-| Implementation Phase 5 | Epics 5-6 | delegation and review gate | delegation/review E2E via CLI and fakes pass |
-| Implementation Phase 6 | Epics 7-8 | council and consensus | council/consensus tests pass |
-| Implementation Phase 7 | Epics 9-10 | transcript/export/distribution docs | golden transcript + install docs pass |
-| Implementation Phase 8 | Epic 11 | reliability, observability, disaster recovery | full Release v1 acceptance suite pass |
+| Bootstrap | BOOTS | `go.mod`, `cmd/`, `internal/`, `Makefile`, docs guardrails, help smoke tests | `make test` passes without external resources |
+| Phase 1 | REGST | data-home and registry validation | registry/security tests pass |
+| Phase 2 | STORE | `channel.jsonl`, SQLite projection, replay | append/replay/projection tests pass |
+| Phase 3 | DAEMN | daemon, CLI, stream, structured errors, conformance fixtures | CLI integration + conformance tests pass |
+| Phase 4 | RUNRT | member runtime loop contract and bounded `hermes-agent` runner | fake runner/runtime tests pass |
+| Phase 5 | DELEG | delegation and review gate | delegation/review E2E via CLI and fakes pass |
+| Phase 6 | COUNC | council and consensus | council/consensus tests pass |
+| Phase 7 | TRANS | transcript/export/distribution docs | golden transcript + install docs pass |
+| Phase 8 | RELIA | reliability, observability, disaster recovery | full Release v1 acceptance suite pass |
 
-## Bootstrap story
+## BOOTS — Bootstrap
 
-| Story | Scope | Suggested paths | Verification |
+| Task ID | Scope | Suggested paths | Verification |
 | --- | --- | --- | --- |
-| B-S1 Go repository scaffold | Create `go.mod`, `cmd/kkachi-agent-network`, `cmd/kkachi-agent-networkd`, initial `internal/protocol`, test layout, and Makefile. | `cmd/`, `internal/`, `tests/`, `Makefile` | `make test`, binary `--help` exits 0, no external resources used. |
+| BOOTS-001 | Create `go.mod`, `cmd/kkachi-agent-network`, `cmd/kkachi-agent-networkd`, initial `internal/protocol`, test layout, and Makefile. | `cmd/`, `internal/`, `tests/`, `Makefile` | `make test`, binary `--help` exits 0, no external resources used. |
 
-## Epic 1: Product skeleton and registry
+## REGST — Registry/security
 
 - Define registry schema for `<data_home>/registry.yaml`.
 - Implement data-home resolution: `$KKACHI_AGENT_NETWORK_HOME` > `$XDG_DATA_HOME/kkachi-agent-network` > `~/.kkachi-agent-network/`.
@@ -57,7 +69,7 @@ Plugin scope: Hermes plugin manifest/entrypoint, Python daemon client, tools/sla
 - Write per-session `registry_snapshot.yaml` before `session_created`.
 - Add `registry validate` and `registry show` CLI commands.
 
-## Epic 2: Storage and event log
+## STORE — Storage/event SOT
 
 - Create session directories.
 - Append canonical event envelopes to `channel.jsonl`.
@@ -66,7 +78,7 @@ Plugin scope: Hermes plugin manifest/entrypoint, Python daemon client, tools/sla
 - Project recipients, runner invocations, escalation batches, Discord surface metadata, linked authority metadata.
 - Rebuild projection from event log deterministically.
 
-## Epic 3: Daemon, CLI, and stream
+## DAEMN — Daemon/CLI/protocol
 
 - Implement `kkachi-agent-networkd` process and local command transport.
 - Implement `kkachi-agent-network` CLI commands that talk to the daemon.
@@ -74,15 +86,12 @@ Plugin scope: Hermes plugin manifest/entrypoint, Python daemon client, tools/sla
 - Implement single active-session lock.
 - Implement structured JSON errors and stable exit categories.
 - Add status, doctor, storage verify/rebuild, block/resume, limits extension.
-
-## Epic 3A: Protocol and conformance contract
-
 - Define command envelope, stream frame, structured error, and version/feature schemas.
 - Add conformance fixtures under `testdata/conformance/`.
 - Add tests proving CLI and daemon obey the same contract.
 - Publish compatibility guidance for the plugin repo.
 - Forbid shared-source assumptions; compatibility is through protocol and tests.
 
-## Epic 4-11 summary
+## RUNRT / DELEG / COUNC / TRANS / RELIA summary
 
 Later epics preserve the previous product behavior: member runtime and runner adapter, delegation, review gate, council discussion, consensus, transcript/export, distribution, observability, disaster recovery, and full testing. Each epic must include unit, integration, and, when appropriate, isolated E2E tests mapped to the Makefile target contract in `18-testing-strategy.md`.
