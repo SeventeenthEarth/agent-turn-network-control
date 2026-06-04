@@ -1,12 +1,12 @@
-# kkachi-agent-network
+# kkachi-agent-network-control
 
-`kkachi-agent-network` (KAN) is the Go core runtime for Kkachi agent coordination. It owns the daemon, canonical CLI, protocol contracts, event log, state machine, storage projection, recovery paths, and core test gates.
+`kkachi-agent-network-control` is the Go control/runtime repository for KAN. It owns the daemon, canonical CLI, protocol contracts, event log, state machine, storage projection, recovery paths, and control test gates. The user-facing product and binaries remain `kkachi-agent-network` / `kkachi-agent-networkd` unless a later release decision changes them.
 
 The companion Python Hermes plugin adapter lives in `../kkachi-agent-network-plugin`.
 
 ## Repository boundary
 
-- This repo: `kkachi-agent-networkd`, `kkachi-agent-network`, `channel.jsonl` SOT, SQLite projection, protocol/conformance fixtures, security and recovery docs.
+- This repo: `kkachi-agent-network-control`, plus the `kkachi-agent-networkd` daemon, `kkachi-agent-network` CLI, `channel.jsonl` SOT, SQLite projection, protocol/conformance fixtures, security and recovery docs.
 - Plugin repo: Hermes plugin manifest/tools/slash commands/skill, Python daemon client, Discord visible-surface helper.
 - The plugin is not the source of truth. Discord is not the source of truth. `kkachi-agent-networkd` owns state mutation.
 

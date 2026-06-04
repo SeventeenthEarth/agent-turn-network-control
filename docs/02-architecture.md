@@ -2,12 +2,12 @@
 
 ## Architectural principle
 
-KAN core follows a daemon-authority architecture. Domain policy is separated from adapters. The daemon owns state transitions, event append, locks, replay, and projections. The CLI and plugin are clients of the daemon contract, not alternate authorities.
+KAN control/runtime follows a daemon-authority architecture. Domain policy is separated from adapters. The daemon owns state transitions, event append, locks, replay, and projections. The CLI and plugin are clients of the daemon contract, not alternate authorities.
 
 ## Repository layout target
 
 ```text
-kkachi-agent-network/
+kkachi-agent-network-control/
   cmd/
     kkachi-agent-network/       # Go CLI main
     kkachi-agent-networkd/      # Go daemon main
@@ -90,7 +90,7 @@ The plugin must not:
 
 The daemon exposes a version/health contract including daemon version, protocol version, supported feature flags, and minimum compatible plugin protocol. The plugin fails closed when required features are absent.
 
-Conformance fixtures under `testdata/conformance/` are normative for cross-repo behavior. The plugin repo may copy fixtures for stability but must track the core protocol version.
+Conformance fixtures under `testdata/conformance/` are normative for cross-repo behavior. The plugin repo may copy fixtures for stability but must track the control protocol version.
 
 ## Discord-thread council surface
 

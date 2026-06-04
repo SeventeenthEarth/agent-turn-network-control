@@ -2,9 +2,9 @@
 
 ## Release v1 target scope
 
-Release v1 covers the Go core daemon/CLI plus the compatible Python Hermes plugin adapter. This repository owns core epics; plugin-specific implementation epics live in `../../kkachi-agent-network-plugin/docs/06-implementation-epics.md`.
+Release v1 covers the Go control daemon/CLI plus the compatible Python Hermes plugin adapter. This repository owns control epics; plugin-specific implementation epics live in `../../kkachi-agent-network-plugin/docs/06-implementation-epics-tasks.md`.
 
-Core scope: registry, storage, daemon, CLI, protocol/conformance, stream, member runtime contract, runner adapter, delegation, review gate, council, transcript/export, distribution, reliability.
+Control scope: registry, storage, daemon, CLI, protocol/conformance, stream, member runtime contract, runner adapter, delegation, review gate, council, transcript/export, distribution, reliability.
 
 Plugin scope: Hermes plugin manifest/entrypoint, Python daemon client, tools/slash commands, bundled skill, Discord surface helper, plugin UX diagnostics, and plugin conformance tests.
 
@@ -16,9 +16,9 @@ Plugin scope: Hermes plugin manifest/entrypoint, Python daemon client, tools/sla
 | Epic 1 Registry/security | Bootstrap | identity and file-safety boundary |
 | Epic 2 Storage/event SOT | Epic 1 | session snapshot and append require registry authority |
 | Epic 3 Daemon/CLI/protocol | Epic 1,2 | command path, stream, active-session lock |
-| Epic 3A Protocol/conformance contract | Bootstrap | plugin/client compatibility and fake-daemon development before full core implementation; finalized alongside Epic 3 |
+| Epic 3A Protocol/conformance contract | Bootstrap | plugin/client compatibility and fake-daemon development before full control implementation; finalized alongside Epic 3 |
 | Epic 4 Runtime/runner | Epic 1-3A | stream and wrapper accounting prerequisites |
-| Epic 5 Delegation | Epic 1-4 | core delegation lifecycle |
+| Epic 5 Delegation | Epic 1-4 | control delegation lifecycle |
 | Epic 6 Review gate | Epic 5 | review is a delegation quality gate |
 | Epic 7 Council discussion | Epic 1-4 | council depends on stream-driven runtimes |
 | Epic 8 Consensus | Epic 7 | voting depends on council state |

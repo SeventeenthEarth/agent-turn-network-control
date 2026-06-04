@@ -2,16 +2,16 @@
 
 ## Purpose
 
-`kkachi-agent-network` (KAN) is the core coordination runtime for real Hermes team member profiles. It owns durable sessions for delegation, review, and council discussion through a Go daemon, a minimal Go CLI, typed protocol contracts, an append-only `channel.jsonl` event log, and SQLite projections.
+`kkachi-agent-network-control` is the control/runtime authority repository for KAN real Hermes team member coordination. The product/runtime surface remains `kkachi-agent-network`. It owns durable sessions for delegation, review, and council discussion through a Go daemon, a minimal Go CLI, typed protocol contracts, an append-only `channel.jsonl` event log, and SQLite projections.
 
 KAN is not a Discord bot and not a Hermes plugin. Discord and Hermes are important surfaces, but the canonical state remains daemon-owned typed events.
 
 ## Repository boundary
 
-This repository is the **core authority repository**:
+This repository is the **control authority repository**:
 
-- project: `kkachi-agent-network`
-- implementation language for core runtime: Go
+- repo: `kkachi-agent-network-control`
+- implementation language for control runtime: Go
 - binaries: `kkachi-agent-networkd` and `kkachi-agent-network`
 - SOT documents: protocol, state machine, storage, security, operations, testing, and release roadmap
 - companion plugin repository: `../../kkachi-agent-network-plugin`
@@ -22,7 +22,7 @@ The companion repository contains the Python Hermes plugin adapter and its own d
 
 The first-class runtime user is Hermes Agent: long-lived moderator and member profile processes that can observe a stream, persist cursors, and write typed KAN commands. Reactive terminal tools may be invoked by adapters, but they are not the primary coordination runtime.
 
-## Core model
+## Control model
 
 ```text
 User / external authority

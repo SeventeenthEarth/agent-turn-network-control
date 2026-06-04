@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document defines the test layers for KAN core and the Makefile target contract shared with the plugin repository.
+This document defines the test layers for KAN control/runtime and the Makefile target contract shared with the plugin repository.
 
 ## Makefile target contract
 
@@ -18,7 +18,7 @@ Both repositories must expose these targets:
 
 `make test` must run in this order: `test-prepare`, `test-unit`, `test-int`, `test-e2e`.
 
-## Core test layers
+## Control test layers
 
 | Layer | Target | Examples |
 | --- | --- | --- |
@@ -55,7 +55,7 @@ Both repositories must expose these targets:
 
 ## Conformance tests
 
-Core conformance fixtures are stored under `testdata/conformance/` once code scaffolding begins. They cover:
+Control conformance fixtures are stored under `testdata/conformance/` once code scaffolding begins. They cover:
 
 - command envelope validation;
 - event envelope validation;

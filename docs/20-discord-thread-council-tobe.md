@@ -421,7 +421,7 @@ Please choose one:
 ### Phase B: Core/plugin bootstrap split
 
 - Core bootstrap follows `19-tooling.md`: create `go.mod`, `cmd/kkachi-agent-network`, `cmd/kkachi-agent-networkd`, `internal/`, `tests/`, and help smoke tests.
-- Plugin bootstrap follows `../../kkachi-agent-network-plugin/docs/06-implementation-epics.md`: create `pyproject.toml`, `plugin.yaml`, `src/kkachi_agent_network_plugin/`, fake daemon tests, and Hermes plugin smoke tests.
+- Plugin bootstrap follows `../../kkachi-agent-network-plugin/docs/06-implementation-epics-tasks.md`: create `pyproject.toml`, `plugin.yaml`, `src/kkachi_agent_network_plugin/`, fake daemon tests, and Hermes plugin smoke tests.
 - Do not start with Discord API integration.
 
 ### Phase C: Core council engine with surface metadata

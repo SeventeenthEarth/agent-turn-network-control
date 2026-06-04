@@ -2,7 +2,7 @@
   "manifest_version": 1,
   "protocol_version": "kan-protocol-v1alpha0",
   "stability": "draft-docs-scaffold",
-  "owner_repo": "kkachi-agent-network",
+  "owner_repo": "kkachi-agent-network-control",
   "consumer_repo": "kkachi-agent-network-plugin",
   "fixtures": [],
   "required_feature_groups": [
