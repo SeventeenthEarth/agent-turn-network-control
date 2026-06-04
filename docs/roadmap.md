@@ -18,7 +18,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs are derived from the 
 
 | Task ID | Task Title | Task Status | Task Description |
 | --- | --- | --- | --- |
-| REGST-001 | Registry authority | planned | Implement deterministic data-home resolution, strict registry schema, fail-closed permissions/symlink/TOCTOU checks, reserved principal rejection, wrapper/env validation, per-session registry snapshot, and `registry validate/show` CLI tests. |
+| REGST-001 | Registry authority | completed | Implement deterministic data-home resolution, strict registry schema, fail-closed permissions/symlink/TOCTOU checks, reserved principal rejection, wrapper/env validation, per-session registry snapshot, and `registry validate/show` CLI tests. |
 
 ## STORE — Storage/event SOT
 

@@ -70,12 +70,14 @@ File safety validation runs **before** YAML schema validation; schema validation
 ### Registry schema validation
 
 - Registry YAML loads through a strict schema. Required per-member fields: `display_name`, `wrapper`, `workspace`, `role`, `enabled`, `adapter_kind`.
+- The registry root requires `members` and may include only `schema_version`, `wrapper_path_allowlist`, and `secret_patterns`.
 - `role` is a free-form short string. Recommended vocabulary: `moderator`, `assignee`, `reviewer`, `participant`, `observer`. Other values are accepted; the daemon does not derive permissions from `role` (it is informational and projected into `session_participants.role` for query/UI use only).
 - Optional fields: `strengths`, `env_allowlist`, `notes`, `runtime_kind`, `autostart`, `stream_filter`.
 - Unknown `runtime_kind` is rejected at load time when present. Supported initial value: `hermes-cli-stream`.
 - Unknown keys are rejected, not ignored.
 - Unknown `adapter_kind` is rejected at load time.
 - Any validation failure aborts daemon start. The daemon never runs on a partially valid registry.
+- Disabled members still pass schema, id, workspace, adapter/runtime, and env allowlist validation, but wrapper resolution is required only for enabled members.
 
 Reserved principal names cannot be used as registry member ids. Reserved principals:
 
