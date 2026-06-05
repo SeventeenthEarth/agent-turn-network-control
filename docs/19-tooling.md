@@ -31,6 +31,7 @@ kkachi-agent-network-control/
     command/
     cli/
     daemon/
+    memberruntime/
     engine/
     observability/
     protocol/
@@ -63,7 +64,7 @@ make test
 
 `test-unit` runs unit tests only.
 
-`test-int` runs integration tests using fake runners, fake gateways, temporary data homes, and deterministic clocks. It must not use external Hermes or Discord resources.
+`test-int` runs integration tests using fake runners, fake member-runtime streams, fake gateways, temporary data homes, and deterministic clocks. It must not use external Hermes, Discord, KAB, gateway, or plugin resources.
 
 `test-e2e` runs real external integration only when a test environment is explicitly configured. It must not touch the currently running Hermes profile/gateway or production Discord rooms.
 

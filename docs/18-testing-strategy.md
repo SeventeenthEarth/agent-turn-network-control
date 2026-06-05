@@ -50,6 +50,7 @@ Both repositories must expose these targets:
 - fake Hermes wrapper that returns deterministic semantic output and optional cost JSON.
 - fake runner timeout/nonzero/malformed-output variants.
 - fake stream client with durable cursor file.
+- RUNRT local dispatcher fakes that assert append-before-launch, retry accounting, null-cost failures, and late-result discard without contacting live Hermes.
 - deterministic clock.
 - event and command envelope factory.
 - conformance fixture loader shared with plugin tests.
@@ -63,9 +64,21 @@ Control conformance fixtures are stored under `testdata/conformance/` once code 
 - stream frame replay/follow semantics;
 - structured errors;
 - version/feature compatibility responses;
-- delivery evidence commands for Discord/helper surfaces.
+- delivery evidence commands for Discord/helper surfaces;
+- local/fake RUNRT runner event envelopes (`runner_invocation_started`, `runner_invocation_failed`, terminal semantic runner events, and `runner_result_discarded`).
 
 The plugin repository must run its Python client against either copied fixtures or a temporary daemon built from this repo.
+
+## RUNRT-001 local verification scope
+
+RUNRT-001 tests are local/fake only. The control repo verifies:
+
+- `internal/runner` adapter registration, wrapper argv invocation, env allowlist propagation, timeout behavior, and Hermes stderr cost parsing from the last 32 KB;
+- `internal/memberruntime` replay-first stream consumption, action filtering that does not use `to` as visibility control, cursor ack/persistence ordering, fail-closed cursor/frame/schema handling, and same-member dispatch serialization;
+- `internal/daemon` bounded runner dispatch seams with append-before-launch accounting, retry events with new invocation ids, explicit `cost: null` failures, adapter-kind rejection before dispatch, and cancellation/late-result discard coverage;
+- storage/projection accounting where `runner_calls_total` comes only from `runner_invocation_started`, token/USD totals come only from terminal cost objects, and `missing_cost_runner_calls_total` comes from terminal `cost: null`.
+
+These tests must use temp data homes, fake wrappers/adapters/streams, and deterministic clocks. Passing RUNRT-001 tests does **not** imply live Hermes, Discord, KAB, gateway, or plugin readiness.
 
 ## CI guidance
 

@@ -24,6 +24,17 @@ var councilPhases = map[Phase]struct{}{
 	"blocked": {}, "finalized": {}, "unresolved": {}, "cancelled": {},
 }
 
+var runnerStatuses = map[string]struct{}{
+	"started":                {},
+	"succeeded":              {},
+	"failed":                 {},
+	"timeout":                {},
+	"semantic_error":         {},
+	"discarded_after_cancel": {},
+	"cancelled":              {},
+	"interrupted":            {},
+}
+
 func AppendEvent(sessionDir string, metadata *SessionMetadata, event EventEnvelope) (AppendResult, error) {
 	if err := safeSessionDirForAppend(sessionDir); err != nil {
 		return AppendResult{}, err
@@ -222,8 +233,22 @@ func ValidateEnvelope(metadata *SessionMetadata, event *EventEnvelope) error {
 	if event.Runner == nil && len(event.Cost) > 0 {
 		add(CategoryInvalidEnvelope, "cost", "cost must be omitted when runner is absent")
 	}
-	if event.Runner != nil && len(event.Cost) == 0 {
-		add(CategoryInvalidEnvelope, "cost", "cost must be present when runner is present")
+	if event.Runner != nil {
+		if _, ok := runnerStatuses[event.Runner.Status]; !ok {
+			add(CategoryInvalidEnvelope, "runner.status", "runner status is not allowed")
+		}
+		switch event.Type {
+		case "runner_invocation_started":
+			if len(event.Cost) > 0 {
+				add(CategoryInvalidEnvelope, "cost", "cost must be omitted on runner_invocation_started")
+			}
+		default:
+			if len(event.Cost) == 0 {
+				add(CategoryInvalidEnvelope, "cost", "cost must be present when runner is present on terminal events")
+			} else if !validRunnerCost(event.Cost) {
+				add(CategoryInvalidEnvelope, "cost", "runner terminal cost must be object or null")
+			}
+		}
 	}
 	if event.Type == "session_created" {
 		issues = append(issues, validateSessionCreatedPayload(metadata, event)...)
@@ -232,6 +257,21 @@ func ValidateEnvelope(metadata *SessionMetadata, event *EventEnvelope) error {
 		return NewValidationErrors(issues)
 	}
 	return nil
+}
+
+func validRunnerCost(raw json.RawMessage) bool {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 {
+		return false
+	}
+	if bytes.Equal(trimmed, []byte("null")) {
+		return true
+	}
+	if trimmed[0] != '{' {
+		return false
+	}
+	var payload map[string]any
+	return json.Unmarshal(trimmed, &payload) == nil
 }
 
 func validateSessionCreatedPayload(metadata *SessionMetadata, event *EventEnvelope) []Issue {

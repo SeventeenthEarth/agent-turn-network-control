@@ -156,6 +156,18 @@ Recommended implementation order:
 
 This keeps agent operation simple: one runtime reads the plugin protocol-client stream or canonical CLI NDJSON fallback; actions are separate typed KAN command calls.
 
+## RUNRT-001 local implementation note
+
+The current control-repo implementation provides local/fake RUNRT support only:
+
+- `internal/memberruntime.Runtime` owns one `(session_id, member)` identity and reads replay frames before live frames through an injected stream client.
+- Cursor acknowledgement is emitted after ignored events are processed, and after actionable events only when local handling succeeds or a durable failure event has already been recorded. The cursor store is written only after ack succeeds.
+- Runtime action filtering considers event type, sender, recipient hints, phase/role policy inputs, and member identity. It does not treat `event.to` as a visibility boundary; a runtime can ignore an event for action while still acknowledging it as processed.
+- Malformed cursor stores, cursor gaps, corrupt frames, and unknown schema versions fail closed.
+- Same `(session_id, member)` dispatch is serialized by the dispatch lock helpers; different members can be locked independently.
+
+The bounded runner seam uses only fake adapters/wrappers in tests. It does not implement DELEG/COUNC lifecycle, live Hermes dispatch readiness, Discord delivery, KAB integration, or gateway behavior.
+
 ## Failure policy
 
 - Daemon unavailable: runtime stops or retries with bounded backoff; no fake progress event.

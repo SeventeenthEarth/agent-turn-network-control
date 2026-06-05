@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_runner_invocation_failed_001",
+  "command_id": "cmd_delegate_action_001",
+  "correlation_id": "sess_conformance",
+  "session_id": "sess_conformance",
+  "session_type": "delegation",
+  "phase": "working",
+  "type": "runner_invocation_failed",
+  "from": "kkachi-agent-networkd",
+  "to": [
+    "agent-mod"
+  ],
+  "created_at": "2026-06-05T00:00:05Z",
+  "runner": {
+    "invocation_id": "run_conformance_001",
+    "adapter_kind": "hermes-agent",
+    "member": "agent-1",
+    "attempt": 1,
+    "is_retry": false,
+    "source_command_id": "cmd_delegate_action_001",
+    "status": "failed",
+    "duration_sec": 5.0
+  },
+  "cost": null,
+  "payload": {
+    "error_class": "nonzero_exit"
+  }
+}

@@ -26,6 +26,10 @@
     "fixtures/event/stream-cursor-acknowledged.json",
     "fixtures/event/user-escalation-delivered.json",
     "fixtures/event/user-escalation-delivery-failed.json",
+    "fixtures/event/runner-result-discarded.json",
+    "fixtures/event/runner-terminal-semantic-with-cost.json",
+    "fixtures/event/runner-invocation-failed-null-cost.json",
+    "fixtures/event/runner-invocation-started.json",
     "fixtures/error/unsupported-feature.json",
     "fixtures/error/active-session-lock.json",
     "fixtures/error/cursor-gap.json",
@@ -51,5 +55,5 @@
     "delivery_evidence",
     "conformance.fixtures"
   ],
-  "notes": "Static DAEMN-002 conformance artifacts only; they do not start a daemon or contact Hermes, Discord, KAB, auth, token, gateway, or other live services."
+  "notes": "Static DAEMN-002 plus local/fake RUNRT-001 conformance artifacts only; they do not start a daemon or contact Hermes, Discord, KAB, auth, token, gateway, or other live services."
 }

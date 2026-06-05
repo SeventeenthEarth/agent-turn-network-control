@@ -165,6 +165,52 @@ func TestUnitAppendEventRejectsSymlinkChannelFailClosed(t *testing.T) {
 	}
 }
 
+func TestUnitValidateRunnerCostEnvelopeRules(t *testing.T) {
+	metadata := testMetadata()
+	started := testEvent(metadata, "evt_runner_started")
+	started.Type = "runner_invocation_started"
+	started.Runner = &RunnerInfo{InvocationID: "run_started", AdapterKind: "hermes-agent", Member: "agent-1", Attempt: 1, Status: "started"}
+	started.Cost = nil
+	if err := ValidateEnvelope(metadata, &started); err != nil {
+		t.Fatalf("runner_invocation_started without cost should validate: %v", err)
+	}
+
+	startedWithCost := started
+	startedWithCost.EventID = "evt_runner_started_cost"
+	startedWithCost.Cost = rawJSON(t, nil)
+	assertStorageIssue(t, ValidateEnvelope(metadata, &startedWithCost), CategoryInvalidEnvelope)
+
+	terminalNullCost := testEvent(metadata, "evt_runner_failed")
+	terminalNullCost.Type = "runner_invocation_failed"
+	terminalNullCost.Runner = &RunnerInfo{InvocationID: "run_failed", AdapterKind: "hermes-agent", Member: "agent-1", Attempt: 1, Status: "failed"}
+	terminalNullCost.Cost = rawJSON(t, nil)
+	if err := ValidateEnvelope(metadata, &terminalNullCost); err != nil {
+		t.Fatalf("terminal runner event with null cost should validate: %v", err)
+	}
+
+	invalidStatus := terminalNullCost
+	invalidStatus.EventID = "evt_runner_bad_status"
+	invalidStatus.Runner = &RunnerInfo{InvocationID: "run_bad_status", AdapterKind: "hermes-agent", Member: "agent-1", Attempt: 1, Status: "nonzero_exit"}
+	assertStorageIssue(t, ValidateEnvelope(metadata, &invalidStatus), CategoryInvalidEnvelope)
+
+	terminalObjectCost := terminalNullCost
+	terminalObjectCost.EventID = "evt_runner_done"
+	terminalObjectCost.Type = "assignee_update"
+	terminalObjectCost.Cost = rawJSON(t, map[string]any{"tokens_in": 1, "tokens_out": 2, "usd_estimate": 0.01, "source": "hermes-agent-stderr-parse"})
+	if err := ValidateEnvelope(metadata, &terminalObjectCost); err != nil {
+		t.Fatalf("terminal semantic runner event with object cost should validate: %v", err)
+	}
+
+	terminalMissingCost := terminalNullCost
+	terminalMissingCost.EventID = "evt_runner_missing_cost"
+	terminalMissingCost.Cost = nil
+	assertStorageIssue(t, ValidateEnvelope(metadata, &terminalMissingCost), CategoryInvalidEnvelope)
+
+	nonRunnerCost := testEvent(metadata, "evt_non_runner_cost")
+	nonRunnerCost.Cost = rawJSON(t, nil)
+	assertStorageIssue(t, ValidateEnvelope(metadata, &nonRunnerCost), CategoryInvalidEnvelope)
+}
+
 func TestIntegrationCreateSessionWritesSnapshotMetadataAndCreatedEvent(t *testing.T) {
 	dataHome, loaded := loadedTestRegistry(t)
 	runtime := fixedRuntime()

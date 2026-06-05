@@ -102,6 +102,66 @@ func TestIntegrationProjectionReplaysEventSpecificTables(t *testing.T) {
 	}
 }
 
+func TestIntegrationProjectionRunnerAccountingUsesStartedNotCostSource(t *testing.T) {
+	dataHome, loaded := loadedTestRegistry(t)
+	spec := testSessionSpec()
+	spec.ID = "sess_runner_accounting"
+	spec.EventID = "evt_accounting_created"
+	metadata, _, err := CreateSession(dataHome, loaded, spec, fixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateSession failed: %v", err)
+	}
+	sessionDir, err := SessionDir(dataHome, metadata.ID)
+	if err != nil {
+		t.Fatalf("SessionDir: %v", err)
+	}
+	duration := 1.25
+	events := []EventEnvelope{
+		{
+			SchemaVersion: protocol.SchemaVersion, EventID: "evt_run_a_started", CommandID: "cmd_run_a_started", CorrelationID: metadata.ID,
+			SessionID: metadata.ID, SessionType: metadata.SessionType, Phase: "working", Type: "runner_invocation_started", From: "agent-1", To: []string{"agent-mod"}, CreatedAt: fixedRuntime().Now(),
+			Runner: &RunnerInfo{InvocationID: "run_a", AdapterKind: "hermes-agent", Member: "agent-1", Attempt: 1, SourceCommandID: "cmd_source_a", Status: "started"}, Payload: map[string]any{},
+		},
+		{
+			SchemaVersion: protocol.SchemaVersion, EventID: "evt_run_a_done", CommandID: "cmd_run_a_done", CorrelationID: metadata.ID,
+			SessionID: metadata.ID, SessionType: metadata.SessionType, Phase: "working", Type: "assignee_update", From: "agent-1", To: []string{"agent-mod"}, CreatedAt: fixedRuntime().Now().Add(time.Second),
+			Runner: &RunnerInfo{InvocationID: "run_a", AdapterKind: "hermes-agent", Member: "agent-1", Attempt: 1, SourceCommandID: "cmd_source_a", Status: "succeeded", DurationSec: &duration},
+			Cost:   rawJSON(t, map[string]any{"tokens_in": 5, "tokens_out": 8, "usd_estimate": 0.02, "source": "hermes-agent-stderr-parse"}), Payload: map[string]any{"message": "done"},
+		},
+		{
+			SchemaVersion: protocol.SchemaVersion, EventID: "evt_run_b_started", CommandID: "cmd_run_b_started", CorrelationID: metadata.ID,
+			SessionID: metadata.ID, SessionType: metadata.SessionType, Phase: "working", Type: "runner_invocation_started", From: "agent-1", To: []string{"agent-mod"}, CreatedAt: fixedRuntime().Now().Add(2 * time.Second),
+			Runner: &RunnerInfo{InvocationID: "run_b", AdapterKind: "hermes-agent", Member: "agent-1", Attempt: 1, SourceCommandID: "cmd_source_b", Status: "started"}, Payload: map[string]any{},
+		},
+		{
+			SchemaVersion: protocol.SchemaVersion, EventID: "evt_run_b_failed", CommandID: "cmd_run_b_failed", CorrelationID: metadata.ID,
+			SessionID: metadata.ID, SessionType: metadata.SessionType, Phase: "working", Type: "runner_invocation_failed", From: "agent-1", To: []string{"agent-mod"}, CreatedAt: fixedRuntime().Now().Add(3 * time.Second),
+			Runner: &RunnerInfo{InvocationID: "run_b", AdapterKind: "hermes-agent", Member: "agent-1", Attempt: 1, SourceCommandID: "cmd_source_b", Status: "failed", DurationSec: &duration},
+			Cost:   rawJSON(t, nil), Payload: map[string]any{"error_class": "nonzero_exit"},
+		},
+	}
+	for _, event := range events {
+		if _, err := AppendEvent(sessionDir, metadata, event); err != nil {
+			t.Fatalf("append %s: %v", event.EventID, err)
+		}
+	}
+	report, err := RebuildProjection(dataHome, ProjectionOptions{Runtime: fixedRuntime()})
+	if err != nil {
+		t.Fatalf("RebuildProjection failed: %v", err)
+	}
+	db := openProjectionDB(t, report.DBPath)
+	defer func() { _ = db.Close() }()
+	if got := scalarInt(t, db, `SELECT runner_calls_total FROM sessions WHERE id = 'sess_runner_accounting'`); got != 2 {
+		t.Fatalf("runner_calls_total should count started events, got %d", got)
+	}
+	if got := scalarInt(t, db, `SELECT missing_cost_runner_calls_total FROM sessions WHERE id = 'sess_runner_accounting'`); got != 1 {
+		t.Fatalf("missing cost count should count terminal null cost, got %d", got)
+	}
+	if got := scalarInt(t, db, `SELECT tokens_in_total FROM sessions WHERE id = 'sess_runner_accounting'`); got != 5 {
+		t.Fatalf("tokens total should come from cost object only, got %d", got)
+	}
+}
+
 func TestIntegrationVerifyStorageDetectsMissingAndMismatchProjection(t *testing.T) {
 	dataHome, loaded := loadedTestRegistry(t)
 	if _, _, err := CreateSession(dataHome, loaded, testSessionSpec(), fixedRuntime()); err != nil {
@@ -207,12 +267,12 @@ func appendProjectionEvents(t *testing.T, sessionDir string, metadata *SessionMe
 	events := []EventEnvelope{
 		{
 			EventID: "evt_runner_started", Phase: "discussion", Type: "runner_invocation_started", From: "agent-1", To: []string{"agent-mod"}, Runner: &RunnerInfo{
-				InvocationID: "run_001", AdapterKind: "hermes-agent", Member: "agent-1", Attempt: 1, SourceCommandID: commandID,
-			}, Cost: rawJSON(t, nil), Payload: map[string]any{"invocation_id": "run_001"},
+				InvocationID: "run_001", AdapterKind: "hermes-agent", Member: "agent-1", Attempt: 1, SourceCommandID: commandID, Status: "started",
+			}, Payload: map[string]any{"invocation_id": "run_001"},
 		},
 		{
 			EventID: "evt_runner_done", Phase: "discussion", Type: "runner_result_submitted", From: "agent-1", To: []string{"agent-mod"}, Runner: &RunnerInfo{
-				InvocationID: "run_001", AdapterKind: "hermes-agent", Member: "agent-1", Attempt: 1, SourceCommandID: commandID, DurationSec: &duration,
+				InvocationID: "run_001", AdapterKind: "hermes-agent", Member: "agent-1", Attempt: 1, SourceCommandID: commandID, Status: "succeeded", DurationSec: &duration,
 			}, Cost: rawJSON(t, map[string]any{"tokens_in": 10, "tokens_out": 20, "usd_estimate": 0.03, "source": "fake"}), Payload: map[string]any{"summary": "done"},
 		},
 		{EventID: "evt_batch", Phase: "blocked", Type: "escalation_batched", From: "agent-1", To: []string{"agent-mod"}, Payload: map[string]any{"batch_id": "batch_001", "source_event_id": "evt_runner_done", "source_member": "agent-1", "question_hash": "sha256:q", "urgency": "normal", "batch_window_sec": 30, "batch_deadline_at": "2026-06-04T12:02:00Z", "prior_phase": "discussion", "resume_phase": "discussion"}},
@@ -273,6 +333,15 @@ func metadataText(t *testing.T, db *sql.DB, key string) string {
 	var value string
 	if err := db.QueryRow(`SELECT value FROM projection_metadata WHERE key = ?`, key).Scan(&value); err != nil {
 		t.Fatalf("metadata %s: %v", key, err)
+	}
+	return value
+}
+
+func scalarInt(t *testing.T, db *sql.DB, query string) int {
+	t.Helper()
+	var value int
+	if err := db.QueryRow(query).Scan(&value); err != nil {
+		t.Fatalf("query scalar %q: %v", query, err)
 	}
 	return value
 }
