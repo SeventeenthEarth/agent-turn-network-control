@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "request_id": "req_delivery_failed_001",
+  "command": "delegate.escalation_delivery_failed",
+  "params": {
+    "session_id": "sess_conformance_delegation",
+    "escalation": "evt_user_escalation_requested_01",
+    "target": "telegram",
+    "reason": "unreachable",
+    "will_retry_targets": [
+      "origin"
+    ],
+    "command_id": "cmd_delivery_failed_conformance"
+  }
+}

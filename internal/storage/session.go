@@ -46,6 +46,11 @@ func CreateSession(dataHome string, loaded *registry.LoadedRegistry, spec Sessio
 	} else if !os.IsNotExist(err) {
 		return nil, AppendResult{}, NewValidationError(CategorySessionUnsafe, finalDir, err.Error())
 	}
+	if active, err := FindActiveSession(cleanDataHome, runtime); err != nil {
+		return nil, AppendResult{}, err
+	} else if active != nil {
+		return nil, AppendResult{}, NewValidationError(CategoryCommandConflict, "active_session", fmt.Sprintf("active session %s is %s", active.SessionID, active.Status))
+	}
 
 	stagingDir := filepath.Join(sessionsRoot, fmt.Sprintf(".tmp-%s-%d", spec.ID, runtime.Now().UnixNano()))
 	if !pathContains(sessionsRoot, stagingDir) {

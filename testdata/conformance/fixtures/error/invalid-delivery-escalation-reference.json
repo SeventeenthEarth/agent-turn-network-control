@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "request_id": "req_invalid_delivery_escalation_001",
+  "ok": false,
+  "error": {
+    "code": "validation_error",
+    "category": "validation",
+    "message": "escalation must reference user_escalation_requested",
+    "details": {
+      "issues": "[{invalid_envelope escalation escalation must reference user_escalation_requested}]"
+    }
+  }
+}

@@ -61,6 +61,9 @@ func NewCLIWithRuntime(runtime registry.Runtime) App {
 			{Name: "init", Description: "Create a safe data home and sample registry when missing."},
 			{Name: "registry", Description: "Validate or show the local registry authority."},
 			{Name: "storage", Description: "Verify or rebuild the local SQLite storage projection."},
+			{Name: "stream", Description: "Replay, follow, acknowledge, or inspect session event streams."},
+			{Name: "conformance", Description: "Show local protocol conformance fixtures."},
+			{Name: "delegate", Description: "Record delegation audit events such as delivery evidence."},
 			{Name: "status", Description: "Show daemon or session status."},
 			{Name: "version", Description: "Print protocol and binary version information."},
 		},
@@ -93,11 +96,7 @@ func (a App) Run(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if args[0] == "version" {
-		if len(args) > 1 {
-			return writeProtocolError(stderr, protocol.UnsupportedFeature("version features"))
-		}
-		_, _ = fmt.Fprintf(stdout, "%s bootstrap protocol_version=%s schema_version=%d\n", a.Name, protocol.ProtocolVersion, protocol.SchemaVersion)
-		return 0
+		return a.runVersion(args[1:], stdout, stderr)
 	}
 
 	if a.Kind == appKindCLI {
@@ -112,6 +111,12 @@ func (a App) Run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return a.runRegistry(args[1:], stdout, stderr)
 		case "storage":
 			return a.runStorage(args[1:], stdout, stderr)
+		case "stream":
+			return a.runStream(args[1:], stdout, stderr)
+		case "conformance":
+			return a.runConformance(args[1:], stdout, stderr)
+		case "delegate":
+			return a.runDelegate(args[1:], stdout, stderr)
 		case "status":
 			return a.runStatus(args[1:], stdout, stderr)
 		}

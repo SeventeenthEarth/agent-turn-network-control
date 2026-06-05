@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "request_id": "req_delivery_delivered_001",
+  "ok": true,
+  "result": {
+    "cursor": "cur_000000000003_evt_user_escalation_delivered_cmd_delivery_delivered_conformance",
+    "event_id": "evt_user_escalation_delivered_cmd_delivery_delivered_conformance",
+    "offset": 3,
+    "deduplicated": false
+  }
+}

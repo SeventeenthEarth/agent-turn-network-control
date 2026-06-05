@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kkachi.local/conformance/version-features.schema.json",
+  "title": "KAN version feature response",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "protocol_version",
+    "daemon_version",
+    "min_plugin_protocol_version",
+    "features",
+    "feature_groups",
+    "fixture_manifest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "protocol_version": {
+      "const": "kan-protocol-v1alpha0"
+    },
+    "daemon_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "min_plugin_protocol_version": {
+      "const": "kan-protocol-v1alpha0"
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "feature_groups": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fixture_manifest": {
+      "const": "testdata/conformance/manifest.json"
+    }
+  },
+  "additionalProperties": false
+}

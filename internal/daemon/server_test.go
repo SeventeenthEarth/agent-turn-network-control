@@ -13,6 +13,7 @@ import (
 	"kkachi-agent-network-control/internal/daemon"
 	"kkachi-agent-network-control/internal/protocol"
 	"kkachi-agent-network-control/internal/registry"
+	"kkachi-agent-network-control/internal/storage"
 	"kkachi-agent-network-control/internal/transport"
 )
 
@@ -79,13 +80,122 @@ func TestUnitDaemonUnsupportedTransportCommandFailsClosedWithoutWrites(t *testin
 	}
 }
 
-func TestUnitDaemonFutureDAEMN002CommandsAreNotImplemented(t *testing.T) {
+func TestUnitDaemonDAEMN002VersionFeaturesAreImplemented(t *testing.T) {
 	server := daemon.NewServer("/tmp/unused", registry.DefaultRuntime())
-	for _, command := range []string{"stream", "stream.ack", "conformance.fixtures", "version.features", "active_session.lock"} {
-		response := server.Handle(protocol.NewRequest("future", command, nil))
-		if response.OK || response.Error == nil || response.Error.Code != protocol.ErrorUnsupportedFeature {
-			t.Fatalf("%s should fail closed as unsupported_feature, got %+v", command, response)
+	response := server.Handle(protocol.NewRequest("features", protocol.FeatureVersionRead, nil))
+	if !response.OK {
+		t.Fatalf("version.read should succeed, got %+v", response)
+	}
+	featuresJSON := mustJSON(t, response.Result)
+	for _, want := range []string{"version.read", "stream.replay", "stream.follow", "stream.ack", "stream.status", "delivery_evidence", "conformance.fixtures"} {
+		if !strings.Contains(featuresJSON, want) {
+			t.Fatalf("version features missing %q: %s", want, featuresJSON)
 		}
+	}
+	if strings.Contains(featuresJSON, "stream.tail") {
+		t.Fatalf("version features must not advertise stream.tail: %s", featuresJSON)
+	}
+}
+
+func TestIntegrationDaemonStreamAckStatusAndDeliveryEvidence(t *testing.T) {
+	dataHome := daemonDataHome(t)
+	metadata := daemonSessionFixture(t, dataHome)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+
+	replay := server.Handle(protocol.NewRequest("replay", protocol.FeatureStreamReplay, map[string]any{"session_id": metadata.ID, "member": "agent-1", "from_start": true, "follow": true, "follow_timeout_ms": 1}))
+	if !replay.OK {
+		t.Fatalf("stream.replay failed: %+v", replay)
+	}
+	frames, ok := replay.Result["frames"].([]storage.StreamFrame)
+	if !ok || len(frames) == 0 || !frames[0].IsReplay {
+		t.Fatalf("unexpected replay frames: %#v", replay.Result["frames"])
+	}
+
+	ack := server.Handle(protocol.NewRequest("ack", protocol.FeatureStreamAck, map[string]any{"session_id": metadata.ID, "member": "agent-1", "cursor": "cur_000000000000_evt_created_001", "command_id": "cmd_ack_daemon"}))
+	if !ack.OK {
+		t.Fatalf("stream.ack failed: %+v", ack)
+	}
+	again := server.Handle(protocol.NewRequest("ack2", protocol.FeatureStreamAck, map[string]any{"session_id": metadata.ID, "member": "agent-1", "cursor": "cur_000000000000_evt_created_001", "command_id": "cmd_ack_daemon"}))
+	if !again.OK || again.Result["deduplicated"] != true {
+		t.Fatalf("duplicate ack should dedupe: %+v", again)
+	}
+	conflict := server.Handle(protocol.NewRequest("ack3", protocol.FeatureStreamAck, map[string]any{"session_id": metadata.ID, "member": "agent-1", "cursor": "cur_000000000001_evt_user_escalation_requested_01", "command_id": "cmd_ack_daemon"}))
+	if conflict.OK || conflict.Error == nil || conflict.Error.Code != protocol.ErrorValidation {
+		t.Fatalf("mismatched duplicate ack should fail closed: %+v", conflict)
+	}
+	unknown := server.Handle(protocol.NewRequest("ack4", protocol.FeatureStreamAck, map[string]any{"session_id": metadata.ID, "member": "ghost", "cursor": "cur_000000000000_evt_created_001"}))
+	if unknown.OK || unknown.Error == nil {
+		t.Fatalf("unknown member ack should fail closed: %+v", unknown)
+	}
+
+	status := server.Handle(protocol.NewRequest("status", protocol.FeatureStreamStatus, map[string]any{"session_id": metadata.ID}))
+	if !status.OK || status.Result["session_id"] != metadata.ID {
+		t.Fatalf("stream.status failed: %+v", status)
+	}
+
+	delivered := server.Handle(protocol.NewRequest("delivered", "delegate.escalation_delivered", map[string]any{"session_id": metadata.ID, "escalation": "evt_user_escalation_requested_01", "delivery_target": "origin", "platform": "hermes", "message_ref": "msg_1", "command_id": "cmd_delivered"}))
+	if !delivered.OK {
+		t.Fatalf("delivery evidence failed: %+v", delivered)
+	}
+	failed := server.Handle(protocol.NewRequest("failed", "delegate.escalation_delivery_failed", map[string]any{"session_id": metadata.ID, "escalation": "evt_user_escalation_requested_01", "target": "telegram", "reason": "unreachable", "will_retry_targets": []any{"origin"}, "command_id": "cmd_delivery_failed"}))
+	if !failed.OK {
+		t.Fatalf("delivery failure evidence failed: %+v", failed)
+	}
+	bad := server.Handle(protocol.NewRequest("bad", "delegate.escalation_delivered", map[string]any{"session_id": metadata.ID, "escalation": "evt_missing", "delivery_target": "origin", "platform": "hermes"}))
+	if bad.OK || bad.Error == nil {
+		t.Fatalf("invalid escalation reference should fail closed: %+v", bad)
+	}
+}
+
+func TestIntegrationDaemonStreamFollowEmitsReplayThenLive(t *testing.T) {
+	dataHome := daemonDataHome(t)
+	metadata := daemonSessionFixture(t, dataHome)
+	sessionDir, err := storage.SessionDir(dataHome, metadata.ID)
+	if err != nil {
+		t.Fatalf("SessionDir: %v", err)
+	}
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	server.StreamFollowAfterReplay = func() error {
+		_, err := storage.AppendEvent(sessionDir, metadata, storage.EventEnvelope{
+			SchemaVersion: protocol.SchemaVersion,
+			EventID:       "evt_daemon_live_follow",
+			CommandID:     "cmd_daemon_live_follow",
+			CorrelationID: metadata.ID,
+			SessionID:     metadata.ID,
+			SessionType:   metadata.SessionType,
+			Phase:         "working",
+			Type:          "assignee_update",
+			From:          "agent-1",
+			To:            []string{"agent-mod"},
+			CreatedAt:     daemonFixedRuntime().Now().Add(time.Second),
+			Payload:       map[string]any{"message": "live follow"},
+		})
+		return err
+	}
+
+	replay := server.Handle(protocol.NewRequest("replay-follow-live", protocol.FeatureStreamReplay, map[string]any{
+		"session_id":        metadata.ID,
+		"member":            "agent-1",
+		"from_start":        true,
+		"follow":            true,
+		"follow_timeout_ms": 500,
+		"follow_poll_ms":    5,
+	}))
+	if !replay.OK {
+		t.Fatalf("stream.replay follow failed: %+v", replay)
+	}
+	frames, ok := replay.Result["frames"].([]storage.StreamFrame)
+	if !ok {
+		t.Fatalf("unexpected frame type: %#v", replay.Result["frames"])
+	}
+	if len(frames) != 3 {
+		t.Fatalf("expected two replay frames and one live frame, got %#v", frames)
+	}
+	if !frames[0].IsReplay || !frames[1].IsReplay {
+		t.Fatalf("existing durable frames must be replay first: %#v", frames)
+	}
+	if frames[2].IsReplay || frames[2].Event.EventID != "evt_daemon_live_follow" {
+		t.Fatalf("appended durable event must be emitted as live, got %#v", frames[2])
 	}
 }
 
@@ -134,6 +244,22 @@ members:
     role: reviewer
     enabled: false
     adapter_kind: hermes-agent
+  agent-mod:
+    display_name: Moderator
+    wrapper: missing-agent-mod-wrapper
+    workspace: /tmp/agent-mod
+    role: moderator
+    enabled: false
+    adapter_kind: hermes-agent
+    runtime_kind: hermes-cli-stream
+  agent-1:
+    display_name: Agent One
+    wrapper: missing-agent-1-wrapper
+    workspace: /tmp/agent-1
+    role: assignee
+    enabled: false
+    adapter_kind: hermes-agent
+    runtime_kind: hermes-cli-stream
 `
 	if err := os.WriteFile(registry.RegistryPath(dataHome), []byte(registryYAML), 0o600); err != nil {
 		t.Fatalf("write registry: %v", err)
@@ -172,4 +298,55 @@ func mustJSON(t *testing.T, value any) string {
 		t.Fatalf("marshal json: %v", err)
 	}
 	return string(data)
+}
+
+func daemonSessionFixture(t *testing.T, dataHome string) *storage.SessionMetadata {
+	t.Helper()
+	loaded, err := registry.Load(dataHome, daemonFixedRuntime())
+	if err != nil {
+		t.Fatalf("load registry: %v", err)
+	}
+	metadata, _, err := storage.CreateSession(dataHome, loaded, storage.SessionSpec{
+		ID:           "sess_daemon",
+		SessionType:  storage.SessionTypeDelegation,
+		Title:        "Daemon stream fixture",
+		Moderator:    "agent-mod",
+		Participants: []string{"agent-mod", "agent-1"},
+		EventID:      "evt_created_001",
+		CommandID:    "cmd_create_daemon",
+	}, daemonFixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	sessionDir, err := storage.SessionDir(dataHome, metadata.ID)
+	if err != nil {
+		t.Fatalf("SessionDir: %v", err)
+	}
+	escalation := storage.EventEnvelope{
+		SchemaVersion: protocol.SchemaVersion,
+		EventID:       "evt_user_escalation_requested_01",
+		CommandID:     "cmd_escalate_fixture",
+		CorrelationID: metadata.ID,
+		SessionID:     metadata.ID,
+		SessionType:   metadata.SessionType,
+		Phase:         "waiting_user",
+		Type:          "user_escalation_requested",
+		From:          "agent-1",
+		To:            []string{"agent-mod"},
+		CreatedAt:     daemonFixedRuntime().Now(),
+		Payload:       map[string]any{"question": "Need input", "urgency": "blocked"},
+	}
+	if _, err := storage.AppendEvent(sessionDir, metadata, escalation); err != nil {
+		t.Fatalf("append escalation: %v", err)
+	}
+	return metadata
+}
+
+func daemonFixedRuntime() registry.Runtime {
+	return registry.Runtime{
+		LookupEnv:   func(string) (string, bool) { return "", false },
+		UserHomeDir: func() (string, error) { return "/tmp/home", nil },
+		CurrentUID:  os.Getuid,
+		Now:         func() time.Time { return time.Date(2026, 6, 5, 1, 0, 0, 0, time.UTC) },
+	}
 }

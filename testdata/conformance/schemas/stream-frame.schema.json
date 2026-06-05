@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kkachi.local/conformance/stream-frame.schema.json",
+  "title": "KAN stream frame",
+  "type": "object",
+  "required": [
+    "cursor",
+    "is_replay",
+    "event"
+  ],
+  "properties": {
+    "cursor": {
+      "type": "string",
+      "pattern": "^cur_[0-9]{12}_.+"
+    },
+    "is_replay": {
+      "type": "boolean"
+    },
+    "event": {
+      "$ref": "event-envelope.schema.json"
+    }
+  },
+  "additionalProperties": false
+}

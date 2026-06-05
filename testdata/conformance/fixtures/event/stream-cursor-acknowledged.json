@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_stream_ack_cmd_stream_ack_conformance",
+  "correlation_id": "sess_conformance_delegation",
+  "session_id": "sess_conformance_delegation",
+  "session_type": "delegation",
+  "phase": "waiting_user",
+  "type": "stream_cursor_acknowledged",
+  "from": "kkachi-agent-networkd",
+  "to": [
+    "agent-1"
+  ],
+  "created_at": "2026-06-05T01:02:00Z",
+  "payload": {
+    "member": "agent-1",
+    "cursor": "cur_000000000000_evt_created_001",
+    "event_id": "evt_created_001"
+  },
+  "command_id": "cmd_stream_ack_conformance"
+}

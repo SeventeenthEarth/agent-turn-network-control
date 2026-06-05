@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "protocol_version": "kan-protocol-v1alpha0",
+  "daemon_version": "daemn-002-local",
+  "min_plugin_protocol_version": "kan-protocol-v1alpha0",
+  "features": [
+    "version.read",
+    "command_envelope",
+    "event_envelope",
+    "structured_error",
+    "stream_frame",
+    "stream.replay",
+    "stream.follow",
+    "stream.ack",
+    "stream.status",
+    "active_session.lock",
+    "delivery_evidence",
+    "conformance.fixtures"
+  ],
+  "feature_groups": [
+    "version.read",
+    "command_envelope",
+    "event_envelope",
+    "structured_error",
+    "stream_frame",
+    "stream.replay",
+    "stream.follow",
+    "stream.ack",
+    "stream.status",
+    "active_session.lock",
+    "delivery_evidence",
+    "conformance.fixtures"
+  ],
+  "fixture_manifest": "testdata/conformance/manifest.json"
+}

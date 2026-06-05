@@ -8,13 +8,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
+	"time"
 
 	"kkachi-agent-network-control/internal/command"
 	"kkachi-agent-network-control/internal/daemon"
 	"kkachi-agent-network-control/internal/protocol"
 	"kkachi-agent-network-control/internal/registry"
+	"kkachi-agent-network-control/internal/storage"
 	"kkachi-agent-network-control/internal/transport"
 )
 
@@ -248,7 +251,7 @@ func TestIntegrationUnsupportedCLICommandReturnsJSONAndDoesNotWrite(t *testing.T
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	exitCode := command.NewCLI().Run([]string{"stream", "sess_1", "--follow"}, &stdout, &stderr)
+	exitCode := command.NewCLI().Run([]string{"stream", "sess_1", "--member", "agent-1", "--from-start", "--format", "ndjson", "--teleport"}, &stdout, &stderr)
 	after := commandTreeFingerprint(t, dataHome)
 
 	if exitCode != protocol.ExitUsage {
@@ -294,24 +297,79 @@ func TestIntegrationDoctorAndDaemonHealthAreReadOnlyAndRedacted(t *testing.T) {
 	}
 }
 
-func TestUnitFutureDAEMN002CLICommandsAreNotImplemented(t *testing.T) {
+func TestUnitDAEMN002VersionAndConformanceCLIAreLocalJSON(t *testing.T) {
 	for _, args := range [][]string{
-		{"stream", "sess_1"},
-		{"stream", "ack", "sess_1", "--cursor", "cursor_1"},
-		{"status", "sess_1"},
-		{"conformance", "fixtures"},
-		{"version", "--features"},
-		{"active-session", "lock"},
+		{"version", "--features", "--format", "json"},
+		{"conformance", "fixtures", "--format", "json"},
 	} {
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
 		exitCode := command.NewCLI().Run(args, &stdout, &stderr)
-		if exitCode != protocol.ExitUsage && (args[0] != "version" || exitCode != 0) {
-			t.Fatalf("%v expected unsupported validation exit 1, got %d stdout=%q stderr=%q", args, exitCode, stdout.String(), stderr.String())
+		if exitCode != 0 {
+			t.Fatalf("%v expected exit 0, got %d stdout=%q stderr=%q", args, exitCode, stdout.String(), stderr.String())
 		}
-		if args[0] == "version" && len(args) > 1 && exitCode == 0 {
-			t.Fatalf("version feature endpoint should not be implemented, got stdout=%q", stdout.String())
+		if !json.Valid(stdout.Bytes()) {
+			t.Fatalf("%v expected JSON stdout, got %q", args, stdout.String())
 		}
+		if strings.Contains(stdout.String(), "stream.tail") {
+			t.Fatalf("%v must not expose stream.tail: %s", args, stdout.String())
+		}
+	}
+}
+
+func TestIntegrationDAEMN002CLIStreamAckStatusAndDeliveryEvidence(t *testing.T) {
+	dataHome := commandDaemonFixture(t)
+	t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+	metadata := commandSessionFixture(t, dataHome)
+	app, cancel := cliWithInProcessDaemonAndFollowHook(t, metadata)
+	defer cancel()
+	var startOut, startErr bytes.Buffer
+	if exitCode := app.Run([]string{"daemon", "start"}, &startOut, &startErr); exitCode != 0 {
+		t.Fatalf("start daemon: exit=%d stdout=%q stderr=%q", exitCode, startOut.String(), startErr.String())
+	}
+
+	var streamOut, streamErr bytes.Buffer
+	if exitCode := app.Run([]string{"stream", metadata.ID, "--member", "agent-1", "--from-start", "--format", "ndjson"}, &streamOut, &streamErr); exitCode != 0 {
+		t.Fatalf("stream from-start: exit=%d stdout=%q stderr=%q", exitCode, streamOut.String(), streamErr.String())
+	}
+	if lines := strings.Split(strings.TrimSpace(streamOut.String()), "\n"); len(lines) < 2 || !strings.Contains(lines[0], `"is_replay":true`) {
+		t.Fatalf("unexpected stream ndjson: %q", streamOut.String())
+	}
+
+	var sinceOut, sinceErr bytes.Buffer
+	if exitCode := app.Run([]string{"stream", metadata.ID, "--member", "agent-1", "--since", "cur_000000000000_evt_created_001", "--follow", "--follow-timeout-ms", "500", "--follow-poll-ms", "5", "--format", "ndjson"}, &sinceOut, &sinceErr); exitCode != 0 {
+		t.Fatalf("stream since/follow: exit=%d stdout=%q stderr=%q", exitCode, sinceOut.String(), sinceErr.String())
+	}
+	if strings.Contains(sinceOut.String(), "evt_created_001") || !strings.Contains(sinceOut.String(), "evt_user_escalation_requested_01") {
+		t.Fatalf("since cursor should be exclusive, got %q", sinceOut.String())
+	}
+	if !strings.Contains(sinceOut.String(), "evt_cli_live_follow") || !strings.Contains(sinceOut.String(), `"is_replay":false`) {
+		t.Fatalf("follow should emit appended live frame after replay, got %q", sinceOut.String())
+	}
+
+	var ackOut, ackErr bytes.Buffer
+	if exitCode := app.Run([]string{"stream", "ack", metadata.ID, "--member", "agent-1", "--cursor", "cur_000000000000_evt_created_001", "--command-id", "cmd_cli_ack"}, &ackOut, &ackErr); exitCode != 0 {
+		t.Fatalf("stream ack: exit=%d stdout=%q stderr=%q", exitCode, ackOut.String(), ackErr.String())
+	}
+	if !strings.Contains(ackOut.String(), "evt_stream_ack") {
+		t.Fatalf("expected ack result, got %q", ackOut.String())
+	}
+
+	var statusOut, statusErr bytes.Buffer
+	if exitCode := app.Run([]string{"stream", "status", metadata.ID}, &statusOut, &statusErr); exitCode != 0 {
+		t.Fatalf("stream status: exit=%d stdout=%q stderr=%q", exitCode, statusOut.String(), statusErr.String())
+	}
+	if !strings.Contains(statusOut.String(), "cmd_cli_ack") && !strings.Contains(statusOut.String(), "cur_000000000000_evt_created_001") {
+		t.Fatalf("status missing ack cursor: %q", statusOut.String())
+	}
+
+	var deliveredOut, deliveredErr bytes.Buffer
+	if exitCode := app.Run([]string{"delegate", "escalation-delivered", metadata.ID, "--escalation", "evt_user_escalation_requested_01", "--delivery-target", "origin", "--platform", "hermes", "--message-ref", "msg_1", "--command-id", "cmd_cli_delivered"}, &deliveredOut, &deliveredErr); exitCode != 0 {
+		t.Fatalf("delivery evidence: exit=%d stdout=%q stderr=%q", exitCode, deliveredOut.String(), deliveredErr.String())
+	}
+	var failedOut, failedErr bytes.Buffer
+	if exitCode := app.Run([]string{"delegate", "escalation-delivery-failed", metadata.ID, "--escalation", "evt_user_escalation_requested_01", "--target", "telegram", "--reason", "unreachable", "--will-retry-target", "origin", "--command-id", "cmd_cli_delivery_failed"}, &failedOut, &failedErr); exitCode != 0 {
+		t.Fatalf("delivery failure evidence: exit=%d stdout=%q stderr=%q", exitCode, failedOut.String(), failedErr.String())
 	}
 }
 
@@ -388,6 +446,45 @@ func cliWithInProcessDaemon(t *testing.T) (command.App, context.CancelFunc) {
 	return app, cancel
 }
 
+func cliWithInProcessDaemonAndFollowHook(t *testing.T, metadata *storage.SessionMetadata) (command.App, context.CancelFunc) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	var once sync.Once
+	app := command.NewCLIWithRuntime(registry.DefaultRuntime())
+	app.StartDaemon = func(dataHome string, runtime registry.Runtime) error {
+		server := daemon.NewServer(dataHome, runtime)
+		sessionDir, err := storage.SessionDir(dataHome, metadata.ID)
+		if err != nil {
+			return err
+		}
+		server.StreamFollowAfterReplay = func() error {
+			var appendErr error
+			once.Do(func() {
+				_, appendErr = storage.AppendEvent(sessionDir, metadata, storage.EventEnvelope{
+					SchemaVersion: protocol.SchemaVersion,
+					EventID:       "evt_cli_live_follow",
+					CommandID:     "cmd_cli_live_follow",
+					CorrelationID: metadata.ID,
+					SessionID:     metadata.ID,
+					SessionType:   metadata.SessionType,
+					Phase:         "working",
+					Type:          "assignee_update",
+					From:          "agent-1",
+					To:            []string{"agent-mod"},
+					CreatedAt:     commandFixedRuntime().Now().Add(time.Second),
+					Payload:       map[string]any{"message": "live follow"},
+				})
+			})
+			return appendErr
+		}
+		go func() {
+			_ = server.Run(ctx)
+		}()
+		return nil
+	}
+	return app, cancel
+}
+
 func commandTreeFingerprint(t *testing.T, root string) string {
 	t.Helper()
 	var parts []string
@@ -424,5 +521,56 @@ func makeCommandStaleSocket(t *testing.T, path string) {
 	}
 	if err := syscall.Close(fd); err != nil {
 		t.Fatalf("close stale socket fd: %v", err)
+	}
+}
+
+func commandSessionFixture(t *testing.T, dataHome string) *storage.SessionMetadata {
+	t.Helper()
+	loaded, err := registry.Load(dataHome, commandFixedRuntime())
+	if err != nil {
+		t.Fatalf("load registry: %v", err)
+	}
+	metadata, _, err := storage.CreateSession(dataHome, loaded, storage.SessionSpec{
+		ID:           "sess_command",
+		SessionType:  storage.SessionTypeDelegation,
+		Title:        "Command stream fixture",
+		Moderator:    "agent-mod",
+		Participants: []string{"agent-mod", "agent-1"},
+		EventID:      "evt_created_001",
+		CommandID:    "cmd_create_command",
+	}, commandFixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	sessionDir, err := storage.SessionDir(dataHome, metadata.ID)
+	if err != nil {
+		t.Fatalf("SessionDir: %v", err)
+	}
+	escalation := storage.EventEnvelope{
+		SchemaVersion: protocol.SchemaVersion,
+		EventID:       "evt_user_escalation_requested_01",
+		CommandID:     "cmd_escalate_command_fixture",
+		CorrelationID: metadata.ID,
+		SessionID:     metadata.ID,
+		SessionType:   metadata.SessionType,
+		Phase:         "waiting_user",
+		Type:          "user_escalation_requested",
+		From:          "agent-1",
+		To:            []string{"agent-mod"},
+		CreatedAt:     commandFixedRuntime().Now(),
+		Payload:       map[string]any{"question": "Need input", "urgency": "blocked"},
+	}
+	if _, err := storage.AppendEvent(sessionDir, metadata, escalation); err != nil {
+		t.Fatalf("append escalation: %v", err)
+	}
+	return metadata
+}
+
+func commandFixedRuntime() registry.Runtime {
+	return registry.Runtime{
+		LookupEnv:   func(string) (string, bool) { return "", false },
+		UserHomeDir: func() (string, error) { return "/tmp/home", nil },
+		CurrentUID:  os.Getuid,
+		Now:         func() time.Time { return time.Date(2026, 6, 5, 1, 0, 0, 0, time.UTC) },
 	}
 }

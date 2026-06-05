@@ -20,6 +20,11 @@ type Server struct {
 	DataHome string
 	Runtime  registry.Runtime
 
+	// StreamFollowAfterReplay is a local test seam used to append durable
+	// channel.jsonl events after replay has been snapshotted and before the
+	// bounded follow poll starts. Production servers leave it nil.
+	StreamFollowAfterReplay func() error
+
 	mu       sync.RWMutex
 	ready    bool
 	started  time.Time
@@ -132,6 +137,9 @@ func (s *Server) Handle(request protocol.CommandRequest) protocol.CommandRespons
 	case "shutdown":
 		return protocol.SuccessResponse(request, map[string]any{"stopping": true})
 	default:
+		if response, ok := s.handleDAEMN002(request); ok {
+			return response
+		}
 		return protocol.ErrorResponse(request, protocol.UnsupportedFeature(request.Command))
 	}
 }

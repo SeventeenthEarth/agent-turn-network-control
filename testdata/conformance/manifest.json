@@ -1,16 +1,55 @@
 {
   "manifest_version": 1,
   "protocol_version": "kan-protocol-v1alpha0",
-  "stability": "draft-docs-scaffold",
+  "stability": "draft-local-conformance",
   "owner_repo": "kkachi-agent-network-control",
   "consumer_repo": "kkachi-agent-network-plugin",
-  "fixtures": [],
-  "required_feature_groups": [
-    "version_features",
-    "command_envelope",
-    "stream_frame",
-    "structured_error",
-    "delivery_evidence"
+  "live_readiness": false,
+  "schemas": [
+    "schemas/command-envelope.schema.json",
+    "schemas/event-envelope.schema.json",
+    "schemas/structured-error.schema.json",
+    "schemas/stream-frame.schema.json",
+    "schemas/version-features.schema.json",
+    "schemas/delivery-evidence-command.schema.json"
   ],
-  "notes": "Initial manifest placeholder for parallel development. Add fixture files as core protocol scaffolding lands."
+  "fixtures": [
+    "fixtures/command/version-read-request.json",
+    "fixtures/command/stream-replay-request.json",
+    "fixtures/command/stream-ack-request.json",
+    "fixtures/command/stream-ack-response.json",
+    "fixtures/command/delegate-escalation-delivered-request.json",
+    "fixtures/command/delegate-escalation-delivered-response.json",
+    "fixtures/command/delegate-escalation-delivery-failed-request.json",
+    "fixtures/command/delegate-escalation-delivery-failed-response.json",
+    "fixtures/event/session-created-delegation.json",
+    "fixtures/event/stream-cursor-acknowledged.json",
+    "fixtures/event/user-escalation-delivered.json",
+    "fixtures/event/user-escalation-delivery-failed.json",
+    "fixtures/error/unsupported-feature.json",
+    "fixtures/error/active-session-lock.json",
+    "fixtures/error/cursor-gap.json",
+    "fixtures/error/unauthorized-member.json",
+    "fixtures/error/invalid-delivery-escalation-reference.json",
+    "fixtures/error/unauthorized-delivery-reporter.json",
+    "fixtures/stream/from-start.ndjson",
+    "fixtures/stream/since-cursor.ndjson",
+    "fixtures/stream/follow-replay-then-live.ndjson",
+    "fixtures/version/version-features.json"
+  ],
+  "required_feature_groups": [
+    "version.read",
+    "command_envelope",
+    "event_envelope",
+    "structured_error",
+    "stream_frame",
+    "stream.replay",
+    "stream.follow",
+    "stream.ack",
+    "stream.status",
+    "active_session.lock",
+    "delivery_evidence",
+    "conformance.fixtures"
+  ],
+  "notes": "Static DAEMN-002 conformance artifacts only; they do not start a daemon or contact Hermes, Discord, KAB, auth, token, gateway, or other live services."
 }

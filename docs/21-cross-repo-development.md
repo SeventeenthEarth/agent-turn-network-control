@@ -26,22 +26,23 @@ The control repo can move without waiting for plugin UX work. The plugin can mov
 | --- | --- |
 | Protocol version | `kan-protocol-v1alpha0` |
 | Fixture manifest | `testdata/conformance/manifest.json` |
-| Stability | draft, docs/scaffold only |
-| Breaking-change rule | allowed before first implementation, but must update manifest and plugin compatibility docs together |
+| Stability | draft local implementation + static conformance fixtures |
+| Live readiness | `false`; no live Hermes/Discord/KAB/gateway/auth/token support is claimed |
+| Breaking-change rule | allowed before the first stable protocol release, but must update manifest, control docs, plugin compatibility docs, and checks together |
 
 ## Milestone unlock matrix
 
 | Control milestone | Control output | Plugin work unlocked | Plugin limit before control exists |
 | --- | --- | --- | --- |
 | BOOTS-001 | Go module, CLI/daemon help, Makefile | Plugin P0 scaffold can proceed independently | plugin uses fake daemon only |
-| DAEMN-002 version/feature contract | daemon status shape, protocol version, feature list | Plugin P1 compatibility check | fake status fixture until daemon exists |
-| DAEMN-002 command envelope fixture | request/response/idempotency/error fixture | Python daemon client request builder | no write tools marked release-ready |
-| DAEMN-002 stream frame fixture | replay/follow/cursor frame fixture | stream parser and tail/diagnostic tools | fake stream only |
-| DAEMN-002 structured error fixture | error categories and JSON shape | plugin error rendering and fail-closed UX | no success reinterpretation allowed |
+| DAEMN-002 version/feature contract | implemented local daemon/CLI `version.read`, protocol version, feature list, and static version fixture | Plugin P1 compatibility check | no live gateway/runtime readiness claim |
+| DAEMN-002 command envelope fixture | implemented command envelope parsing plus request/response/idempotency/error fixtures | Python daemon client request builder | no live wrappers or external side effects by default |
+| DAEMN-002 stream frame fixture | implemented local daemon/CLI stream replay, bounded follow over durable `channel.jsonl`, ack, status, cursor validation, and stream fixtures | stream parser and diagnostic tools | bounded local follow only; no long-lived production streaming over Hermes/Discord/KAB |
+| DAEMN-002 structured error fixture | implemented structured error categories and JSON shape for local daemon/CLI failures | plugin error rendering and fail-closed UX | no success reinterpretation allowed |
 | DELEG-001 delegation commands | implemented daemon/CLI delegation commands | Plugin P3 delegation tools | skeleton/fake-daemon tests only |
 | DELEG-001 review commands | review/revision/accept commands | Plugin review tools | skeleton/fake-daemon tests only |
 | COUNC-001 council commands | council prepare/speak/vote/finalize commands | Plugin P4 council tools | skeleton/fake-daemon tests only |
-| DAEMN-002 delivery evidence commands | delivery success/failure typed commands | Discord surface helper audit | fake gateway only until isolated e2e target exists |
+| DAEMN-002 delivery evidence commands | implemented local delivery success/failure evidence fixtures and daemon/CLI checks | Discord surface helper audit | fake gateway only until isolated e2e target exists |
 | TRANS-001 transcript/export | transcript and export commands | Plugin transcript/export tools | fixture rendering only |
 
 ## Plugin milestone expectations

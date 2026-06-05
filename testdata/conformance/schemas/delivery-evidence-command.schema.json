@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kkachi.local/conformance/delivery-evidence-command.schema.json",
+  "title": "KAN delivery evidence command envelope",
+  "allOf": [
+    {
+      "$ref": "command-envelope.schema.json"
+    }
+  ],
+  "type": "object",
+  "required": [
+    "schema_version",
+    "request_id",
+    "command",
+    "params"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "command": {
+      "enum": [
+        "delegate.escalation_delivered",
+        "delegate.escalation_delivery_failed"
+      ]
+    },
+    "params": {
+      "type": "object",
+      "required": [
+        "session_id",
+        "escalation"
+      ],
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "escalation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reporter": {
+          "type": "string"
+        },
+        "delivery_target": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "message_ref": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "will_retry_targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "command_id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

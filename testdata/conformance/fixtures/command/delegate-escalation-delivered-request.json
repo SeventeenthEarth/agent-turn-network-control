@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "request_id": "req_delivery_delivered_001",
+  "command": "delegate.escalation_delivered",
+  "params": {
+    "session_id": "sess_conformance_delegation",
+    "escalation": "evt_user_escalation_requested_01",
+    "delivery_target": "origin",
+    "platform": "hermes",
+    "message_ref": "msg_conformance_001",
+    "command_id": "cmd_delivery_delivered_conformance"
+  }
+}

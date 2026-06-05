@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_user_escalation_delivery_failed_cmd_delivery_failed_conformance",
+  "correlation_id": "sess_conformance_delegation",
+  "session_id": "sess_conformance_delegation",
+  "session_type": "delegation",
+  "phase": "waiting_user",
+  "type": "user_escalation_delivery_failed",
+  "from": "agent-mod",
+  "to": [
+    "agent-mod"
+  ],
+  "created_at": "2026-06-05T01:04:00Z",
+  "payload": {
+    "escalation_event_id": "evt_user_escalation_requested_01",
+    "target": "telegram",
+    "reason": "unreachable",
+    "will_retry_targets": [
+      "origin"
+    ]
+  },
+  "command_id": "cmd_delivery_failed_conformance",
+  "causation_event_id": "evt_user_escalation_requested_01"
+}

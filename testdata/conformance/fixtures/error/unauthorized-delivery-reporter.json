@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "request_id": "req_unauthorized_delivery_reporter_001",
+  "ok": false,
+  "error": {
+    "code": "validation_error",
+    "category": "validation",
+    "message": "reporter is not a session participant",
+    "details": {
+      "issues": "[{principal_invalid reporter reporter is not a session participant}]"
+    }
+  }
+}

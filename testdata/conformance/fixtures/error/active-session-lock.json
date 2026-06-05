@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "request_id": "req_active_session_lock_001",
+  "ok": false,
+  "error": {
+    "code": "active_session_locked",
+    "category": "concurrency",
+    "message": "active session sess_existing is open",
+    "details": {
+      "path": "active_session"
+    }
+  }
+}

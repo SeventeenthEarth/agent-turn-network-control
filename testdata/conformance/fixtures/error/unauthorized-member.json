@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "request_id": "req_unauthorized_member_001",
+  "ok": false,
+  "error": {
+    "code": "validation_error",
+    "category": "validation",
+    "message": "member is not a session participant",
+    "details": {
+      "issues": "[{principal_invalid member member is not a session participant}]"
+    }
+  }
+}

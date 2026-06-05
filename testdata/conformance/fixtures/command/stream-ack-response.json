@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "request_id": "req_stream_ack_001",
+  "ok": true,
+  "result": {
+    "cursor": "cur_000000000002_evt_stream_ack_cmd_stream_ack_conformance",
+    "event_id": "evt_stream_ack_cmd_stream_ack_conformance",
+    "offset": 2,
+    "deduplicated": false
+  }
+}

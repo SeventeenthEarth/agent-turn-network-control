@@ -82,4 +82,6 @@ The control repo Makefile owns Go checks and control docs guardrails. The plugin
 
 ## Current implementation state
 
-This repository is in BOOTS-001 scaffold implementation. The initial Go module, CLI/daemon help/version entrypoints, protocol metadata scaffold, local test layout, and help smoke gate exist. State-mutating daemon/runtime behavior remains intentionally out of scope, and default test targets must not contact live Hermes or Discord resources.
+This repository has the BOOTS-001 scaffold plus DAEMN-002 local control surfaces implemented. The local daemon/CLI now expose protocol/version features, structured command envelopes, stream replay with bounded local follow over durable `channel.jsonl`, stream ack/status, structured errors, active-session lock evidence, delivery-evidence fixtures/checks, and static conformance fixtures under `testdata/conformance/`.
+
+`live_readiness` remains `false`: real wrappers/RUNRT, live Hermes/Discord/KAB/gateway/auth/token integrations, and external E2E are still future scope and are not contacted by default test targets.

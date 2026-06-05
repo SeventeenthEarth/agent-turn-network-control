@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_user_escalation_delivered_cmd_delivery_delivered_conformance",
+  "correlation_id": "sess_conformance_delegation",
+  "session_id": "sess_conformance_delegation",
+  "session_type": "delegation",
+  "phase": "waiting_user",
+  "type": "user_escalation_delivered",
+  "from": "agent-mod",
+  "to": [
+    "user"
+  ],
+  "created_at": "2026-06-05T01:03:00Z",
+  "payload": {
+    "escalation_event_id": "evt_user_escalation_requested_01",
+    "delivery_target": "origin",
+    "platform": "hermes",
+    "message_ref": "msg_conformance_001",
+    "delivered_batch_id": null
+  },
+  "command_id": "cmd_delivery_delivered_conformance",
+  "causation_event_id": "evt_user_escalation_requested_01"
+}
