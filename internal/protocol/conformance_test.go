@@ -23,11 +23,14 @@ var requiredConformanceFixtures = []string{
 	"fixtures/command/stream-replay-request.json",
 	"fixtures/command/stream-ack-request.json",
 	"fixtures/command/stream-ack-response.json",
+	"fixtures/command/cancel-request.json",
+	"fixtures/command/cancel-response.json",
 	"fixtures/command/delegate-escalation-delivered-request.json",
 	"fixtures/command/delegate-escalation-delivered-response.json",
 	"fixtures/command/delegate-escalation-delivery-failed-request.json",
 	"fixtures/command/delegate-escalation-delivery-failed-response.json",
 	"fixtures/event/session-created-delegation.json",
+	"fixtures/event/session-cancelled.json",
 	"fixtures/event/stream-cursor-acknowledged.json",
 	"fixtures/event/user-escalation-delivered.json",
 	"fixtures/event/user-escalation-delivery-failed.json",
@@ -37,6 +40,7 @@ var requiredConformanceFixtures = []string{
 	"fixtures/event/runner-result-discarded.json",
 	"fixtures/error/unsupported-feature.json",
 	"fixtures/error/active-session-lock.json",
+	"fixtures/error/cancel-unauthorized.json",
 	"fixtures/error/cursor-gap.json",
 	"fixtures/error/unauthorized-member.json",
 	"fixtures/error/invalid-delivery-escalation-reference.json",
@@ -110,6 +114,29 @@ func TestUnitConformanceFixturesUseCanonicalCommandsAndDeliveryEvidence(t *testi
 	}
 	if usesStreamTail(string(readConformanceBytes(t, "fixtures/command/stream-replay-request.json"))) {
 		t.Fatalf("stream replay fixture must not mention stream.tail")
+	}
+	cancelRequest := readJSONFixture[CommandRequest](t, "fixtures/command/cancel-request.json")
+	if cancelRequest.Command != "cancel" {
+		t.Fatalf("cancel fixture command = %q, want cancel", cancelRequest.Command)
+	}
+	for _, key := range []string{"session_id", "actor", "reason", "cause", "command_id"} {
+		if _, ok := cancelRequest.Params[key]; !ok {
+			t.Fatalf("cancel fixture missing param %q in %+v", key, cancelRequest.Params)
+		}
+	}
+	cancelResponse := readJSONFixture[CommandResponse](t, "fixtures/command/cancel-response.json")
+	if !cancelResponse.OK || cancelResponse.Result["event_id"] != "evt_session_cancelled_cmd_cancel_conformance" {
+		t.Fatalf("cancel response fixture should return session_cancelled event, got %+v", cancelResponse)
+	}
+	cancelEvent := readJSONFixture[eventEnvelopeFixture](t, "fixtures/event/session-cancelled.json")
+	if cancelEvent.Type != "session_cancelled" || cancelEvent.Phase != "cancelled" || cancelEvent.From != "agent-mod" {
+		t.Fatalf("session_cancelled fixture has wrong shape: %+v", cancelEvent)
+	}
+	assertExactStrings(t, "session_cancelled to", cancelEvent.To, []string{"agent-1", "agent-mod"})
+	for _, key := range []string{"reason", "cause"} {
+		if _, ok := cancelEvent.Payload[key]; !ok {
+			t.Fatalf("session_cancelled fixture missing payload %q in %+v", key, cancelEvent.Payload)
+		}
 	}
 
 	for _, tc := range []struct {
@@ -202,6 +229,7 @@ func TestUnitConformanceStructuredErrorFixtures(t *testing.T) {
 	for _, fixture := range []string{
 		"fixtures/error/unsupported-feature.json",
 		"fixtures/error/active-session-lock.json",
+		"fixtures/error/cancel-unauthorized.json",
 		"fixtures/error/cursor-gap.json",
 		"fixtures/error/unauthorized-member.json",
 		"fixtures/error/invalid-delivery-escalation-reference.json",

@@ -178,12 +178,21 @@ func (a App) runStreamAck(args []string, stdout io.Writer, stderr io.Writer) int
 
 func (a App) runDelegate(args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 || isHelp(args[0]) {
-		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s delegate escalation-delivered <session_id> --escalation <event_id> --delivery-target <target> --platform <platform> [--message-ref <ref>] [--command-id <id>]\n  %s delegate escalation-delivery-failed <session_id> --escalation <event_id> --target <target> --reason <reason> [--will-retry-target <target>]... [--command-id <id>]\n", a.Name, a.Name)
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s delegate new <session_id> --moderator <member> --assignee <member> --title <title> --task <task>\n  %s delegate <action> <session_id> [--actor <member>] [--payload key=value]... [--command-id <id>]\n  %s delegate escalation-delivered <session_id> --escalation <event_id> --delivery-target <target> --platform <platform> [--message-ref <ref>] [--command-id <id>]\n  %s delegate escalation-delivery-failed <session_id> --escalation <event_id> --target <target> --reason <reason> [--will-retry-target <target>]... [--command-id <id>]\n", a.Name, a.Name, a.Name, a.Name)
 		return protocol.ExitOK
 	}
 	sub := args[0]
+	if sub == "new" {
+		return a.runDelegateNew(args[1:], stdout, stderr)
+	}
+	if sub == "escalation-batches" {
+		if len(args) != 2 {
+			return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "delegate escalation-batches requires session_id", protocol.ExitUsage, nil))
+		}
+		return a.daemonRequestWithParams(stdout, stderr, "delegate.escalation_batches", map[string]any{"session_id": args[1]})
+	}
 	if sub != "escalation-delivered" && sub != "escalation-delivery-failed" {
-		return writeProtocolError(stderr, protocol.UnsupportedFeature("delegate "+sub))
+		return a.runDelegationEvent(sub, args[1:], stdout, stderr)
 	}
 	if len(args) < 2 {
 		return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "delegate command requires session_id", protocol.ExitUsage, nil))
@@ -258,6 +267,317 @@ func (a App) runDelegate(args []string, stdout io.Writer, stderr io.Writer) int 
 		commandName = "delegate.escalation_delivery_failed"
 	}
 	return a.daemonRequestWithParams(stdout, stderr, commandName, params)
+}
+
+func (a App) runDelegateNew(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) == 0 {
+		return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "delegate new requires session_id", protocol.ExitUsage, nil))
+	}
+	params := map[string]any{"session_id": args[0]}
+	var participants []string
+	var acceptance []string
+	var expected []string
+	limits := map[string]any{}
+	for i := 1; i < len(args); i++ {
+		switch args[i] {
+		case "--moderator", "--assignee", "--title", "--task", "--context", "--event-id", "--assignment-event-id", "--command-id":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
+			}
+			params[strings.TrimPrefix(strings.ReplaceAll(args[i], "-", "_"), "__")] = args[i+1]
+			i++
+		case "--participant":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--participant requires a value", protocol.ExitUsage, nil))
+			}
+			participants = append(participants, args[i+1])
+			i++
+		case "--acceptance":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--acceptance requires a value", protocol.ExitUsage, nil))
+			}
+			acceptance = append(acceptance, args[i+1])
+			i++
+		case "--expected-output":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--expected-output requires a value", protocol.ExitUsage, nil))
+			}
+			expected = append(expected, args[i+1])
+			i++
+		case "--limit":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--limit requires key=value", protocol.ExitUsage, nil))
+			}
+			key, value, ok := splitKeyValue(args[i+1])
+			if !ok {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--limit requires key=value", protocol.ExitUsage, nil))
+			}
+			limits[key] = parseScalar(value)
+			i++
+		default:
+			return writeProtocolError(stderr, protocol.UnsupportedFeature("delegate new "+args[i]))
+		}
+	}
+	if len(participants) > 0 {
+		params["participants"] = participants
+	}
+	if len(acceptance) > 0 {
+		params["acceptance"] = acceptance
+	}
+	if len(expected) > 0 {
+		params["expected_outputs"] = expected
+	}
+	if len(limits) > 0 {
+		params["limits"] = limits
+	}
+	return a.daemonRequestWithParams(stdout, stderr, "delegate.new", params)
+}
+
+func (a App) runDelegationEvent(sub string, args []string, stdout io.Writer, stderr io.Writer) int {
+	commandName, ok := delegationCommandName(sub)
+	if !ok {
+		return writeProtocolError(stderr, protocol.UnsupportedFeature("delegate "+sub))
+	}
+	if len(args) == 0 {
+		return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "delegate "+sub+" requires session_id", protocol.ExitUsage, nil))
+	}
+	params := map[string]any{"session_id": args[0]}
+	payload := map[string]any{}
+	var recipients []string
+	var artifacts []string
+	for i := 1; i < len(args); i++ {
+		switch args[i] {
+		case "--actor", "--command-id", "--causation-event-id", "--in-reply-to", "--escalation":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
+			}
+			params[strings.TrimPrefix(strings.ReplaceAll(args[i], "-", "_"), "__")] = args[i+1]
+			i++
+		case "--to", "--recipient":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
+			}
+			recipients = append(recipients, args[i+1])
+			i++
+		case "--artifact":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--artifact requires a path", protocol.ExitUsage, nil))
+			}
+			artifacts = append(artifacts, args[i+1])
+			i++
+		case "--payload":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--payload requires key=value", protocol.ExitUsage, nil))
+			}
+			key, value, ok := splitKeyValue(args[i+1])
+			if !ok {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--payload requires key=value", protocol.ExitUsage, nil))
+			}
+			payload[key] = parseScalar(value)
+			i++
+		case "--understanding", "--kind", "--message", "--question", "--answer", "--source", "--progress-status", "--summary", "--reason", "--verdict", "--final-summary", "--urgency":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
+			}
+			payload[payloadKey(args[i])] = args[i+1]
+			i++
+		case "--required-change", "--review-focus", "--expected-output", "--included-event-id":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
+			}
+			appendPayloadString(payload, payloadListKey(args[i]), args[i+1])
+			i++
+		default:
+			return writeProtocolError(stderr, protocol.UnsupportedFeature("delegate "+sub+" "+args[i]))
+		}
+	}
+	if len(recipients) > 0 {
+		params["recipients"] = recipients
+	}
+	if len(artifacts) > 0 {
+		params["artifact_source_paths"] = artifacts
+	}
+	if len(payload) > 0 {
+		params["payload"] = payload
+	}
+	return a.daemonRequestWithParams(stdout, stderr, commandName, params)
+}
+
+func (a App) runCancel(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) == 0 || isHelp(args[0]) {
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s cancel <session_id> --reason <reason> [--actor <member>] [--cause <cause>] [--command-id <id>]\n", a.Name)
+		return protocol.ExitOK
+	}
+	params := map[string]any{"session_id": args[0]}
+	if errExit := parseSimpleFlags(params, args[1:], stderr, map[string]bool{"--reason": true, "--actor": true, "--cause": true, "--command-id": true}); errExit != protocol.ExitOK {
+		return errExit
+	}
+	return a.daemonRequestWithParams(stdout, stderr, "cancel", params)
+}
+
+func (a App) runBlock(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) == 0 || isHelp(args[0]) {
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s block <session_id> --category <category> --reason <reason> [--actor <member>] [--command-id <id>]\n", a.Name)
+		return protocol.ExitOK
+	}
+	params := map[string]any{"session_id": args[0]}
+	if errExit := parseSimpleFlags(params, args[1:], stderr, map[string]bool{"--category": true, "--reason": true, "--actor": true, "--command-id": true}); errExit != protocol.ExitOK {
+		return errExit
+	}
+	return a.daemonRequestWithParams(stdout, stderr, "block", params)
+}
+
+func (a App) runResume(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) == 0 || isHelp(args[0]) {
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s resume <session_id> --blocked-event <event_id> --reason <reason> [--actor <member>] [--command-id <id>]\n", a.Name)
+		return protocol.ExitOK
+	}
+	params := map[string]any{"session_id": args[0]}
+	if errExit := parseSimpleFlags(params, args[1:], stderr, map[string]bool{"--blocked-event": true, "--reason": true, "--actor": true, "--command-id": true}); errExit != protocol.ExitOK {
+		return errExit
+	}
+	if params["blocked_event"] != nil {
+		params["blocked_event_id"] = params["blocked_event"]
+		delete(params, "blocked_event")
+	}
+	return a.daemonRequestWithParams(stdout, stderr, "resume", params)
+}
+
+func (a App) runLimits(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) == 0 || isHelp(args[0]) {
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s limits show <session_id>\n  %s limits extend <session_id> --blocked-event <event_id> --key <name> --value <value> --authorized-by user [--reason <reason>]\n", a.Name, a.Name)
+		return protocol.ExitOK
+	}
+	switch args[0] {
+	case "show":
+		if len(args) != 2 {
+			return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "limits show requires session_id", protocol.ExitUsage, nil))
+		}
+		return a.daemonRequestWithParams(stdout, stderr, "limits.show", map[string]any{"session_id": args[1]})
+	case "extend":
+		return a.runLimitsExtend(args[1:], stdout, stderr)
+	default:
+		return writeProtocolError(stderr, protocol.UnsupportedFeature("limits "+args[0]))
+	}
+}
+
+func (a App) runLimitsExtend(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) == 0 {
+		return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "limits extend requires session_id", protocol.ExitUsage, nil))
+	}
+	params := map[string]any{"session_id": args[0]}
+	changes := map[string]any{}
+	var pendingKey string
+	for i := 1; i < len(args); i++ {
+		switch args[i] {
+		case "--blocked-event", "--authorized-by", "--reason", "--actor", "--command-id":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
+			}
+			params[strings.TrimPrefix(strings.ReplaceAll(args[i], "-", "_"), "__")] = args[i+1]
+			i++
+		case "--key":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--key requires a value", protocol.ExitUsage, nil))
+			}
+			pendingKey = args[i+1]
+			i++
+		case "--value":
+			if i+1 >= len(args) || pendingKey == "" {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--value requires a preceding --key", protocol.ExitUsage, nil))
+			}
+			changes[pendingKey] = parseScalar(args[i+1])
+			pendingKey = ""
+			i++
+		default:
+			return writeProtocolError(stderr, protocol.UnsupportedFeature("limits extend "+args[i]))
+		}
+	}
+	if params["blocked_event"] != nil {
+		params["blocked_event_id"] = params["blocked_event"]
+		delete(params, "blocked_event")
+	}
+	if len(changes) > 0 {
+		params["changes"] = changes
+	}
+	return a.daemonRequestWithParams(stdout, stderr, "limits.extend", params)
+}
+
+func delegationCommandName(sub string) (string, bool) {
+	allowed := map[string]struct{}{
+		"ack": {}, "message": {}, "clarify": {}, "answer-clarification": {},
+		"update": {}, "request-update": {}, "submit": {}, "review": {},
+		"review-question": {}, "review-answer": {}, "review-submit": {},
+		"revise": {}, "accept": {}, "escalate": {}, "escalation-flush": {},
+		"resolve-escalation": {},
+	}
+	if _, ok := allowed[sub]; !ok {
+		return "", false
+	}
+	return "delegate." + strings.ReplaceAll(sub, "-", "_"), true
+}
+
+func parseSimpleFlags(params map[string]any, args []string, stderr io.Writer, allowed map[string]bool) int {
+	for i := 0; i < len(args); i++ {
+		if !allowed[args[i]] {
+			return writeProtocolError(stderr, protocol.UnsupportedFeature(args[i]))
+		}
+		if i+1 >= len(args) {
+			return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
+		}
+		params[strings.TrimPrefix(strings.ReplaceAll(args[i], "-", "_"), "__")] = args[i+1]
+		i++
+	}
+	return protocol.ExitOK
+}
+
+func splitKeyValue(value string) (string, string, bool) {
+	key, val, ok := strings.Cut(value, "=")
+	key = strings.TrimSpace(key)
+	if !ok || key == "" {
+		return "", "", false
+	}
+	return key, val, true
+}
+
+func parseScalar(value string) any {
+	if value == "true" {
+		return true
+	}
+	if value == "false" {
+		return false
+	}
+	if i, err := strconv.Atoi(value); err == nil {
+		return i
+	}
+	if f, err := strconv.ParseFloat(value, 64); err == nil {
+		return f
+	}
+	return value
+}
+
+func payloadKey(flag string) string {
+	return strings.TrimPrefix(strings.ReplaceAll(flag, "-", "_"), "__")
+}
+
+func payloadListKey(flag string) string {
+	switch flag {
+	case "--required-change":
+		return "required_changes"
+	case "--review-focus":
+		return "review_focus"
+	case "--expected-output":
+		return "expected_outputs"
+	case "--included-event-id":
+		return "included_event_ids"
+	default:
+		return payloadKey(flag)
+	}
+}
+
+func appendPayloadString(payload map[string]any, key, value string) {
+	current, _ := payload[key].([]string)
+	payload[key] = append(current, value)
 }
 
 func (a App) runConformance(args []string, stdout io.Writer, stderr io.Writer) int {

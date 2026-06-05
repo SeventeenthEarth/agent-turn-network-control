@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_session_cancelled_cmd_cancel_conformance",
+  "command_id": "cmd_cancel_conformance",
+  "correlation_id": "sess_conformance_delegation",
+  "session_id": "sess_conformance_delegation",
+  "session_type": "delegation",
+  "phase": "cancelled",
+  "type": "session_cancelled",
+  "from": "agent-mod",
+  "to": [
+    "agent-1",
+    "agent-mod"
+  ],
+  "created_at": "2026-06-05T01:04:00Z",
+  "payload": {
+    "reason": "operator requested stop",
+    "cause": "review_cancel"
+  }
+}

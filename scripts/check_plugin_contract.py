@@ -42,17 +42,27 @@ REQUIRED_DELIVERY_FIXTURES = [
     "fixtures/event/user-escalation-delivery-failed.json",
 ]
 
+REQUIRED_CANCEL_FIXTURES = [
+    "fixtures/command/cancel-request.json",
+    "fixtures/command/cancel-response.json",
+    "fixtures/event/session-cancelled.json",
+    "fixtures/error/cancel-unauthorized.json",
+]
+
 REQUIRED_FIXTURES = [
     "fixtures/command/version-read-request.json",
     "fixtures/command/stream-replay-request.json",
     "fixtures/command/stream-ack-request.json",
     "fixtures/command/stream-ack-response.json",
+    *REQUIRED_CANCEL_FIXTURES[:2],
     *REQUIRED_DELIVERY_FIXTURES[:4],
     "fixtures/event/session-created-delegation.json",
+    REQUIRED_CANCEL_FIXTURES[2],
     "fixtures/event/stream-cursor-acknowledged.json",
     *REQUIRED_DELIVERY_FIXTURES[4:],
     "fixtures/error/unsupported-feature.json",
     "fixtures/error/active-session-lock.json",
+    REQUIRED_CANCEL_FIXTURES[3],
     "fixtures/error/cursor-gap.json",
     "fixtures/error/unauthorized-member.json",
     "fixtures/error/invalid-delivery-escalation-reference.json",
@@ -142,6 +152,9 @@ if missing_fixtures:
 missing_delivery = sorted(set(REQUIRED_DELIVERY_FIXTURES) - set(fixtures))
 if missing_delivery:
     raise SystemExit(f"core manifest missing delivery-evidence fixtures: {', '.join(missing_delivery)}")
+missing_cancel = sorted(set(REQUIRED_CANCEL_FIXTURES) - set(fixtures))
+if missing_cancel:
+    raise SystemExit(f"core manifest missing cancel/session_cancelled fixtures: {', '.join(missing_cancel)}")
 
 for schema in schemas:
     require_json_file(schema, "schema")

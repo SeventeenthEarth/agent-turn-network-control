@@ -39,8 +39,8 @@ The control repo can move without waiting for plugin UX work. The plugin can mov
 | DAEMN-002 command envelope fixture | implemented command envelope parsing plus request/response/idempotency/error fixtures | Python daemon client request builder | no live wrappers or external side effects by default |
 | DAEMN-002 stream frame fixture | implemented local daemon/CLI stream replay, bounded follow over durable `channel.jsonl`, ack, status, cursor validation, and stream fixtures | stream parser and diagnostic tools | bounded local follow only; no long-lived production streaming over Hermes/Discord/KAB |
 | DAEMN-002 structured error fixture | implemented structured error categories and JSON shape for local daemon/CLI failures | plugin error rendering and fail-closed UX | no success reinterpretation allowed |
-| DELEG-001 delegation commands | implemented daemon/CLI delegation commands | Plugin P3 delegation tools | skeleton/fake-daemon tests only |
-| DELEG-001 review commands | review/revision/accept commands | Plugin review tools | skeleton/fake-daemon tests only |
+| DELEG-001 delegation commands | implemented daemon/CLI delegation commands plus command/event/error fixtures, including canonical `cancel` / `session_cancelled` | Plugin P3 delegation tools | skeleton/fake-daemon tests only |
+| DELEG-001 review commands | implemented review/revision/accept commands plus review command/event fixtures | Plugin review tools | skeleton/fake-daemon tests only |
 | COUNC-001 council commands | council prepare/speak/vote/finalize commands | Plugin P4 council tools | skeleton/fake-daemon tests only |
 | DAEMN-002 delivery evidence commands | implemented local delivery success/failure evidence fixtures and daemon/CLI checks | Discord surface helper audit | fake gateway only until isolated e2e target exists |
 | TRANS-001 transcript/export | transcript and export commands | Plugin transcript/export tools | fixture rendering only |

@@ -199,6 +199,112 @@ func TestIntegrationDaemonStreamFollowEmitsReplayThenLive(t *testing.T) {
 	}
 }
 
+func TestIntegrationDaemonDelegationBlockResumeLimitsEscalationAndCancel(t *testing.T) {
+	dataHome := daemonDataHome(t)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+
+	created := server.Handle(protocol.NewRequest("deleg-new", "delegate.new", map[string]any{
+		"session_id":          "sess_daemon_deleg",
+		"moderator":           "agent-mod",
+		"assignee":            "agent-1",
+		"title":               "Daemon DELEG",
+		"task":                "prove daemon path",
+		"event_id":            "evt_daemon_deleg_created",
+		"assignment_event_id": "evt_daemon_deleg_assigned",
+		"command_id":          "cmd_daemon_deleg_new",
+	}))
+	if !created.OK {
+		t.Fatalf("delegate.new failed: %+v", created)
+	}
+	ack := server.Handle(protocol.NewRequest("deleg-ack", "delegate.ack", map[string]any{
+		"session_id": "sess_daemon_deleg",
+		"actor":      "agent-1",
+		"command_id": "cmd_daemon_deleg_ack",
+		"payload":    map[string]any{"understanding": "ok"},
+	}))
+	if !ack.OK {
+		t.Fatalf("delegate.ack failed: %+v", ack)
+	}
+	badBlock := server.Handle(protocol.NewRequest("bad-block", "block", map[string]any{"session_id": "sess_daemon_deleg", "actor": "agent-1", "category": "external_dependency", "reason": "not moderator"}))
+	if badBlock.OK || badBlock.Error == nil {
+		t.Fatalf("non-moderator block must fail closed: %+v", badBlock)
+	}
+	blocked := server.Handle(protocol.NewRequest("block", "block", map[string]any{"session_id": "sess_daemon_deleg", "category": "external_dependency", "reason": "dependency down", "command_id": "cmd_daemon_block"}))
+	if !blocked.OK || blocked.Result["event_id"] == "" {
+		t.Fatalf("block failed: %+v", blocked)
+	}
+	resumed := server.Handle(protocol.NewRequest("resume", "resume", map[string]any{"session_id": "sess_daemon_deleg", "blocked_event_id": blocked.Result["event_id"], "reason": "dependency recovered", "command_id": "cmd_daemon_resume"}))
+	if !resumed.OK {
+		t.Fatalf("resume failed: %+v", resumed)
+	}
+	cancelled := server.Handle(protocol.NewRequest("cancel", "cancel", map[string]any{"session_id": "sess_daemon_deleg", "reason": "done testing", "command_id": "cmd_daemon_cancel"}))
+	if !cancelled.OK {
+		t.Fatalf("cancel failed: %+v", cancelled)
+	}
+	sessionDir, _ := storage.SessionDir(dataHome, "sess_daemon_deleg")
+	metadata, _ := storage.LoadSessionYAML(sessionDir)
+	index, _ := storage.ReadLogIndex(sessionDir, metadata)
+	if got := index.Events[len(index.Events)-1].Type; got != "session_cancelled" {
+		t.Fatalf("common cancel must append session_cancelled, got %q", got)
+	}
+
+	budgetCreated := server.Handle(protocol.NewRequest("budget-new", "delegate.new", map[string]any{
+		"session_id":          "sess_daemon_budget",
+		"moderator":           "agent-mod",
+		"assignee":            "agent-1",
+		"title":               "Budget DELEG",
+		"task":                "prove limits path",
+		"event_id":            "evt_daemon_budget_created",
+		"assignment_event_id": "evt_daemon_budget_assigned",
+		"command_id":          "cmd_daemon_budget_new",
+	}))
+	if !budgetCreated.OK {
+		t.Fatalf("budget delegate.new failed: %+v", budgetCreated)
+	}
+	budgetDir, _ := storage.SessionDir(dataHome, "sess_daemon_budget")
+	budgetMeta, _ := storage.LoadSessionYAML(budgetDir)
+	if _, err := storage.AppendEvent(budgetDir, budgetMeta, storage.EventEnvelope{
+		SchemaVersion: protocol.SchemaVersion,
+		EventID:       "evt_daemon_budget_block",
+		CommandID:     "cmd_daemon_budget_block",
+		CorrelationID: budgetMeta.ID,
+		SessionID:     budgetMeta.ID,
+		SessionType:   budgetMeta.SessionType,
+		Phase:         "blocked",
+		Type:          "session_budget_exceeded",
+		From:          "kkachi-agent-networkd",
+		To:            []string{"agent-mod"},
+		CreatedAt:     daemonFixedRuntime().Now().Add(time.Second),
+		Payload:       map[string]any{"limit_kind": "max_runner_calls", "observed": 1, "limit": 1, "prior_phase": "working", "resume_phase": "working", "action": "session_blocked"},
+	}); err != nil {
+		t.Fatalf("append budget block: %v", err)
+	}
+	badResume := server.Handle(protocol.NewRequest("bad-resume", "resume", map[string]any{"session_id": budgetMeta.ID, "blocked_event_id": "evt_daemon_budget_block", "reason": "manual resume"}))
+	if badResume.OK || badResume.Error == nil {
+		t.Fatalf("manual resume of budget block must fail closed: %+v", badResume)
+	}
+	badExtend := server.Handle(protocol.NewRequest("bad-extend", "limits.extend", map[string]any{"session_id": budgetMeta.ID, "blocked_event_id": "evt_daemon_budget_block", "changes": map[string]any{"max_runner_calls": 2}}))
+	if badExtend.OK || badExtend.Error == nil {
+		t.Fatalf("limits.extend without user authorization must fail closed: %+v", badExtend)
+	}
+	extended := server.Handle(protocol.NewRequest("extend", "limits.extend", map[string]any{"session_id": budgetMeta.ID, "blocked_event_id": "evt_daemon_budget_block", "authorized_by": "user", "changes": map[string]any{"max_runner_calls": 2}, "command_id": "cmd_daemon_limits_extend"}))
+	if !extended.OK {
+		t.Fatalf("limits.extend failed: %+v", extended)
+	}
+	status := server.Handle(protocol.NewRequest("status", "status.session", map[string]any{"session_id": budgetMeta.ID}))
+	if !status.OK || status.Result["phase"] != storage.Phase("working") || status.Result["status"] != storage.StatusOpen {
+		t.Fatalf("status.session should show resumed working state: %+v", status)
+	}
+	escalated := server.Handle(protocol.NewRequest("escalate-low", "delegate.escalate", map[string]any{"session_id": budgetMeta.ID, "actor": "agent-1", "command_id": "cmd_daemon_escalate_low", "payload": map[string]any{"question": "batch me", "urgency": "low"}}))
+	if !escalated.OK {
+		t.Fatalf("low urgency escalation should batch locally: %+v", escalated)
+	}
+	batches := server.Handle(protocol.NewRequest("batches", "delegate.escalation_batches", map[string]any{"session_id": budgetMeta.ID}))
+	if !batches.OK || !strings.Contains(mustJSON(t, batches.Result), "escbatch") {
+		t.Fatalf("escalation batches missing pending batch: %+v", batches)
+	}
+}
+
 func TestIntegrationDaemonHealthRedactsRegistryAndSecretContent(t *testing.T) {
 	dataHome := daemonDataHome(t)
 	secret := "DISCORD_TOKEN_SHOULD_NOT_LEAK"

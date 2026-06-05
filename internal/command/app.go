@@ -63,7 +63,11 @@ func NewCLIWithRuntime(runtime registry.Runtime) App {
 			{Name: "storage", Description: "Verify or rebuild the local SQLite storage projection."},
 			{Name: "stream", Description: "Replay, follow, acknowledge, or inspect session event streams."},
 			{Name: "conformance", Description: "Show local protocol conformance fixtures."},
-			{Name: "delegate", Description: "Record delegation audit events such as delivery evidence."},
+			{Name: "delegate", Description: "Create delegation sessions and record delegation audit events."},
+			{Name: "cancel", Description: "Cancel an active session with a durable session_cancelled event."},
+			{Name: "block", Description: "Block an active session until a resumable condition is resolved."},
+			{Name: "resume", Description: "Resume a blocked session from its recorded resume phase."},
+			{Name: "limits", Description: "Show or extend local session limits with explicit authorization."},
 			{Name: "status", Description: "Show daemon or session status."},
 			{Name: "version", Description: "Print protocol and binary version information."},
 		},
@@ -117,6 +121,14 @@ func (a App) Run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return a.runConformance(args[1:], stdout, stderr)
 		case "delegate":
 			return a.runDelegate(args[1:], stdout, stderr)
+		case "cancel":
+			return a.runCancel(args[1:], stdout, stderr)
+		case "block":
+			return a.runBlock(args[1:], stdout, stderr)
+		case "resume":
+			return a.runResume(args[1:], stdout, stderr)
+		case "limits":
+			return a.runLimits(args[1:], stdout, stderr)
 		case "status":
 			return a.runStatus(args[1:], stdout, stderr)
 		}
@@ -183,13 +195,16 @@ func (a App) runDaemon(args []string, stdout io.Writer, stderr io.Writer) int {
 
 func (a App) runStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) > 0 && isHelp(args[0]) {
-		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s status\n\nShows daemon status. Session status is DAEMN-002+ and fails closed.\n", a.Name)
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s status\n  %s status <session_id> [--verbose]\n", a.Name, a.Name)
 		return 0
 	}
-	if len(args) != 0 {
-		return writeProtocolError(stderr, protocol.UnsupportedFeature("status session"))
+	if len(args) == 0 {
+		return a.daemonRequest(stdout, stderr, "status")
 	}
-	return a.daemonRequest(stdout, stderr, "status")
+	if len(args) > 2 || (len(args) == 2 && args[1] != "--verbose") {
+		return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "status requires at most session_id and --verbose", protocol.ExitUsage, nil))
+	}
+	return a.daemonRequestWithParams(stdout, stderr, "status.session", map[string]any{"session_id": args[0], "verbose": len(args) == 2})
 }
 
 func (a App) runDaemonForeground(args []string, stdout io.Writer, stderr io.Writer) int {

@@ -24,6 +24,28 @@ func (s *Server) handleDAEMN002(request protocol.CommandRequest) (protocol.Comma
 		return s.handleDeliveryEvidence(request, "delivered"), true
 	case "delegate.escalation_delivery_failed":
 		return s.handleDeliveryEvidence(request, "delivery_failed"), true
+	case "delegate.new":
+		return s.handleDelegateNew(request), true
+	case "delegate.ack", "delegate.message", "delegate.clarify", "delegate.answer_clarification",
+		"delegate.update", "delegate.request_update", "delegate.submit", "delegate.review",
+		"delegate.review_question", "delegate.review_answer", "delegate.review_submit",
+		"delegate.revise", "delegate.accept", "delegate.escalate", "delegate.escalation_flush",
+		"delegate.resolve_escalation":
+		return s.handleDelegationEvent(request), true
+	case "delegate.escalation_batches":
+		return s.handleEscalationBatches(request), true
+	case "cancel":
+		return s.handleCancel(request), true
+	case "block", "delegate.block":
+		return s.handleBlock(request), true
+	case "resume":
+		return s.handleResume(request), true
+	case "limits.show":
+		return s.handleLimitsShow(request), true
+	case "limits.extend":
+		return s.handleLimitsExtend(request), true
+	case "status.session":
+		return s.handleSessionStatus(request), true
 	default:
 		return protocol.CommandResponse{}, false
 	}

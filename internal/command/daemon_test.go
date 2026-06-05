@@ -373,6 +373,93 @@ func TestIntegrationDAEMN002CLIStreamAckStatusAndDeliveryEvidence(t *testing.T) 
 	}
 }
 
+func TestIntegrationCLIDelegateBlockResumeLimitsAndCancel(t *testing.T) {
+	dataHome := commandDaemonFixture(t)
+	t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+	app, cancel := cliWithInProcessDaemon(t)
+	defer cancel()
+	var startOut, startErr bytes.Buffer
+	if exitCode := app.Run([]string{"daemon", "start"}, &startOut, &startErr); exitCode != 0 {
+		t.Fatalf("start daemon: exit=%d stdout=%q stderr=%q", exitCode, startOut.String(), startErr.String())
+	}
+
+	runOK := func(args ...string) string {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		if exitCode := app.Run(args, &stdout, &stderr); exitCode != 0 {
+			t.Fatalf("%v exit=%d stdout=%q stderr=%q", args, exitCode, stdout.String(), stderr.String())
+		}
+		if !json.Valid(stdout.Bytes()) {
+			t.Fatalf("%v expected JSON stdout, got %q", args, stdout.String())
+		}
+		return stdout.String()
+	}
+	runFail := func(args ...string) string {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		if exitCode := app.Run(args, &stdout, &stderr); exitCode == 0 {
+			t.Fatalf("%v expected failure, stdout=%q stderr=%q", args, stdout.String(), stderr.String())
+		}
+		if !strings.Contains(stderr.String(), `"error"`) {
+			t.Fatalf("%v expected structured error, got stdout=%q stderr=%q", args, stdout.String(), stderr.String())
+		}
+		return stderr.String()
+	}
+
+	runOK("delegate", "new", "sess_cli_deleg", "--moderator", "agent-mod", "--assignee", "agent-1", "--title", "CLI DELEG", "--task", "prove CLI path", "--event-id", "evt_cli_deleg_created", "--assignment-event-id", "evt_cli_deleg_assigned", "--command-id", "cmd_cli_deleg_new")
+	runOK("delegate", "ack", "sess_cli_deleg", "--actor", "agent-1", "--understanding", "ok", "--command-id", "cmd_cli_deleg_ack")
+	runFail("block", "sess_cli_deleg", "--actor", "agent-1", "--category", "external_dependency", "--reason", "not moderator")
+	blockJSON := runOK("block", "sess_cli_deleg", "--category", "external_dependency", "--reason", "dependency down", "--command-id", "cmd_cli_block")
+	var blockResult struct {
+		EventID string `json:"event_id"`
+	}
+	if err := json.Unmarshal([]byte(blockJSON), &blockResult); err != nil || blockResult.EventID == "" {
+		t.Fatalf("decode block event id: result=%+v err=%v json=%s", blockResult, err, blockJSON)
+	}
+	runOK("resume", "sess_cli_deleg", "--blocked-event", blockResult.EventID, "--reason", "dependency recovered", "--command-id", "cmd_cli_resume")
+	cancelJSON := runOK("cancel", "sess_cli_deleg", "--reason", "done testing", "--command-id", "cmd_cli_cancel")
+	if !strings.Contains(cancelJSON, "evt_session_cancelled") {
+		t.Fatalf("cancel should return session_cancelled event id, got %s", cancelJSON)
+	}
+
+	runOK("delegate", "new", "sess_cli_budget", "--moderator", "agent-mod", "--assignee", "agent-1", "--title", "CLI budget", "--task", "prove limits path", "--event-id", "evt_cli_budget_created", "--assignment-event-id", "evt_cli_budget_assigned", "--command-id", "cmd_cli_budget_new")
+	budgetDir, err := storage.SessionDir(dataHome, "sess_cli_budget")
+	if err != nil {
+		t.Fatalf("SessionDir: %v", err)
+	}
+	budgetMeta, err := storage.LoadSessionYAML(budgetDir)
+	if err != nil {
+		t.Fatalf("LoadSessionYAML: %v", err)
+	}
+	if _, err := storage.AppendEvent(budgetDir, budgetMeta, storage.EventEnvelope{
+		SchemaVersion: protocol.SchemaVersion,
+		EventID:       "evt_cli_budget_block",
+		CommandID:     "cmd_cli_budget_block",
+		CorrelationID: budgetMeta.ID,
+		SessionID:     budgetMeta.ID,
+		SessionType:   budgetMeta.SessionType,
+		Phase:         "blocked",
+		Type:          "session_budget_exceeded",
+		From:          "kkachi-agent-networkd",
+		To:            []string{"agent-mod"},
+		CreatedAt:     commandFixedRuntime().Now().Add(time.Second),
+		Payload:       map[string]any{"limit_kind": "max_runner_calls", "observed": 1, "limit": 1, "prior_phase": "working", "resume_phase": "working", "action": "session_blocked"},
+	}); err != nil {
+		t.Fatalf("append budget block: %v", err)
+	}
+	runFail("resume", "sess_cli_budget", "--blocked-event", "evt_cli_budget_block", "--reason", "manual resume")
+	runFail("limits", "extend", "sess_cli_budget", "--blocked-event", "evt_cli_budget_block", "--key", "max_runner_calls", "--value", "2")
+	runOK("limits", "extend", "sess_cli_budget", "--blocked-event", "evt_cli_budget_block", "--key", "max_runner_calls", "--value", "2", "--authorized-by", "user", "--reason", "approved", "--command-id", "cmd_cli_limits_extend")
+	statusJSON := runOK("status", "sess_cli_budget", "--verbose")
+	if !strings.Contains(statusJSON, `"phase":"working"`) || !strings.Contains(statusJSON, `"status":"open"`) {
+		t.Fatalf("status should show limits-resumed open working session, got %s", statusJSON)
+	}
+	limitsJSON := runOK("limits", "show", "sess_cli_budget")
+	if !strings.Contains(limitsJSON, `"max_runner_calls"`) {
+		t.Fatalf("limits show missing limit fields: %s", limitsJSON)
+	}
+}
+
 func assertCommandJSONError(t *testing.T, stderr string, wantCode string, wantCategory string) {
 	t.Helper()
 	var envelope struct {

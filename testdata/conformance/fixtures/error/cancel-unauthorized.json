@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "request_id": "req_cancel_unauthorized_001",
+  "ok": false,
+  "error": {
+    "code": "validation_error",
+    "category": "validation",
+    "message": "only the moderator may cancel the session",
+    "details": {
+      "issues": "[{principal_invalid actor only the moderator may cancel the session}]"
+    }
+  }
+}

@@ -467,6 +467,7 @@ func wrapProjectionError(kind ProjectionErrorKind, detail string, err error) err
 type snapshotMember struct {
 	DisplayName string `yaml:"display_name"`
 	Wrapper     string `yaml:"wrapper"`
+	Workspace   string `yaml:"workspace"`
 	Role        string `yaml:"role"`
 }
 

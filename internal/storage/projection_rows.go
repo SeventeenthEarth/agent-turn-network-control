@@ -224,7 +224,7 @@ func (s *projectionState) applyEvent(metadata *SessionMetadata, offset int, even
 			session.resumePhase = anyString(event.Payload, "resume_phase")
 			session.blockedByEventID = event.EventID
 		}
-		if event.Type == "session_resumed" {
+		if event.Type == "session_resumed" || (event.Type == "limits_extended" && statusFromPhase(event.Phase) == StatusOpen) {
 			session.priorPhase, session.resumePhase, session.blockedByEventID = "", "", ""
 		}
 		if statusFromPhase(event.Phase) == StatusTerminal {

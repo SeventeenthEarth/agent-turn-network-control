@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "request_id": "req_cancel_001",
+  "ok": true,
+  "result": {
+    "cursor": "cur_000000000004_evt_session_cancelled_cmd_cancel_conformance",
+    "event_id": "evt_session_cancelled_cmd_cancel_conformance",
+    "offset": 4,
+    "deduplicated": false
+  }
+}
