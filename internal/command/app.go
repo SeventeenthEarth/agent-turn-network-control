@@ -1,16 +1,23 @@
 package command
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
+	"kkachi-agent-network-control/internal/daemon"
 	"kkachi-agent-network-control/internal/protocol"
 	"kkachi-agent-network-control/internal/registry"
 	"kkachi-agent-network-control/internal/storage"
+	"kkachi-agent-network-control/internal/transport"
 )
 
 // App describes a minimal local-only command surface for a KAN binary.
@@ -20,6 +27,7 @@ type App struct {
 	Commands    []CommandSummary
 	Runtime     registry.Runtime
 	Kind        appKind
+	StartDaemon func(dataHome string, runtime registry.Runtime) error
 }
 
 type appKind string
@@ -46,6 +54,7 @@ func NewCLIWithRuntime(runtime registry.Runtime) App {
 		Description: "Canonical KAN control CLI for diagnostics, recovery, and manual operation.",
 		Runtime:     runtime,
 		Kind:        appKindCLI,
+		StartDaemon: startDaemonProcess,
 		Commands: []CommandSummary{
 			{Name: "daemon", Description: "Manage or inspect the local daemon lifecycle."},
 			{Name: "doctor", Description: "Run read-only diagnostics for the control runtime."},
@@ -72,8 +81,8 @@ func NewDaemon() App {
 	}
 }
 
-// Run executes the bootstrap-safe command behavior. Only help/version-safe
-// surfaces are available until later roadmap tasks implement daemon features.
+// Run executes the local-only command behavior. Unsupported future features
+// fail closed with the shared structured error schema.
 func (a App) Run(args []string, stdout io.Writer, stderr io.Writer) int {
 	if a.Runtime.LookupEnv == nil {
 		a.Runtime = registry.DefaultRuntime()
@@ -84,12 +93,17 @@ func (a App) Run(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if args[0] == "version" {
+		if len(args) > 1 {
+			return writeProtocolError(stderr, protocol.UnsupportedFeature("version features"))
+		}
 		_, _ = fmt.Fprintf(stdout, "%s bootstrap protocol_version=%s schema_version=%d\n", a.Name, protocol.ProtocolVersion, protocol.SchemaVersion)
 		return 0
 	}
 
 	if a.Kind == appKindCLI {
 		switch args[0] {
+		case "daemon":
+			return a.runDaemon(args[1:], stdout, stderr)
 		case "init":
 			return a.runInit(args[1:], stdout, stderr)
 		case "doctor":
@@ -98,11 +112,18 @@ func (a App) Run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return a.runRegistry(args[1:], stdout, stderr)
 		case "storage":
 			return a.runStorage(args[1:], stdout, stderr)
+		case "status":
+			return a.runStatus(args[1:], stdout, stderr)
+		}
+	}
+	if a.Kind == appKindDaemon {
+		switch args[0] {
+		case "run":
+			return a.runDaemonForeground(args[1:], stdout, stderr)
 		}
 	}
 
-	_, _ = fmt.Fprintf(stderr, "%s: unsupported bootstrap command %q\nRun '%s --help' for available scaffold commands.\n", a.Name, args[0], a.Name)
-	return 3
+	return writeProtocolError(stderr, protocol.UnsupportedFeature(args[0]))
 }
 
 // Help renders deterministic local help text.
@@ -116,8 +137,155 @@ func (a App) Help() string {
 		fmt.Fprintf(&b, "  %-12s %s\n", cmd.Name, cmd.Description)
 	}
 	fmt.Fprintln(&b)
-	fmt.Fprintln(&b, "Status: bootstrap scaffold; state-mutating daemon features are not implemented in BOOTS-001.")
+	fmt.Fprintln(&b, "Status: DAEMN-001 local lifecycle and diagnostics; stream/session mutation commands fail closed until DAEMN-002+.")
 	return b.String()
+}
+
+func (a App) runDaemon(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) == 0 || isHelp(args[0]) {
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s daemon start\n  %s daemon stop\n  %s daemon status\n  %s daemon health\n", a.Name, a.Name, a.Name, a.Name)
+		return 0
+	}
+	switch args[0] {
+	case "start":
+		if len(args) != 1 {
+			_, _ = fmt.Fprintf(stderr, "%s daemon start: unexpected arguments: %s\n", a.Name, strings.Join(args[1:], " "))
+			return protocol.ExitUsage
+		}
+		return a.daemonStart(stdout, stderr)
+	case "stop":
+		if len(args) != 1 {
+			_, _ = fmt.Fprintf(stderr, "%s daemon stop: unexpected arguments: %s\n", a.Name, strings.Join(args[1:], " "))
+			return protocol.ExitUsage
+		}
+		return a.daemonStop(stdout, stderr)
+	case "status":
+		if len(args) != 1 {
+			_, _ = fmt.Fprintf(stderr, "%s daemon status: unexpected arguments: %s\n", a.Name, strings.Join(args[1:], " "))
+			return protocol.ExitUsage
+		}
+		return a.daemonRequest(stdout, stderr, "status")
+	case "health":
+		if len(args) != 1 {
+			_, _ = fmt.Fprintf(stderr, "%s daemon health: unexpected arguments: %s\n", a.Name, strings.Join(args[1:], " "))
+			return protocol.ExitUsage
+		}
+		return a.daemonRequest(stdout, stderr, "health")
+	default:
+		return writeProtocolError(stderr, protocol.UnsupportedFeature("daemon "+args[0]))
+	}
+}
+
+func (a App) runStatus(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) > 0 && isHelp(args[0]) {
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s status\n\nShows daemon status. Session status is DAEMN-002+ and fails closed.\n", a.Name)
+		return 0
+	}
+	if len(args) != 0 {
+		return writeProtocolError(stderr, protocol.UnsupportedFeature("status session"))
+	}
+	return a.daemonRequest(stdout, stderr, "status")
+}
+
+func (a App) runDaemonForeground(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) > 0 && isHelp(args[0]) {
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s run\n\nRuns the local daemon in the foreground on the Unix socket under data_home/run.\n", a.Name)
+		return 0
+	}
+	if len(args) != 0 {
+		_, _ = fmt.Fprintf(stderr, "%s run: unexpected arguments: %s\n", a.Name, strings.Join(args, " "))
+		return protocol.ExitUsage
+	}
+	dataHome, err := registry.ResolveDataHome(a.Runtime)
+	if err != nil {
+		return writeProtocolError(stderr, protocol.InternalError(err.Error()))
+	}
+	server := daemon.NewServer(dataHome, a.Runtime)
+	if err := server.Run(context.Background()); err != nil {
+		if protocol.ClassifyExit(err) == protocol.ExitOK {
+			_, _ = fmt.Fprintln(stdout, "daemon already running")
+			return protocol.ExitOK
+		}
+		return writeClassifiedError(stderr, err)
+	}
+	return protocol.ExitOK
+}
+
+func (a App) daemonStart(stdout io.Writer, stderr io.Writer) int {
+	dataHome, err := registry.ResolveDataHome(a.Runtime)
+	if err != nil {
+		return writeProtocolError(stderr, protocol.InternalError(err.Error()))
+	}
+	if err := registry.ValidateDataHome(dataHome, a.Runtime); err != nil {
+		return writeClassifiedError(stderr, err)
+	}
+	if _, err := registry.Load(dataHome, a.Runtime); err != nil {
+		daemon.RecordPreSessionViolation(dataHome, a.Runtime, "security_violation", "daemon_start_rejected", err)
+		return writeClassifiedError(stderr, err)
+	}
+	if _, err := transport.EnsureRuntimeDir(dataHome, a.Runtime); err != nil {
+		daemon.RecordPreSessionViolation(dataHome, a.Runtime, "security_violation", "daemon_start_rejected", err)
+		return writeClassifiedError(stderr, err)
+	}
+	socketPath := transport.SocketPath(dataHome)
+	status := transport.ClassifySocket(socketPath, 200*time.Millisecond)
+	switch status.State {
+	case transport.SocketLive:
+		_, _ = fmt.Fprintln(stdout, `{"daemon":"running","already_running":true}`)
+		return protocol.ExitOK
+	case transport.SocketMissing, transport.SocketStale:
+	case transport.SocketAmbiguous:
+		err := protocol.UnsafeRuntime("socket path is ambiguous", map[string]any{"socket": socketPath, "detail": status.Detail})
+		daemon.RecordPreSessionViolation(dataHome, a.Runtime, "security_violation", "daemon_start_rejected", err)
+		return writeProtocolError(stderr, err)
+	}
+	starter := a.StartDaemon
+	if starter == nil {
+		starter = startDaemonProcess
+	}
+	if err := starter(dataHome, a.Runtime); err != nil {
+		daemon.RecordPreSessionViolation(dataHome, a.Runtime, "daemon_start_failed", "daemon_start_rejected", err)
+		return writeProtocolError(stderr, protocol.InternalError(err.Error()))
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		response, err := transport.RoundTripWithRuntime(dataHome, a.Runtime, protocol.NewRequest("cli-start-ready", "ping", nil), 250*time.Millisecond)
+		if err == nil && response.OK {
+			_, _ = fmt.Fprintln(stdout, `{"daemon":"running","ready":true}`)
+			return protocol.ExitOK
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return writeProtocolError(stderr, protocol.DaemonUnavailable("daemon did not become ready before timeout"))
+}
+
+func (a App) daemonStop(stdout io.Writer, stderr io.Writer) int {
+	dataHome, err := registry.ResolveDataHome(a.Runtime)
+	if err != nil {
+		return writeProtocolError(stderr, protocol.InternalError(err.Error()))
+	}
+	response, err := transport.RoundTripWithRuntime(dataHome, a.Runtime, protocol.NewRequest("cli-stop", "shutdown", nil), time.Second)
+	if err != nil {
+		return writeProtocolError(stderr, protocol.ToStructuredError(err))
+	}
+	writeJSON(stdout, response.Result)
+	return protocol.ExitOK
+}
+
+func (a App) daemonRequest(stdout io.Writer, stderr io.Writer, command string) int {
+	dataHome, err := registry.ResolveDataHome(a.Runtime)
+	if err != nil {
+		return writeProtocolError(stderr, protocol.InternalError(err.Error()))
+	}
+	response, err := transport.RoundTripWithRuntime(dataHome, a.Runtime, protocol.NewRequest("cli-"+command, command, nil), time.Second)
+	if err != nil {
+		if response.Error != nil {
+			return writeProtocolError(stderr, response.Error)
+		}
+		return writeProtocolError(stderr, protocol.ToStructuredError(err))
+	}
+	writeJSON(stdout, response.Result)
+	return protocol.ExitOK
 }
 
 func (a App) runInit(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -186,7 +354,15 @@ func (a App) runDoctor(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	_, _ = fmt.Fprintln(stdout, "registry_status: valid")
 	_, _ = fmt.Fprintf(stdout, "registry_sha256: %s\n", loaded.SourceSHA256)
-	_, _ = fmt.Fprintln(stdout, "daemon_status: not_implemented")
+	socketPath := transport.SocketPath(dataHome)
+	socketStatus := transport.ClassifySocket(socketPath, 50*time.Millisecond)
+	_, _ = fmt.Fprintf(stdout, "socket_path: %s\n", socketPath)
+	_, _ = fmt.Fprintf(stdout, "socket_status: %s\n", socketStatus.State)
+	if socketStatus.State == transport.SocketLive {
+		_, _ = fmt.Fprintln(stdout, "daemon_status: reachable")
+	} else {
+		_, _ = fmt.Fprintln(stdout, "daemon_status: unavailable")
+	}
 	report, err := storage.VerifyStorage(dataHome, storage.VerifyOptions{Runtime: a.Runtime})
 	if err != nil {
 		status := "invalid"
@@ -309,10 +485,62 @@ func writeRegistryError(stderr io.Writer, command string, err error) int {
 		for _, issue := range registry.Issues(err) {
 			_, _ = fmt.Fprintf(stderr, "  %s\n", issue.String())
 		}
-		return 1
+		return classifyRegistryExit(err)
 	}
 	_, _ = fmt.Fprintf(stderr, "%s failed: %v\n", command, err)
 	return 70
+}
+
+func writeClassifiedError(stderr io.Writer, err error) int {
+	if registry.IsValidationError(err) {
+		return writeProtocolError(stderr, registryProtocolError(err))
+	}
+	if storage.ProjectionKind(err) != "" {
+		switch storage.ProjectionKind(err) {
+		case storage.ProjectionErrorUnsafeDataHome:
+			return writeProtocolError(stderr, protocol.UnsafeRuntime(err.Error(), nil))
+		case storage.ProjectionErrorReplay, storage.ProjectionErrorMigration, storage.ProjectionErrorStorage:
+			return writeProtocolError(stderr, protocol.StorageFailure(err.Error(), nil))
+		case storage.ProjectionErrorValidation:
+			return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, err.Error(), protocol.ExitUsage, nil))
+		default:
+			return writeProtocolError(stderr, protocol.InternalError(err.Error()))
+		}
+	}
+	return writeProtocolError(stderr, protocol.ToStructuredError(err))
+}
+
+func registryProtocolError(err error) *protocol.StructuredError {
+	if classifyRegistryExit(err) == protocol.ExitUnsafe {
+		return protocol.UnsafeRuntime("registry or data_home is unsafe", map[string]any{"detail": "[REDACTED]"})
+	}
+	return protocol.NewError(protocol.ErrorValidation, err.Error(), protocol.ExitUsage, nil)
+}
+
+func classifyRegistryExit(err error) int {
+	for _, issue := range registry.Issues(err) {
+		switch issue.Category {
+		case registry.CategoryDataHomeUnsafe, registry.CategoryNotRegular, registry.CategorySymlinkForbidden,
+			registry.CategoryOwnerUnsafe, registry.CategoryPermissionsUnsafe, registry.CategoryChangedDuringLoad:
+			return protocol.ExitUnsafe
+		}
+	}
+	return protocol.ExitUsage
+}
+
+func writeProtocolError(stderr io.Writer, err error) int {
+	structured := protocol.ToStructuredError(err)
+	_, _ = stderr.Write(protocol.WriteJSONError(structured))
+	return protocol.ClassifyExit(structured)
+}
+
+func writeJSON(stdout io.Writer, value any) {
+	data, err := json.Marshal(value)
+	if err != nil {
+		_, _ = fmt.Fprintln(stdout, `{"error":"marshal_failed"}`)
+		return
+	}
+	_, _ = stdout.Write(append(data, '\n'))
 }
 
 func writeStorageError(stdout io.Writer, stderr io.Writer, command string, report *storage.VerifyReport, err error) int {
@@ -398,6 +626,43 @@ func writeRegistrySummary(stdout io.Writer, loaded *registry.LoadedRegistry) {
 		_, _ = fmt.Fprintf(stdout, "  wrapper_path: %s\n", path)
 		_, _ = fmt.Fprintf(stdout, "  workspace: %s\n", member.Workspace)
 	}
+}
+
+func startDaemonProcess(dataHome string, runtime registry.Runtime) error {
+	path, err := daemonExecutable()
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(path, "run")
+	cmd.Env = append(os.Environ(), "KKACHI_AGENT_NETWORK_HOME="+dataHome)
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	return cmd.Process.Release()
+}
+
+func daemonExecutable() (string, error) {
+	if value := os.Getenv("KKACHI_AGENT_NETWORKD_PATH"); value != "" {
+		return value, nil
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	base := filepath.Base(exe)
+	if base == "kkachi-agent-networkd" {
+		return exe, nil
+	}
+	sibling := filepath.Join(filepath.Dir(exe), "kkachi-agent-networkd")
+	if info, err := os.Stat(sibling); err == nil && !info.IsDir() {
+		return sibling, nil
+	}
+	if path, err := exec.LookPath("kkachi-agent-networkd"); err == nil {
+		return path, nil
+	}
+	return "", errors.New("kkachi-agent-networkd executable not found")
 }
 
 func isHelp(arg string) bool {

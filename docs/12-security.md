@@ -188,6 +188,8 @@ Pre-session registry violations are written to `<data_home>/operational.log`:
 - registry schema parse failure during daemon start;
 - registry validation failure during session creation **before** the session directory is committed.
 
+If the resolved `<data_home>` itself is unsafe, unavailable, or ambiguous, the daemon fails closed without writing `operational.log`; writing to that location would rely on the path that was just rejected. Operators must repair or reinitialize the data home before pre-session logging can resume.
+
 Session-scoped registry or snapshot violations emit `security_violation` to the active session's `channel.jsonl`:
 
 - an active session's `registry_snapshot.yaml` is missing when dispatch requires it;

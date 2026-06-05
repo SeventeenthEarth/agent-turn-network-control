@@ -28,6 +28,7 @@ kkachi-agent-network-control/
     kkachi-agent-networkd/
       main.go
   internal/
+    command/
     cli/
     daemon/
     engine/
@@ -38,6 +39,7 @@ kkachi-agent-network-control/
     runner/
     storage/
     transcript/
+    transport/
   testdata/
     conformance/
   tests/

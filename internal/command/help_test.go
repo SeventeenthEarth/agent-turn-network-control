@@ -70,14 +70,14 @@ func TestUnitUnsupportedBootstrapCommandFailsClosed(t *testing.T) {
 
 			exitCode := app.Run([]string{"mutate-state"}, &stdout, &stderr)
 
-			if exitCode != 3 {
-				t.Fatalf("expected unsupported command exit code 3, got %d", exitCode)
+			if exitCode != 1 {
+				t.Fatalf("expected unsupported command exit code 1, got %d", exitCode)
 			}
 			if stdout.Len() != 0 {
 				t.Fatalf("expected empty stdout for unsupported command, got %q", stdout.String())
 			}
-			if !strings.Contains(stderr.String(), "unsupported bootstrap command") {
-				t.Fatalf("expected fail-closed stderr, got %q", stderr.String())
+			if !strings.Contains(stderr.String(), `"code":"unsupported_feature"`) {
+				t.Fatalf("expected structured fail-closed stderr, got %q", stderr.String())
 			}
 		})
 	}

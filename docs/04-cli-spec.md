@@ -963,6 +963,8 @@ Rules:
 
 JSON error envelopes accompany the matching exit code. Text-mode errors use the same exit codes so callers can branch on the numeric value alone if they do not parse JSON.
 
+DAEMN-001 commands that are intentionally deferred to DAEMN-002+ return `unsupported_feature` in the JSON error envelope with exit code `1` (validation error). Exit code `4` remains reserved for active-session lifecycle rejection and must not be reused for unsupported features.
+
 ## Error examples
 
 ### Active session exists (open)
