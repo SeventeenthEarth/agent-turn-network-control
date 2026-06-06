@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_task_assigned_conformance",
+  "command_id": "cmd_create_conformance",
+  "correlation_id": "sess_conformance_delegation",
+  "session_id": "sess_conformance_delegation",
+  "session_type": "delegation",
+  "phase": "assigned",
+  "type": "task_assigned",
+  "from": "agent-mod",
+  "to": [
+    "agent-1"
+  ],
+  "created_at": "2026-06-05T01:00:00Z",
+  "payload": {
+    "task": "Implement the conformance fixture intake without live services",
+    "context": "Static DELEG-002 fixture path for plugin contract tests.",
+    "acceptance_criteria": [
+      "fixtures parse from manifest",
+      "plugin treats control as source of truth"
+    ],
+    "expected_outputs": [
+      "implementation summary",
+      "verification evidence"
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "request_id": "req_delegate_review_submit_001",
+  "command": "delegate.review_submit",
+  "params": {
+    "session_id": "sess_conformance_delegation",
+    "actor": "agent-1",
+    "causation_event_id": "evt_review_requested_cmd_delegate_review_conformance",
+    "command_id": "cmd_delegate_review_submit_conformance",
+    "payload": {
+      "verdict": "changes_requested",
+      "findings": [
+        {
+          "severity": "medium",
+          "issue": "README omitted malformed-response policy",
+          "required_change": "Document fail-closed plugin handling."
+        }
+      ]
+    }
+  }
+}

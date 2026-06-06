@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_work_submitted_cmd_delegate_submit_conformance",
+  "command_id": "cmd_delegate_submit_conformance",
+  "causation_event_id": "evt_task_assigned_conformance",
+  "correlation_id": "sess_conformance_delegation",
+  "session_id": "sess_conformance_delegation",
+  "session_type": "delegation",
+  "phase": "submitted",
+  "type": "work_submitted",
+  "from": "agent-1",
+  "to": [
+    "agent-mod"
+  ],
+  "created_at": "2026-06-05T01:02:00Z",
+  "payload": {
+    "summary": "Implementation complete with local fixture validation evidence."
+  }
+}

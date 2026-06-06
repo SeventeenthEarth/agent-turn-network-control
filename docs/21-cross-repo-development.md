@@ -39,8 +39,8 @@ The control repo can move without waiting for plugin UX work. The plugin can mov
 | DAEMN-002 command envelope fixture | implemented command envelope parsing plus request/response/idempotency/error fixtures | Python daemon client request builder | no live wrappers or external side effects by default |
 | DAEMN-002 stream frame fixture | implemented local daemon/CLI stream replay, bounded follow over durable `channel.jsonl`, ack, status, cursor validation, and stream fixtures | stream parser and diagnostic tools | bounded local follow only; no long-lived production streaming over Hermes/Discord/KAB |
 | DAEMN-002 structured error fixture | implemented structured error categories and JSON shape for local daemon/CLI failures | plugin error rendering and fail-closed UX | no success reinterpretation allowed |
-| DELEG-001 delegation commands | implemented daemon/CLI delegation commands plus command/event/error fixtures, including canonical `cancel` / `session_cancelled` | Plugin P3 delegation tools | skeleton/fake-daemon tests only |
-| DELEG-001 review commands | implemented review/revision/accept commands plus review command/event fixtures | Plugin review tools | skeleton/fake-daemon tests only |
+| DELEG-001 delegation/review commands | implemented daemon/CLI delegation lifecycle, review gates, blocked/resume handling, canonical `cancel` / `session_cancelled`, and local/fake coverage | Plugin P3 delegation/review tool scaffolding | skeleton/fake-daemon tests only; plugin must not invent missing fixture shapes |
+| DELEG-002 delegation/review fixture matrix | plugin-consumable command and structured-error fixtures for delegation/review success, canonical non-review `delegate.accept`, duplicate/idempotency, permission/error, retryable failure policy, and malformed-response fail-closed policy | Plugin DELRV-2 delegation/review failure coverage | no live gateway/runtime readiness claim; plugin consumes control fixtures and remains fail-closed on malformed daemon responses |
 | COUNC-001 council commands | council prepare/speak/vote/finalize commands | Plugin P4 council tools | skeleton/fake-daemon tests only |
 | DAEMN-002 delivery evidence commands | implemented local delivery success/failure evidence fixtures and daemon/CLI checks | Discord surface helper audit | fake gateway only until isolated e2e target exists |
 | TRANS-001 transcript/export | transcript and export commands | Plugin transcript/export tools | fixture rendering only |
@@ -52,7 +52,7 @@ The control repo can move without waiting for plugin UX work. The plugin can mov
 | P0 Scaffold | control docs/21 exists, control Makefile exposes `check-plugin-contract` | installed/working Hermes integration; P0 may claim scaffold readiness only |
 | P1 Python daemon client | fixture manifest and version/feature contract | release-ready write behavior |
 | P2 Hermes status/diagnostic tools | daemon status/session/stream fixtures | domain command coverage |
-| P3 Delegation/review tools | control delegation/review command fixtures or implemented CLI | production delegation support |
+| P3 Delegation/review tools | control delegation/review CLI behavior plus DELEG-002 fixture matrix for plugin-consumable command/error shapes | production delegation support |
 | P4 Council/Discord surface | council command fixtures plus delivery evidence contract | live Discord support without isolated E2E |
 | P5 Skill/distribution | implemented command matrix and compatibility version | general install readiness |
 
@@ -84,6 +84,8 @@ Control owns `testdata/conformance/manifest.json`. Every contract-affecting chan
 2. this document;
 3. plugin `docs/07-core-compatibility.md` or its supported-version matrix;
 4. cross-repo check scripts if the expected shape changes.
+
+Valid fixture manifest entries should remain schema-valid examples. Malformed JSON or intentionally schema-invalid daemon payloads are negative-test inputs: either place them in a clearly marked invalid-fixture policy surface or document them as plugin-local fail-closed tests derived from the command/structured-error schemas. Do not list invalid payloads as ordinary valid conformance fixtures unless the manifest and checker explicitly support that category.
 
 ## Parallel development modes
 

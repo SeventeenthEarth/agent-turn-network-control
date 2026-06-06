@@ -45,6 +45,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs are derived from the 
 | Task ID | Task Title | Task Status | Task Description |
 | --- | --- | --- | --- |
 | DELEG-001 | Delegation and review gates | completed | Implement delegation lifecycle, review request/response gates, blocked/resume handling, CLI/E2E fake coverage, and audit evidence. |
+| DELEG-002 | Delegation/review conformance fixture matrix | completed | Publish plugin-consumable delegation/review command and structured-error fixtures for success, duplicate/idempotency, permission/error, retryable failure policy, and malformed-response handling so kan-plugin DELRV-2 can add failure coverage without inventing control-owned shapes. |
 
 ## COUNC — Council/consensus
 

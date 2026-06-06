@@ -47,7 +47,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | Phase 2 | STORE | `channel.jsonl`, SQLite projection, replay | append/replay/projection tests pass |
 | Phase 3 | DAEMN | daemon, CLI, stream, structured errors, conformance fixtures | CLI integration + conformance tests pass |
 | Phase 4 | RUNRT | member runtime loop contract and bounded `hermes-agent` runner | fake runner/runtime tests pass |
-| Phase 5 | DELEG | delegation and review gate | delegation/review E2E via CLI and fakes pass |
+| Phase 5 | DELEG | delegation and review gate plus plugin-consumable fixture handoff | delegation/review E2E via CLI/fakes and conformance fixture checks pass |
 | Phase 6 | COUNC | council and consensus | council/consensus tests pass |
 | Phase 7 | TRANS | transcript/export/distribution docs | golden transcript + install docs pass |
 | Phase 8 | RELIA | reliability, observability, disaster recovery | full Release v1 acceptance suite pass |
@@ -92,6 +92,13 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 - Publish compatibility guidance for the plugin repo.
 - Forbid shared-source assumptions; compatibility is through protocol and tests.
 
-## RUNRT / DELEG / COUNC / TRANS / RELIA summary
+## DELEG — Delegation/review
 
-Later epics preserve the previous product behavior: member runtime and runner adapter, delegation, review gate, council discussion, consensus, transcript/export, distribution, observability, disaster recovery, and full testing. Each epic must include unit, integration, and, when appropriate, isolated E2E tests mapped to the Makefile target contract in `18-testing-strategy.md`.
+| Task ID | Scope | Suggested paths | Verification |
+| --- | --- | --- | --- |
+| DELEG-001 | Implement delegation lifecycle, review request/response gates, blocked/resume handling, CLI/E2E fake coverage, and audit evidence. | `internal/`, `cmd/`, `tests/`, `docs/03-protocol-spec.md`, `docs/04-cli-spec.md`, `docs/06-state-machine.md`, `docs/13-operational-contracts.md` | delegation/review local CLI and fake E2E checks, `make check-plugin-contract`, `make test` |
+| DELEG-002 | Publish plugin-consumable delegation/review command and structured-error fixtures for success, duplicate/idempotency, permission/error, retryable failure policy, and malformed-response handling. | `testdata/conformance/`, conformance validation tests, `docs/22-deleg-002-conformance-fixture-matrix.md`, `docs/21-cross-repo-development.md`, `docs/18-testing-strategy.md` | manifest/fixture validation, `make check-plugin-contract`, `make test`, downstream `make check-core-contract` from the plugin repo |
+
+## RUNRT / COUNC / TRANS / RELIA summary
+
+Remaining summarized epics preserve the previous product behavior: member runtime and runner adapter, council discussion, consensus, transcript/export, distribution, observability, disaster recovery, and full testing. Each epic must include unit, integration, and, when appropriate, isolated E2E tests mapped to the Makefile target contract in `18-testing-strategy.md`.

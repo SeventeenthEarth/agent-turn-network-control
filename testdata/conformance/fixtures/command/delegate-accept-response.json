@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "request_id": "req_delegate_accept_001",
+  "ok": true,
+  "result": {
+    "cursor": "cur_000000000005_evt_work_accepted_cmd_delegate_accept_conformance",
+    "event_id": "evt_work_accepted_cmd_delegate_accept_conformance",
+    "offset": 5,
+    "deduplicated": false
+  }
+}

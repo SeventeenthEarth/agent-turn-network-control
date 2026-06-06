@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "request_id": "req_delegate_review_submit_001",
+  "ok": true,
+  "result": {
+    "cursor": "cur_000000000004_evt_review_submitted_cmd_delegate_review_submit_conformance",
+    "event_id": "evt_review_submitted_cmd_delegate_review_submit_conformance",
+    "offset": 4,
+    "deduplicated": false
+  }
+}

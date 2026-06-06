@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "request_id": "req_delegate_review_submit_invalid_verdict_001",
+  "ok": false,
+  "error": {
+    "code": "validation_error",
+    "category": "validation",
+    "message": "storage_invalid_envelope: verdict: invalid review verdict",
+    "details": {
+      "category": "storage_invalid_envelope",
+      "path": "verdict"
+    }
+  }
+}

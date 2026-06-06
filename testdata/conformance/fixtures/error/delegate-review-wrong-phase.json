@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "request_id": "req_delegate_review_wrong_phase_001",
+  "ok": false,
+  "error": {
+    "code": "validation_error",
+    "category": "validation",
+    "message": "review is not allowed from phase assigned",
+    "details": {
+      "category": "storage_command_conflict",
+      "path": "phase"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_review_submitted_cmd_delegate_review_submit_conformance",
+  "command_id": "cmd_delegate_review_submit_conformance",
+  "causation_event_id": "evt_review_requested_cmd_delegate_review_conformance",
+  "correlation_id": "sess_conformance_delegation",
+  "session_id": "sess_conformance_delegation",
+  "session_type": "delegation",
+  "phase": "under_review",
+  "type": "review_submitted",
+  "from": "agent-1",
+  "to": [
+    "agent-mod"
+  ],
+  "created_at": "2026-06-05T01:04:00Z",
+  "payload": {
+    "verdict": "changes_requested",
+    "findings": [
+      {
+        "severity": "medium",
+        "issue": "README omitted malformed-response policy",
+        "required_change": "Document fail-closed plugin handling."
+      }
+    ]
+  }
+}

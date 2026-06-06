@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "request_id": "req_delegate_submit_002_duplicate",
+  "command": "delegate.submit",
+  "params": {
+    "session_id": "sess_conformance_delegation",
+    "actor": "agent-1",
+    "causation_event_id": "evt_task_assigned_conformance",
+    "command_id": "cmd_delegate_submit_conformance",
+    "payload": {
+      "summary": "Implementation complete with local fixture validation evidence."
+    }
+  }
+}

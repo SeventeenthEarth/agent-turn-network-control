@@ -65,7 +65,8 @@ Control conformance fixtures are stored under `testdata/conformance/` once code 
 - structured errors;
 - version/feature compatibility responses;
 - delivery evidence commands for Discord/helper surfaces;
-- DELEG-001 delegation/review command envelopes, review/cancel events, and fail-closed error fixtures, including canonical `cancel` / `session_cancelled` coverage;
+- DELEG-001 local/fake delegation and review-gate behavior, including canonical `cancel` / `session_cancelled` coverage;
+- DELEG-002 plugin-consumable delegation/review command envelopes, structured-error fixtures, duplicate/idempotency policy, permission/error examples, retryable failure policy, and malformed-response fail-closed policy;
 - local/fake RUNRT runner event envelopes (`runner_invocation_started`, `runner_invocation_failed`, terminal semantic runner events, and `runner_result_discarded`).
 
 The plugin repository must run its Python client against either copied fixtures or a temporary daemon built from this repo.
@@ -77,9 +78,21 @@ DELEG-001 tests are local/fake only. The control repo verifies:
 - daemon/CLI/storage delegation lifecycle commands from `delegate new` through acknowledgement, clarification, messaging, updates, submit, review/revise/accept, block/resume, escalation audit, and canonical `cancel`;
 - fail-closed actor, recipient, phase, causation, duplicate command-id, unsafe artifact, malformed review finding, terminal cancel/accept, and budget-block resume validation;
 - projection/replay behavior for review rows, artifact references, blocked metadata, `limits_extended` unblocking, terminal `cancelled` status, `closed_at`, and active-session lock release;
-- conformance fixtures for delegation/review command, event, response, and structured-error shapes.
+- local/fake evidence for delegation/review command, event, response, and structured-error behavior. Plugin-consumable fixture publication is completed by DELEG-002.
 
 Passing DELEG-001 tests does **not** imply live Hermes, Discord, KAB, gateway, or plugin readiness.
+
+## DELEG-002 conformance fixture publication scope
+
+DELEG-002 tests must keep the fixture contract plugin-consumable without turning plugin assumptions into control authority. The control repo verifies:
+
+- `testdata/conformance/manifest.json` references only valid fixture entries unless an explicit invalid-fixture policy is added;
+- delegation/review success request/response examples are available for the canonical command models needed by plugin DELRV-2, including `delegate.new`, `delegate.review`, `delegate.review_submit`, and canonical non-review `delegate.accept`;
+- duplicate/idempotency behavior is represented by one explicit control-owned response shape; the `delegate.submit` duplicate fixture is representative of the general `command_id` idempotency rule, not submit-only behavior;
+- permission and validation errors use safe structured-error fields with no secrets or live identifiers;
+- retryable failure exposure is either implemented as a public structured-error fixture or explicitly documented as outside the public command-response contract;
+- malformed daemon payload handling is documented as fail-closed negative-test policy and is not silently treated as a valid success shape;
+- cross-repo checks still pass without contacting live Hermes, Discord, KAB, gateway, auth, token, or external daemon resources.
 
 ## RUNRT-001 local verification scope
 

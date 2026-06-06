@@ -47,6 +47,7 @@ The Python Hermes plugin has its own repository and documentation at `../../kkac
 20. `19-tooling.md` — Go control/runtime scaffold, Makefile, local/CI commands
 21. `20-discord-thread-council-tobe.md` — Discord thread council surface design
 22. `21-cross-repo-development.md` — parallel control/plugin milestone, conformance, and cross-repo check contract
+23. `22-deleg-002-conformance-fixture-matrix.md` — DELEG-002 fixture publication task brief for delegation/review plugin handoff
 
 `11-distribution-and-skill.md` is deprecated by the repo split and replaced by `11-distribution-and-plugin.md`.
 
@@ -78,10 +79,13 @@ The control repo Makefile owns Go checks and control docs guardrails. The plugin
 9. `19-tooling.md`
 10. `21-cross-repo-development.md`
 11. `09-implementation-epics.md`
-12. plugin docs in `../../kkachi-agent-network-plugin/docs/`
+12. `22-deleg-002-conformance-fixture-matrix.md` when planning or implementing DELEG-002 / plugin DELRV-2 unblock work
+13. plugin docs in `../../kkachi-agent-network-plugin/docs/`
 
 ## Current implementation state
 
-This repository has the BOOTS-001 scaffold plus DAEMN-002 local control surfaces implemented. The local daemon/CLI now expose protocol/version features, structured command envelopes, stream replay with bounded local follow over durable `channel.jsonl`, stream ack/status, structured errors, active-session lock evidence, delivery-evidence fixtures/checks, and static conformance fixtures under `testdata/conformance/`.
+This repository has the BOOTS-001 scaffold plus DAEMN-002 local control surfaces and DELEG-001 local delegation/review gates implemented. The local daemon/CLI now expose protocol/version features, structured command envelopes, stream replay with bounded local follow over durable `channel.jsonl`, stream ack/status, structured errors, active-session lock evidence, delivery-evidence fixtures/checks, and static conformance fixtures under `testdata/conformance/`.
+
+DELEG-002 publishes the control-owned plugin-consumable delegation/review fixture matrix for success, duplicate/idempotency, permission/error, retryable failure policy, and malformed-response handling. Plugin delegation/review failure coverage must consume these control fixtures and must not invent control-owned command or error shapes.
 
 `live_readiness` remains `false`: real wrappers/RUNRT, live Hermes/Discord/KAB/gateway/auth/token integrations, and external E2E are still future scope and are not contacted by default test targets.

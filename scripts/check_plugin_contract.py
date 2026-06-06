@@ -49,6 +49,29 @@ REQUIRED_CANCEL_FIXTURES = [
     "fixtures/error/cancel-unauthorized.json",
 ]
 
+REQUIRED_DELEGATION_REVIEW_FIXTURES = [
+    "fixtures/command/delegate-new-request.json",
+    "fixtures/command/delegate-new-response.json",
+    "fixtures/command/delegate-submit-request.json",
+    "fixtures/command/delegate-submit-response.json",
+    "fixtures/command/delegate-submit-duplicate-request.json",
+    "fixtures/command/delegate-submit-duplicate-response.json",
+    "fixtures/command/delegate-review-request.json",
+    "fixtures/command/delegate-review-response.json",
+    "fixtures/command/delegate-review-submit-request.json",
+    "fixtures/command/delegate-review-submit-response.json",
+    "fixtures/command/delegate-accept-request.json",
+    "fixtures/command/delegate-accept-response.json",
+    "fixtures/event/task-assigned-delegation.json",
+    "fixtures/event/work-submitted.json",
+    "fixtures/event/review-requested.json",
+    "fixtures/event/review-submitted.json",
+    "fixtures/event/work-accepted.json",
+    "fixtures/error/delegate-unauthorized-actor.json",
+    "fixtures/error/delegate-review-wrong-phase.json",
+    "fixtures/error/delegate-review-submit-invalid-verdict.json",
+]
+
 REQUIRED_FIXTURES = [
     "fixtures/command/version-read-request.json",
     "fixtures/command/stream-replay-request.json",
@@ -60,6 +83,7 @@ REQUIRED_FIXTURES = [
     REQUIRED_CANCEL_FIXTURES[2],
     "fixtures/event/stream-cursor-acknowledged.json",
     *REQUIRED_DELIVERY_FIXTURES[4:],
+    *REQUIRED_DELEGATION_REVIEW_FIXTURES,
     "fixtures/error/unsupported-feature.json",
     "fixtures/error/active-session-lock.json",
     REQUIRED_CANCEL_FIXTURES[3],
@@ -155,6 +179,12 @@ if missing_delivery:
 missing_cancel = sorted(set(REQUIRED_CANCEL_FIXTURES) - set(fixtures))
 if missing_cancel:
     raise SystemExit(f"core manifest missing cancel/session_cancelled fixtures: {', '.join(missing_cancel)}")
+missing_delegation_review = sorted(set(REQUIRED_DELEGATION_REVIEW_FIXTURES) - set(fixtures))
+if missing_delegation_review:
+    raise SystemExit(
+        "core manifest missing DELEG-002 delegation/review fixtures: "
+        + ", ".join(missing_delegation_review)
+    )
 
 for schema in schemas:
     require_json_file(schema, "schema")

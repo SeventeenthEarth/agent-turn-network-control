@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_work_accepted_cmd_delegate_accept_conformance",
+  "command_id": "cmd_delegate_accept_conformance",
+  "causation_event_id": "evt_review_submitted_cmd_delegate_review_submit_conformance",
+  "correlation_id": "sess_conformance_delegation",
+  "session_id": "sess_conformance_delegation",
+  "session_type": "delegation",
+  "phase": "accepted",
+  "type": "work_accepted",
+  "from": "agent-mod",
+  "to": [
+    "agent-1",
+    "agent-mod"
+  ],
+  "created_at": "2026-06-05T01:05:00Z",
+  "payload": {
+    "final_summary": "Accepted after review fixture validation."
+  }
+}

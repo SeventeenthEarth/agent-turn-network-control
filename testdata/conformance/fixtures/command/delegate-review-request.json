@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "request_id": "req_delegate_review_001",
+  "command": "delegate.review",
+  "params": {
+    "session_id": "sess_conformance_delegation",
+    "actor": "agent-mod",
+    "recipients": [
+      "agent-1"
+    ],
+    "causation_event_id": "evt_work_submitted_cmd_delegate_submit_conformance",
+    "command_id": "cmd_delegate_review_conformance",
+    "payload": {
+      "review_focus": [
+        "contract shape",
+        "fail-closed behavior"
+      ]
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "request_id": "req_delegate_accept_001",
+  "command": "delegate.accept",
+  "params": {
+    "session_id": "sess_conformance_delegation",
+    "actor": "agent-mod",
+    "causation_event_id": "evt_review_submitted_cmd_delegate_review_submit_conformance",
+    "command_id": "cmd_delegate_accept_conformance",
+    "payload": {
+      "final_summary": "Accepted after review fixture validation."
+    }
+  }
+}

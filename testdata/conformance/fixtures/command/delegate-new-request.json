@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "request_id": "req_delegate_new_001",
+  "command": "delegate.new",
+  "params": {
+    "session_id": "sess_conformance_delegation",
+    "moderator": "agent-mod",
+    "assignee": "agent-1",
+    "participants": [
+      "agent-mod",
+      "agent-1"
+    ],
+    "title": "Conformance delegation fixture",
+    "task": "Implement the conformance fixture intake without live services",
+    "context": "Static DELEG-002 fixture path for plugin contract tests.",
+    "acceptance": [
+      "fixtures parse from manifest",
+      "plugin treats control as source of truth"
+    ],
+    "expected_outputs": [
+      "implementation summary",
+      "verification evidence"
+    ],
+    "event_id": "evt_created_001",
+    "assignment_event_id": "evt_task_assigned_conformance",
+    "command_id": "cmd_create_conformance",
+    "correlation_id": "sess_conformance_delegation"
+  }
+}
