@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "request_id": "req_council_request_attendance_001",
+  "ok": true,
+  "result": {
+    "cursor": "cur_000000000001_evt_attendance_requested_cmd_council_request_attendance_conformance",
+    "event_id": "evt_attendance_requested_cmd_council_request_attendance_conformance",
+    "offset": 1,
+    "deduplicated": false
+  }
+}

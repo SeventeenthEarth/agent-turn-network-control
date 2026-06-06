@@ -26,6 +26,8 @@ func (s *Server) handleDAEMN002(request protocol.CommandRequest) (protocol.Comma
 		return s.handleDeliveryEvidence(request, "delivery_failed"), true
 	case "delegate.new":
 		return s.handleDelegateNew(request), true
+	case "council.new":
+		return s.handleCouncilNew(request), true
 	case "delegate.ack", "delegate.message", "delegate.clarify", "delegate.answer_clarification",
 		"delegate.update", "delegate.request_update", "delegate.submit", "delegate.review",
 		"delegate.review_question", "delegate.review_answer", "delegate.review_submit",
@@ -34,6 +36,12 @@ func (s *Server) handleDAEMN002(request protocol.CommandRequest) (protocol.Comma
 		return s.handleDelegationEvent(request), true
 	case "delegate.escalation_batches":
 		return s.handleEscalationBatches(request), true
+	case "council.request_attendance", "council.attend", "council.lock_agenda", "council.prepare",
+		"council.ready", "council.prepared_partial", "council.poll", "council.hand_raise",
+		"council.grant", "council.speak", "council.intervene", "council.propose",
+		"council.revise", "council.request_vote", "council.vote", "council.finalize",
+		"council.unresolved":
+		return s.handleCouncilEvent(request), true
 	case "cancel":
 		return s.handleCancel(request), true
 	case "block", "delegate.block":

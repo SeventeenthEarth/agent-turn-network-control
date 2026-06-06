@@ -74,6 +74,65 @@ var requiredDelegationReviewFixtures = []string{
 	"fixtures/error/delegate-review-submit-invalid-verdict.json",
 }
 
+var requiredCouncilLifecycleFixtures = []string{
+	"fixtures/command/council-new-request.json",
+	"fixtures/command/council-new-response.json",
+	"fixtures/command/council-request-attendance-request.json",
+	"fixtures/command/council-request-attendance-response.json",
+	"fixtures/command/council-attend-request.json",
+	"fixtures/command/council-attend-response.json",
+	"fixtures/command/council-lock-agenda-request.json",
+	"fixtures/command/council-lock-agenda-response.json",
+	"fixtures/command/council-prepare-request.json",
+	"fixtures/command/council-prepare-response.json",
+	"fixtures/command/council-ready-request.json",
+	"fixtures/command/council-ready-response.json",
+	"fixtures/command/council-prepared-partial-request.json",
+	"fixtures/command/council-prepared-partial-response.json",
+	"fixtures/command/council-poll-request.json",
+	"fixtures/command/council-poll-response.json",
+	"fixtures/command/council-hand-raise-request.json",
+	"fixtures/command/council-hand-raise-response.json",
+	"fixtures/command/council-grant-request.json",
+	"fixtures/command/council-grant-response.json",
+	"fixtures/command/council-speak-request.json",
+	"fixtures/command/council-speak-response.json",
+	"fixtures/command/council-intervene-request.json",
+	"fixtures/command/council-intervene-response.json",
+	"fixtures/command/council-propose-request.json",
+	"fixtures/command/council-propose-response.json",
+	"fixtures/command/council-revise-request.json",
+	"fixtures/command/council-revise-response.json",
+	"fixtures/command/council-request-vote-request.json",
+	"fixtures/command/council-request-vote-response.json",
+	"fixtures/command/council-vote-request.json",
+	"fixtures/command/council-vote-response.json",
+	"fixtures/command/council-finalize-request.json",
+	"fixtures/command/council-finalize-response.json",
+	"fixtures/command/council-unresolved-request.json",
+	"fixtures/command/council-unresolved-response.json",
+	"fixtures/event/session-created-council.json",
+	"fixtures/event/attendance-requested-council.json",
+	"fixtures/event/member-attended-council.json",
+	"fixtures/event/agenda-locked-council.json",
+	"fixtures/event/preparation-requested-council.json",
+	"fixtures/event/member-ready-council.json",
+	"fixtures/event/member-prepared-partial-council.json",
+	"fixtures/event/hand-raise-requested-council.json",
+	"fixtures/event/hand-raise-council.json",
+	"fixtures/event/speaker-selected-council.json",
+	"fixtures/event/speech-council.json",
+	"fixtures/event/moderator-intervention-council.json",
+	"fixtures/event/draft-conclusion-council.json",
+	"fixtures/event/draft-conclusion-revised-council.json",
+	"fixtures/event/consensus-vote-requested-council.json",
+	"fixtures/event/consensus-vote-council.json",
+	"fixtures/event/council-finalized.json",
+	"fixtures/event/council-unresolved.json",
+	"fixtures/error/council-missing-attendance-agenda.json",
+	"fixtures/error/council-invalid-principal.json",
+}
+
 type conformanceManifest struct {
 	ManifestVersion       int      `json:"manifest_version"`
 	ProtocolVersion       string   `json:"protocol_version"`
@@ -95,6 +154,7 @@ func TestUnitConformanceManifestListsCanonicalDAEMN002Artifacts(t *testing.T) {
 	assertContainsAll(t, "schemas", manifest.Schemas, requiredConformanceSchemas)
 	assertContainsAll(t, "fixtures", manifest.Fixtures, requiredConformanceFixtures)
 	assertContainsAll(t, "DELEG-002 fixtures", manifest.Fixtures, requiredDelegationReviewFixtures)
+	assertContainsAll(t, "COUNC-001 fixtures", manifest.Fixtures, requiredCouncilLifecycleFixtures)
 	if len(manifest.Fixtures) == 0 {
 		t.Fatalf("manifest fixtures must not be empty")
 	}
@@ -414,6 +474,127 @@ func TestUnitConformanceDelegationReviewFixtureMatrix(t *testing.T) {
 	}
 }
 
+func TestUnitConformanceCouncilLifecycleFixtureMatrix(t *testing.T) {
+	for _, tc := range []struct {
+		path    string
+		command string
+		params  []string
+	}{
+		{path: "fixtures/command/council-new-request.json", command: "council.new", params: []string{"session_id", "moderator", "members", "title", "surface", "event_id", "command_id"}},
+		{path: "fixtures/command/council-request-attendance-request.json", command: "council.request_attendance", params: []string{"session_id", "actor", "command_id", "payload"}},
+		{path: "fixtures/command/council-attend-request.json", command: "council.attend", params: []string{"session_id", "actor", "command_id", "payload"}},
+		{path: "fixtures/command/council-lock-agenda-request.json", command: "council.lock_agenda", params: []string{"session_id", "actor", "command_id", "payload"}},
+		{path: "fixtures/command/council-prepare-request.json", command: "council.prepare", params: []string{"session_id", "actor", "command_id", "payload"}},
+		{path: "fixtures/command/council-ready-request.json", command: "council.ready", params: []string{"session_id", "actor", "command_id", "payload"}},
+		{path: "fixtures/command/council-prepared-partial-request.json", command: "council.prepared_partial", params: []string{"session_id", "actor", "command_id", "payload"}},
+		{path: "fixtures/command/council-poll-request.json", command: "council.poll", params: []string{"session_id", "actor", "command_id", "payload"}},
+		{path: "fixtures/command/council-hand-raise-request.json", command: "council.hand_raise", params: []string{"session_id", "actor", "command_id", "payload"}},
+		{path: "fixtures/command/council-grant-request.json", command: "council.grant", params: []string{"session_id", "actor", "command_id", "payload"}},
+		{path: "fixtures/command/council-speak-request.json", command: "council.speak", params: []string{"session_id", "actor", "command_id", "payload"}},
+		{path: "fixtures/command/council-intervene-request.json", command: "council.intervene", params: []string{"session_id", "actor", "command_id", "payload"}},
+		{path: "fixtures/command/council-propose-request.json", command: "council.propose", params: []string{"session_id", "actor", "command_id", "payload"}},
+		{path: "fixtures/command/council-revise-request.json", command: "council.revise", params: []string{"session_id", "actor", "command_id", "payload"}},
+		{path: "fixtures/command/council-request-vote-request.json", command: "council.request_vote", params: []string{"session_id", "actor", "command_id", "payload"}},
+		{path: "fixtures/command/council-vote-request.json", command: "council.vote", params: []string{"session_id", "actor", "command_id", "payload"}},
+		{path: "fixtures/command/council-finalize-request.json", command: "council.finalize", params: []string{"session_id", "actor", "command_id", "payload"}},
+		{path: "fixtures/command/council-unresolved-request.json", command: "council.unresolved", params: []string{"session_id", "actor", "command_id", "payload"}},
+	} {
+		request := readJSONFixture[CommandRequest](t, tc.path)
+		if request.Command != tc.command {
+			t.Fatalf("%s command = %q, want %q", tc.path, request.Command, tc.command)
+		}
+		for _, key := range tc.params {
+			if _, ok := request.Params[key]; !ok {
+				t.Fatalf("%s missing param %q in %+v", tc.path, key, request.Params)
+			}
+		}
+	}
+
+	newResponse := readJSONFixture[CommandResponse](t, "fixtures/command/council-new-response.json")
+	if !newResponse.OK || newResponse.Result["session_id"] != "sess_conformance_council" {
+		t.Fatalf("council.new response has wrong shape: %+v", newResponse)
+	}
+	results, ok := newResponse.Result["results"].([]any)
+	if !ok || len(results) != 1 {
+		t.Fatalf("council.new response must expose session_created result only, got %+v", newResponse.Result["results"])
+	}
+
+	for _, tc := range []struct {
+		path      string
+		requestID string
+		eventID   string
+	}{
+		{path: "fixtures/command/council-request-attendance-response.json", requestID: "req_council_request_attendance_001", eventID: "evt_attendance_requested_cmd_council_request_attendance_conformance"},
+		{path: "fixtures/command/council-attend-response.json", requestID: "req_council_attend_001", eventID: "evt_member_attended_cmd_council_attend_conformance"},
+		{path: "fixtures/command/council-lock-agenda-response.json", requestID: "req_council_lock_agenda_001", eventID: "evt_agenda_locked_cmd_council_lock_agenda_conformance"},
+		{path: "fixtures/command/council-prepare-response.json", requestID: "req_council_prepare_001", eventID: "evt_preparation_requested_cmd_council_prepare_conformance"},
+		{path: "fixtures/command/council-ready-response.json", requestID: "req_council_ready_001", eventID: "evt_member_ready_cmd_council_ready_conformance"},
+		{path: "fixtures/command/council-prepared-partial-response.json", requestID: "req_council_prepared_partial_001", eventID: "evt_member_prepared_partial_cmd_council_prepared_partial_conformance"},
+		{path: "fixtures/command/council-poll-response.json", requestID: "req_council_poll_001", eventID: "evt_hand_raise_requested_cmd_council_poll_conformance"},
+		{path: "fixtures/command/council-hand-raise-response.json", requestID: "req_council_hand_raise_001", eventID: "evt_hand_raise_cmd_council_hand_raise_conformance"},
+		{path: "fixtures/command/council-grant-response.json", requestID: "req_council_grant_001", eventID: "evt_speaker_selected_cmd_council_grant_conformance"},
+		{path: "fixtures/command/council-speak-response.json", requestID: "req_council_speak_001", eventID: "evt_speech_cmd_council_speak_conformance"},
+		{path: "fixtures/command/council-intervene-response.json", requestID: "req_council_intervene_001", eventID: "evt_moderator_intervention_cmd_council_intervene_conformance"},
+		{path: "fixtures/command/council-propose-response.json", requestID: "req_council_propose_001", eventID: "evt_draft_conclusion_cmd_council_propose_conformance"},
+		{path: "fixtures/command/council-revise-response.json", requestID: "req_council_revise_001", eventID: "evt_draft_conclusion_cmd_council_revise_conformance"},
+		{path: "fixtures/command/council-request-vote-response.json", requestID: "req_council_request_vote_001", eventID: "evt_consensus_vote_requested_cmd_council_request_vote_conformance"},
+		{path: "fixtures/command/council-vote-response.json", requestID: "req_council_vote_001", eventID: "evt_consensus_vote_cmd_council_vote_conformance"},
+		{path: "fixtures/command/council-finalize-response.json", requestID: "req_council_finalize_001", eventID: "evt_council_finalized_cmd_council_finalize_conformance"},
+		{path: "fixtures/command/council-unresolved-response.json", requestID: "req_council_unresolved_001", eventID: "evt_council_unresolved_cmd_council_unresolved_conformance"},
+	} {
+		response := readJSONFixture[CommandResponse](t, tc.path)
+		if !response.OK || response.RequestID != tc.requestID {
+			t.Fatalf("%s has wrong response envelope: %+v", tc.path, response)
+		}
+		if response.Result["event_id"] != tc.eventID || response.Result["deduplicated"] != false {
+			t.Fatalf("%s has wrong event/dedup result: %+v", tc.path, response.Result)
+		}
+		if response.Result["cursor"] == "" || response.Result["offset"] == nil {
+			t.Fatalf("%s missing cursor/offset result: %+v", tc.path, response.Result)
+		}
+	}
+
+	for _, tc := range []struct {
+		path        string
+		eventType   string
+		sessionType string
+		from        string
+		to          []string
+		phase       string
+		payload     []string
+	}{
+		{path: "fixtures/event/session-created-council.json", eventType: "session_created", sessionType: "council", from: "kkachi-agent-networkd", to: []string{"agent-1", "agent-2", "agent-mod"}, phase: "created", payload: []string{"session_type", "title", "moderator", "participants", "surface"}},
+		{path: "fixtures/event/attendance-requested-council.json", eventType: "attendance_requested", sessionType: "council", from: "agent-mod", to: []string{"agent-1", "agent-2"}, phase: "created", payload: []string{"timeout_sec", "required_members", "surface_kind"}},
+		{path: "fixtures/event/member-attended-council.json", eventType: "member_attended", sessionType: "council", from: "agent-1", to: []string{"agent-mod"}, phase: "created", payload: []string{"status", "summary"}},
+		{path: "fixtures/event/agenda-locked-council.json", eventType: "agenda_locked", sessionType: "council", from: "agent-mod", to: []string{"agent-1", "agent-2"}, phase: "created", payload: []string{"decision_question", "max_rounds"}},
+		{path: "fixtures/event/preparation-requested-council.json", eventType: "preparation_requested", sessionType: "council", from: "agent-mod", to: []string{"agent-1", "agent-2"}, phase: "preparation", payload: []string{"topic", "timeout_sec"}},
+		{path: "fixtures/event/member-ready-council.json", eventType: "member_ready", sessionType: "council", from: "agent-1", to: []string{"agent-mod"}, phase: "preparation", payload: []string{"summary", "notes_ref"}},
+		{path: "fixtures/event/member-prepared-partial-council.json", eventType: "member_prepared_partial", sessionType: "council", from: "agent-2", to: []string{"agent-mod"}, phase: "preparation", payload: []string{"reason", "summary"}},
+		{path: "fixtures/event/hand-raise-requested-council.json", eventType: "hand_raise_requested", sessionType: "council", from: "agent-mod", to: []string{"agent-1", "agent-2"}, phase: "discussion", payload: []string{"turn", "research_timeout_sec"}},
+		{path: "fixtures/event/hand-raise-council.json", eventType: "hand_raise", sessionType: "council", from: "agent-1", to: []string{"agent-mod"}, phase: "discussion", payload: []string{"turn", "intent", "reason", "wants_to_speak"}},
+		{path: "fixtures/event/speaker-selected-council.json", eventType: "speaker_selected", sessionType: "council", from: "agent-mod", to: []string{"agent-1"}, phase: "discussion", payload: []string{"turn", "member", "selection_mode"}},
+		{path: "fixtures/event/speech-council.json", eventType: "speech", sessionType: "council", from: "agent-1", to: []string{"agent-2", "agent-mod"}, phase: "discussion", payload: []string{"turn", "speech"}},
+		{path: "fixtures/event/moderator-intervention-council.json", eventType: "moderator_intervention", sessionType: "council", from: "agent-mod", to: []string{"agent-1"}, phase: "discussion", payload: []string{"member", "reason", "message"}},
+		{path: "fixtures/event/draft-conclusion-council.json", eventType: "draft_conclusion", sessionType: "council", from: "agent-mod", to: []string{"agent-1", "agent-2"}, phase: "draft_conclusion", payload: []string{"draft", "draft_version"}},
+		{path: "fixtures/event/draft-conclusion-revised-council.json", eventType: "draft_conclusion", sessionType: "council", from: "agent-mod", to: []string{"agent-1", "agent-2"}, phase: "draft_conclusion", payload: []string{"draft", "draft_version", "revision_reason", "supersedes_draft_version"}},
+		{path: "fixtures/event/consensus-vote-requested-council.json", eventType: "consensus_vote_requested", sessionType: "council", from: "agent-mod", to: []string{"agent-1", "agent-2"}, phase: "consensus_vote", payload: []string{"draft_version", "consensus_round", "timeout_sec"}},
+		{path: "fixtures/event/consensus-vote-council.json", eventType: "consensus_vote", sessionType: "council", from: "agent-1", to: []string{"agent-mod"}, phase: "consensus_vote", payload: []string{"draft_version", "consensus_round", "vote", "reason"}},
+		{path: "fixtures/event/council-finalized.json", eventType: "council_finalized", sessionType: "council", from: "agent-mod", to: []string{"agent-1", "agent-2"}, phase: "finalized", payload: []string{"final_summary"}},
+		{path: "fixtures/event/council-unresolved.json", eventType: "council_unresolved", sessionType: "council", from: "agent-mod", to: []string{"agent-1", "agent-2"}, phase: "unresolved", payload: []string{"reason", "timeout_evidence"}},
+	} {
+		event := readJSONFixture[eventEnvelopeFixture](t, tc.path)
+		if event.Type != tc.eventType || event.SessionType != tc.sessionType || event.From != tc.from || event.Phase != tc.phase {
+			t.Fatalf("%s has wrong envelope shape: %+v", tc.path, event)
+		}
+		assertExactStrings(t, tc.path+" to", event.To, tc.to)
+		for _, key := range tc.payload {
+			if _, ok := event.Payload[key]; !ok {
+				t.Fatalf("%s missing payload %q in %+v", tc.path, key, event.Payload)
+			}
+		}
+	}
+}
+
 func TestUnitConformanceVersionFixtureMatchesRequiredGroups(t *testing.T) {
 	features := readJSONFixture[VersionFeatures](t, "fixtures/version/version-features.json")
 	if features.ProtocolVersion != ProtocolVersion {
@@ -438,6 +619,8 @@ func TestUnitConformanceStructuredErrorFixtures(t *testing.T) {
 		"fixtures/error/delegate-unauthorized-actor.json",
 		"fixtures/error/delegate-review-wrong-phase.json",
 		"fixtures/error/delegate-review-submit-invalid-verdict.json",
+		"fixtures/error/council-missing-attendance-agenda.json",
+		"fixtures/error/council-invalid-principal.json",
 	} {
 		response := readJSONFixture[CommandResponse](t, fixture)
 		if response.OK {

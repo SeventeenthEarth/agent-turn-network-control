@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "request_id": "req_council_vote_001",
+  "command": "council.vote",
+  "params": {
+    "session_id": "sess_conformance_council",
+    "actor": "agent-1",
+    "command_id": "cmd_council_vote_conformance",
+    "payload": {
+      "draft_version": 1,
+      "vote": "approve",
+      "reason": "Fixture is deterministic and local."
+    }
+  }
+}

@@ -207,7 +207,7 @@ func (s *Server) handleSessionStatus(request protocol.CommandRequest) protocol.C
 	if err != nil {
 		return protocol.ErrorResponse(request, daemonProtocolError(err))
 	}
-	return protocol.SuccessResponse(request, map[string]any{
+	result := map[string]any{
 		"session_id":    metadata.ID,
 		"session_type":  metadata.SessionType,
 		"title":         metadata.Title,
@@ -222,7 +222,15 @@ func (s *Server) handleSessionStatus(request protocol.CommandRequest) protocol.C
 		"cost":          metadata.Cost,
 		"escalations":   metadata.Escalations,
 		"registry_hash": metadata.RegistrySnapshot.SourceSHA256,
-	})
+	}
+	if boolParam(request, "verbose") && metadata.SessionType == storage.SessionTypeCouncil {
+		council, err := councilVerboseStatus(sessionDir, metadata)
+		if err != nil {
+			return protocol.ErrorResponse(request, daemonProtocolError(err))
+		}
+		result["council"] = council
+	}
+	return protocol.SuccessResponse(request, result)
 }
 
 func eventAppendResponse(request protocol.CommandRequest, result storage.AppendResult, dedup bool) protocol.CommandResponse {

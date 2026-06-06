@@ -64,6 +64,7 @@ func NewCLIWithRuntime(runtime registry.Runtime) App {
 			{Name: "stream", Description: "Replay, follow, acknowledge, or inspect session event streams."},
 			{Name: "conformance", Description: "Show local protocol conformance fixtures."},
 			{Name: "delegate", Description: "Create delegation sessions and record delegation audit events."},
+			{Name: "council", Description: "Create council sessions and record council consensus events."},
 			{Name: "cancel", Description: "Cancel an active session with a durable session_cancelled event."},
 			{Name: "block", Description: "Block an active session until a resumable condition is resolved."},
 			{Name: "resume", Description: "Resume a blocked session from its recorded resume phase."},
@@ -121,6 +122,8 @@ func (a App) Run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return a.runConformance(args[1:], stdout, stderr)
 		case "delegate":
 			return a.runDelegate(args[1:], stdout, stderr)
+		case "council":
+			return a.runCouncil(args[1:], stdout, stderr)
 		case "cancel":
 			return a.runCancel(args[1:], stdout, stderr)
 		case "block":

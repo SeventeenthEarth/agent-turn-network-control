@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "request_id": "req_council_poll_001",
+  "command": "council.poll",
+  "params": {
+    "session_id": "sess_conformance_council",
+    "actor": "agent-mod",
+    "command_id": "cmd_council_poll_conformance",
+    "payload": {
+      "turn": 1,
+      "research_timeout_sec": 600
+    }
+  }
+}

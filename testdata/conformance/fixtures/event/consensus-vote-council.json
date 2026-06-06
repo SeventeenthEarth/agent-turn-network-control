@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_consensus_vote_cmd_council_vote_conformance",
+  "command_id": "cmd_council_vote_conformance",
+  "correlation_id": "sess_conformance_council",
+  "session_id": "sess_conformance_council",
+  "session_type": "council",
+  "phase": "consensus_vote",
+  "type": "consensus_vote",
+  "from": "agent-1",
+  "to": [
+    "agent-mod"
+  ],
+  "created_at": "2026-06-06T01:00:00Z",
+  "payload": {
+    "draft_version": 1,
+    "consensus_round": 1,
+    "vote": "approve",
+    "reason": "Fixture is deterministic and local."
+  },
+  "causation_event_id": "evt_consensus_vote_requested_cmd_council_request_vote_conformance"
+}

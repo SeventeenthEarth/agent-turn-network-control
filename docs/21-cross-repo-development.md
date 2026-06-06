@@ -26,7 +26,7 @@ The control repo can move without waiting for plugin UX work. The plugin can mov
 | --- | --- |
 | Protocol version | `kan-protocol-v1alpha0` |
 | Fixture manifest | `testdata/conformance/manifest.json` |
-| Stability | draft local implementation + static conformance fixtures |
+| Stability | draft local implementation + static DAEMN/DELEG/COUNC conformance fixtures |
 | Live readiness | `false`; no live Hermes/Discord/KAB/gateway/auth/token support is claimed |
 | Breaking-change rule | allowed before the first stable protocol release, but must update manifest, control docs, plugin compatibility docs, and checks together |
 
@@ -41,7 +41,7 @@ The control repo can move without waiting for plugin UX work. The plugin can mov
 | DAEMN-002 structured error fixture | implemented structured error categories and JSON shape for local daemon/CLI failures | plugin error rendering and fail-closed UX | no success reinterpretation allowed |
 | DELEG-001 delegation/review commands | implemented daemon/CLI delegation lifecycle, review gates, blocked/resume handling, canonical `cancel` / `session_cancelled`, and local/fake coverage | Plugin P3 delegation/review tool scaffolding | skeleton/fake-daemon tests only; plugin must not invent missing fixture shapes |
 | DELEG-002 delegation/review fixture matrix | plugin-consumable command and structured-error fixtures for delegation/review success, canonical non-review `delegate.accept`, duplicate/idempotency, permission/error, retryable failure policy, and malformed-response fail-closed policy | Plugin DELRV-2 delegation/review failure coverage | no live gateway/runtime readiness claim; plugin consumes control fixtures and remains fail-closed on malformed daemon responses |
-| COUNC-001 council commands | council prepare/speak/vote/finalize commands | Plugin P4 council tools | skeleton/fake-daemon tests only |
+| COUNC-001 council commands | implemented local council lifecycle commands plus static command/event/error fixtures and `council.lifecycle` feature group | Plugin P4 council tools and static fake-daemon/parser handoff | `live_readiness=false`; no live Discord support without isolated E2E |
 | DAEMN-002 delivery evidence commands | implemented local delivery success/failure evidence fixtures and daemon/CLI checks | Discord surface helper audit | fake gateway only until isolated e2e target exists |
 | TRANS-001 transcript/export | transcript and export commands | Plugin transcript/export tools | fixture rendering only |
 
@@ -53,7 +53,7 @@ The control repo can move without waiting for plugin UX work. The plugin can mov
 | P1 Python daemon client | fixture manifest and version/feature contract | release-ready write behavior |
 | P2 Hermes status/diagnostic tools | daemon status/session/stream fixtures | domain command coverage |
 | P3 Delegation/review tools | control delegation/review CLI behavior plus DELEG-002 fixture matrix for plugin-consumable command/error shapes | production delegation support |
-| P4 Council/Discord surface | council command fixtures plus delivery evidence contract | live Discord support without isolated E2E |
+| P4 Council/Discord surface | `council.lifecycle` feature group, COUNC-001 command/event/error fixtures, and delivery evidence contract | live Discord support without isolated E2E |
 | P5 Skill/distribution | implemented command matrix and compatibility version | general install readiness |
 
 ## Cross-repo check commands

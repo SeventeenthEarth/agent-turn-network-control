@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_council_created_001",
+  "command_id": "cmd_council_new_conformance",
+  "correlation_id": "sess_conformance_council",
+  "session_id": "sess_conformance_council",
+  "session_type": "council",
+  "phase": "created",
+  "type": "session_created",
+  "from": "kkachi-agent-networkd",
+  "to": [
+    "agent-1",
+    "agent-2",
+    "agent-mod"
+  ],
+  "created_at": "2026-06-06T01:00:00Z",
+  "payload": {
+    "session_type": "council",
+    "title": "Conformance council fixture",
+    "moderator": "agent-mod",
+    "participants": [
+      "agent-mod",
+      "agent-1",
+      "agent-2"
+    ],
+    "surface": {
+      "kind": "discord_thread",
+      "thread_id": "thread_static_conformance"
+    },
+    "turn_mode": "moderator_direct",
+    "limits": {
+      "max_rounds": 2
+    }
+  }
+}

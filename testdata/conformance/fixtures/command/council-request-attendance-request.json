@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "request_id": "req_council_request_attendance_001",
+  "command": "council.request_attendance",
+  "params": {
+    "session_id": "sess_conformance_council",
+    "actor": "agent-mod",
+    "command_id": "cmd_council_request_attendance_conformance",
+    "payload": {
+      "timeout_sec": 300
+    }
+  }
+}

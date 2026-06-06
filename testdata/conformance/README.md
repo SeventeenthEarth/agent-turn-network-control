@@ -2,7 +2,7 @@
 
 This directory contains core-owned protocol fixtures consumed by `kkachi-agent-network-plugin`.
 
-Current status: DAEMN-002 plus DELEG-002 static/local conformance set. The files here define the shared protocol examples for command envelopes, event envelopes, structured errors, stream frames, version/features, delivery evidence, and delegation/review command handoff.
+Current status: DAEMN-002 plus DELEG-002 and COUNC-001 static/local conformance sets. The files here define the shared protocol examples for command envelopes, event envelopes, structured errors, stream frames, version/features, delivery evidence, delegation/review command handoff, and council lifecycle handoff.
 
 - Manifest: `manifest.json`
 - Protocol version: `kan-protocol-v1alpha0`
@@ -10,12 +10,13 @@ Current status: DAEMN-002 plus DELEG-002 static/local conformance set. The files
 - Fixtures: `fixtures/{command,event,error,stream,version}/`
 - Canonical stream command fixture: `stream.replay`
 - Canonical DELEG-002 non-review action fixture: `delegate.accept`
+- Canonical COUNC-001 feature group: `council.lifecycle`
 
 These fixtures are static only. They do not start a daemon and do not contact Hermes, Discord, KAB, auth, token, gateway, localhost, or other live services. The plugin may copy fixtures for pinned tests, but the control manifest is the compatibility source of truth.
 
 ## DELEG-002 fixture matrix
 
-DELEG-002 publishes plugin-consumable delegation/review examples without adding a new feature group. `required_feature_groups` remains limited to the existing protocol groups until a future task backs a delegation/review feature advertisement with runtime, fixture, test, and docs evidence.
+DELEG-002 publishes plugin-consumable delegation/review examples without adding a delegation-specific feature group. `required_feature_groups` includes `council.lifecycle` only because COUNC-001 now has runtime, fixture, test, and docs evidence for council lifecycle handoff.
 
 | Behavior | Fixture paths | Public contract |
 | --- | --- | --- |
@@ -26,6 +27,42 @@ DELEG-002 publishes plugin-consumable delegation/review examples without adding 
 | Review submission | `fixtures/command/delegate-review-submit-request.json`, `fixtures/command/delegate-review-submit-response.json`, `fixtures/event/review-submitted.json` | `delegate.review_submit` records a stable verdict/finding payload and appends `review_submitted`. |
 | Canonical non-review finalization | `fixtures/command/delegate-accept-request.json`, `fixtures/command/delegate-accept-response.json`, `fixtures/event/work-accepted.json` | `delegate.accept` is the canonical non-review delegation action for plugin fixture tests because it is an existing runtime command path and terminally appends `work_accepted`. |
 | Permission/validation errors | `fixtures/error/delegate-unauthorized-actor.json`, `fixtures/error/delegate-review-wrong-phase.json`, `fixtures/error/delegate-review-submit-invalid-verdict.json` | Delegation/review failures use normal structured command errors: `ok: false`, `error.code: validation_error`, `error.category: validation`, safe `message`, and safe `details`. |
+
+## COUNC-001 fixture matrix
+
+COUNC-001 publishes plugin-consumable council examples for static fake-daemon and parser tests. The fixtures are deterministic examples of local command/event/error envelopes; they do not claim live Discord thread readiness.
+
+The manifest intentionally includes request/response fixtures for the full public council command family from `docs/04-cli-spec.md`:
+
+- `council.new`
+- `council.request_attendance`
+- `council.attend`
+- `council.lock_agenda`
+- `council.prepare`
+- `council.ready`
+- `council.prepared_partial`
+- `council.poll`
+- `council.hand_raise`
+- `council.grant`
+- `council.speak`
+- `council.intervene`
+- `council.propose`
+- `council.revise`
+- `council.request_vote`
+- `council.vote`
+- `council.finalize`
+- `council.unresolved`
+
+| Behavior | Fixture paths | Public contract |
+| --- | --- | --- |
+| Council creation | `fixtures/command/council-new-request.json`, `fixtures/command/council-new-response.json`, `fixtures/event/session-created-council.json` | `council.new` creates a council session and returns `ok: true`, `result.session_id`, one `session_created` append result, and `result.deduplicated`. |
+| Attendance and agenda lock | `fixtures/command/council-request-attendance-request.json`, `fixtures/command/council-request-attendance-response.json`, `fixtures/command/council-attend-request.json`, `fixtures/command/council-attend-response.json`, `fixtures/command/council-lock-agenda-request.json`, `fixtures/command/council-lock-agenda-response.json`, `fixtures/event/attendance-requested-council.json`, `fixtures/event/member-attended-council.json`, `fixtures/event/agenda-locked-council.json` | Attendance and agenda commands append `attendance_requested`, `member_attended`, and `agenda_locked` as static local evidence before preparation. |
+| Preparation readiness | `fixtures/command/council-prepare-request.json`, `fixtures/command/council-prepare-response.json`, `fixtures/command/council-ready-request.json`, `fixtures/command/council-ready-response.json`, `fixtures/command/council-prepared-partial-request.json`, `fixtures/command/council-prepared-partial-response.json`, `fixtures/event/preparation-requested-council.json`, `fixtures/event/member-ready-council.json`, `fixtures/event/member-prepared-partial-council.json` | `council.prepare` appends member-broadcast `preparation_requested`; member readiness commands append moderator-addressed preparation evidence. |
+| Discussion turns | `fixtures/command/council-poll-request.json`, `fixtures/command/council-poll-response.json`, `fixtures/command/council-hand-raise-request.json`, `fixtures/command/council-hand-raise-response.json`, `fixtures/command/council-grant-request.json`, `fixtures/command/council-grant-response.json`, `fixtures/command/council-speak-request.json`, `fixtures/command/council-speak-response.json`, `fixtures/command/council-intervene-request.json`, `fixtures/command/council-intervene-response.json`, `fixtures/event/hand-raise-requested-council.json`, `fixtures/event/hand-raise-council.json`, `fixtures/event/speaker-selected-council.json`, `fixtures/event/speech-council.json`, `fixtures/event/moderator-intervention-council.json` | Poll, hand-raise, grant, speak, and intervention fixtures cover turn-scoped discussion events and explicit recipients. |
+| Drafting and revision | `fixtures/command/council-propose-request.json`, `fixtures/command/council-propose-response.json`, `fixtures/command/council-revise-request.json`, `fixtures/command/council-revise-response.json`, `fixtures/event/draft-conclusion-council.json`, `fixtures/event/draft-conclusion-revised-council.json` | `council.propose` and `council.revise` append `draft_conclusion`; the revision fixture records `revision_reason` and `supersedes_draft_version`. |
+| Vote request and vote | `fixtures/command/council-request-vote-request.json`, `fixtures/command/council-request-vote-response.json`, `fixtures/command/council-vote-request.json`, `fixtures/command/council-vote-response.json`, `fixtures/event/consensus-vote-requested-council.json`, `fixtures/event/consensus-vote-council.json` | `council.request_vote` opens a consensus round for the current draft; `council.vote` records member votes with reason payloads. |
+| Terminal outcomes | `fixtures/command/council-finalize-request.json`, `fixtures/command/council-finalize-response.json`, `fixtures/command/council-unresolved-request.json`, `fixtures/command/council-unresolved-response.json`, `fixtures/event/council-finalized.json`, `fixtures/event/council-unresolved.json` | `council.finalize` and `council.unresolved` are terminal append command fixtures for completed and unresolved councils. |
+| Permission/guard errors | `fixtures/error/council-missing-attendance-agenda.json`, `fixtures/error/council-invalid-principal.json` | Council failures use normal structured command errors: `ok: false`, `error.code: validation_error`, `error.category: validation`, safe `message`, and safe `details`. |
 
 ## Retry and malformed-response policy
 

@@ -24,6 +24,7 @@ func TestUnitVersionFeaturesUseCanonicalDAEMN002Groups(t *testing.T) {
 		FeatureActiveSessionLock,
 		FeatureDeliveryEvidence,
 		FeatureConformanceFixtures,
+		FeatureCouncilLifecycle,
 	} {
 		if !seen[want] {
 			t.Fatalf("missing feature group %q in %#v", want, features.FeatureGroups)

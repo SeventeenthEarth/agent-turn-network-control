@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "request_id": "req_council_hand_raise_001",
+  "ok": true,
+  "result": {
+    "cursor": "cur_000000000008_evt_hand_raise_cmd_council_hand_raise_conformance",
+    "event_id": "evt_hand_raise_cmd_council_hand_raise_conformance",
+    "offset": 8,
+    "deduplicated": false
+  }
+}

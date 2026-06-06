@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "request_id": "req_council_invalid_principal_001",
+  "ok": false,
+  "error": {
+    "code": "validation_error",
+    "category": "validation",
+    "message": "only the council moderator may perform this action",
+    "details": {
+      "category": "storage_principal_invalid",
+      "path": "actor"
+    }
+  }
+}

@@ -654,3 +654,287 @@ func repoRootForConformance() (string, error) {
 	}
 	return "", fmt.Errorf("conformance manifest not found")
 }
+
+func (a App) runCouncil(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) == 0 || isHelp(args[0]) {
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s council new <title> --members <member[,member...]> --moderator <member> [--session-id <id>]\n  %s council <action> <session_id> [--from <member>] [--command-id <id>] [action flags]\n", a.Name, a.Name)
+		return protocol.ExitOK
+	}
+	sub := args[0]
+	if sub == "new" {
+		return a.runCouncilNew(args[1:], stdout, stderr)
+	}
+	if _, ok := councilCommandName(sub); !ok {
+		return writeProtocolError(stderr, protocol.UnsupportedFeature("council "+sub))
+	}
+	return a.runCouncilEvent(sub, args[1:], stdout, stderr)
+}
+
+func (a App) runCouncilNew(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) == 0 {
+		return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "council new requires title", protocol.ExitUsage, nil))
+	}
+	params := map[string]any{"title": args[0]}
+	var members []string
+	surface := map[string]any{}
+	linked := map[string]any{}
+	limits := map[string]any{}
+	for i := 1; i < len(args); i++ {
+		switch args[i] {
+		case "--session-id":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--session-id requires a value", protocol.ExitUsage, nil))
+			}
+			params["session_id"] = args[i+1]
+			i++
+		case "--members":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--members requires a value", protocol.ExitUsage, nil))
+			}
+			members = append(members, splitCommaList(args[i+1])...)
+			i++
+		case "--member":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--member requires a value", protocol.ExitUsage, nil))
+			}
+			members = append(members, args[i+1])
+			i++
+		case "--moderator", "--event-id", "--command-id", "--turn-mode", "--correlation-id":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
+			}
+			params[payloadKey(args[i])] = args[i+1]
+			i++
+		case "--surface":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--surface requires a value", protocol.ExitUsage, nil))
+			}
+			kind := args[i+1]
+			if kind == "discord-thread" {
+				kind = "discord_thread"
+			}
+			surface["kind"] = kind
+			i++
+		case "--thread-id":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--thread-id requires a value", protocol.ExitUsage, nil))
+			}
+			surface["thread_id"] = args[i+1]
+			i++
+		case "--kanban-card":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--kanban-card requires a value", protocol.ExitUsage, nil))
+			}
+			linked["kanban_card_id"] = args[i+1]
+			i++
+		case "--vault-decision-note":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--vault-decision-note requires a value", protocol.ExitUsage, nil))
+			}
+			linked["vault_decision_note"] = args[i+1]
+			i++
+		case "--limit":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--limit requires key=value", protocol.ExitUsage, nil))
+			}
+			key, value, ok := splitKeyValue(args[i+1])
+			if !ok {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--limit requires key=value", protocol.ExitUsage, nil))
+			}
+			limits[key] = parseScalar(value)
+			i++
+		default:
+			return writeProtocolError(stderr, protocol.UnsupportedFeature("council new "+args[i]))
+		}
+	}
+	if len(members) > 0 {
+		params["members"] = members
+	}
+	if len(surface) > 0 {
+		params["surface"] = surface
+	}
+	if len(linked) > 0 {
+		params["linked_authority"] = linked
+	}
+	if len(limits) > 0 {
+		params["limits"] = limits
+	}
+	return a.daemonRequestWithParams(stdout, stderr, "council.new", params)
+}
+
+func (a App) runCouncilEvent(sub string, args []string, stdout io.Writer, stderr io.Writer) int {
+	commandName, _ := councilCommandName(sub)
+	if len(args) == 0 {
+		return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "council "+sub+" requires session_id", protocol.ExitUsage, nil))
+	}
+	params := map[string]any{"session_id": args[0]}
+	payload := map[string]any{}
+	linkedResult := map[string]any{}
+	var evidence []string
+	for i := 1; i < len(args); i++ {
+		switch args[i] {
+		case "--from", "--actor":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
+			}
+			params["actor"] = args[i+1]
+			i++
+		case "--command-id", "--causation-event-id":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
+			}
+			params[payloadKey(args[i])] = args[i+1]
+			i++
+		case "--timeout", "--research-timeout":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
+			}
+			sec, ok := durationSecondsArg(args[i+1])
+			if !ok {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" must be a positive duration", protocol.ExitUsage, nil))
+			}
+			key := "timeout_sec"
+			if args[i] == "--research-timeout" {
+				key = "research_timeout_sec"
+			}
+			payload[key] = sec
+			i++
+		case "--round":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--round requires a value", protocol.ExitUsage, nil))
+			}
+			value, ok := positiveIntArg(args[i+1])
+			if !ok {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--round must be positive", protocol.ExitUsage, nil))
+			}
+			payload["turn"] = value
+			i++
+		case "--relevance", "--urgency", "--max-rounds", "--draft-version":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
+			}
+			value, ok := positiveIntArg(args[i+1])
+			if !ok {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" must be positive", protocol.ExitUsage, nil))
+			}
+			payload[payloadKey(args[i])] = value
+			i++
+		case "--to":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--to requires a value", protocol.ExitUsage, nil))
+			}
+			payload["member"] = args[i+1]
+			i++
+		case "--mode":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--mode requires a value", protocol.ExitUsage, nil))
+			}
+			payload["selection_mode"] = args[i+1]
+			i++
+		case "--auto":
+			payload["auto"] = true
+		case "--from-file":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--from-file requires a path", protocol.ExitUsage, nil))
+			}
+			content, err := os.ReadFile(args[i+1])
+			if err != nil {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, err.Error(), protocol.ExitUsage, nil))
+			}
+			key := "draft"
+			if sub == "speak" {
+				key = "speech"
+			}
+			payload[key] = string(content)
+			i++
+		case "--decision-question", "--out-of-scope-policy", "--status", "--summary", "--notes", "--reason", "--intent", "--message", "--speech", "--vote", "--required-change", "--final-summary", "--failure-reason", "--followup-card-id", "--timeout-evidence":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
+			}
+			payload[payloadKey(args[i])] = args[i+1]
+			i++
+		case "--authority-return-status":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--authority-return-status requires a value", protocol.ExitUsage, nil))
+			}
+			linkedResult["status"] = args[i+1]
+			i++
+		case "--kanban-comment-id", "--kanban-card-id", "--vault-decision-note":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
+			}
+			linkedResult[payloadKey(args[i])] = args[i+1]
+			i++
+		case "--return-evidence":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--return-evidence requires a value", protocol.ExitUsage, nil))
+			}
+			evidence = append(evidence, args[i+1])
+			i++
+		case "--stdin":
+			payload["stdin_requested"] = true
+		default:
+			return writeProtocolError(stderr, protocol.UnsupportedFeature("council "+sub+" "+args[i]))
+		}
+	}
+	if len(evidence) > 0 {
+		linkedResult["evidence"] = evidence
+	}
+	if len(linkedResult) > 0 {
+		payload["linked_authority_result"] = linkedResult
+	}
+	if len(payload) > 0 {
+		params["payload"] = payload
+	}
+	return a.daemonRequestWithParams(stdout, stderr, commandName, params)
+}
+
+func councilCommandName(sub string) (string, bool) {
+	if _, ok := councilEventCommands[sub]; !ok {
+		return "", false
+	}
+	return "council." + strings.ReplaceAll(sub, "-", "_"), true
+}
+
+var councilEventCommands = map[string]struct{}{
+	"request-attendance": {},
+	"attend":             {},
+	"lock-agenda":        {},
+	"prepare":            {},
+	"ready":              {},
+	"prepared-partial":   {},
+	"poll":               {},
+	"hand-raise":         {},
+	"grant":              {},
+	"speak":              {},
+	"intervene":          {},
+	"propose":            {},
+	"revise":             {},
+	"request-vote":       {},
+	"vote":               {},
+	"finalize":           {},
+	"unresolved":         {},
+}
+
+func splitCommaList(value string) []string {
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+func durationSecondsArg(value string) (int, bool) {
+	if i, ok := positiveIntArg(value); ok {
+		return i, true
+	}
+	d, err := time.ParseDuration(value)
+	if err != nil || d <= 0 {
+		return 0, false
+	}
+	return int(d / time.Second), true
+}

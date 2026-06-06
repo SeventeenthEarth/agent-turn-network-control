@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "request_id": "req_council_prepare_missing_attendance_001",
+  "ok": false,
+  "error": {
+    "code": "validation_error",
+    "category": "validation",
+    "message": "discord_thread council requires attendance_requested before prepare",
+    "details": {
+      "category": "storage_command_conflict",
+      "path": "attendance_requested"
+    }
+  }
+}

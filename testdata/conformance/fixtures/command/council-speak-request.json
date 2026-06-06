@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "request_id": "req_council_speak_001",
+  "command": "council.speak",
+  "params": {
+    "session_id": "sess_conformance_council",
+    "actor": "agent-1",
+    "command_id": "cmd_council_speak_conformance",
+    "payload": {
+      "turn": 1,
+      "speech": "I support shipping the static council contract fixtures."
+    }
+  }
+}

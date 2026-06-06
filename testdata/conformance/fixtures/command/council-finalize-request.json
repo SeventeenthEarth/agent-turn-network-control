@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "request_id": "req_council_finalize_001",
+  "command": "council.finalize",
+  "params": {
+    "session_id": "sess_conformance_council",
+    "actor": "agent-mod",
+    "command_id": "cmd_council_finalize_conformance",
+    "payload": {
+      "final_summary": "Consensus reached for the static fixture handoff."
+    }
+  }
+}

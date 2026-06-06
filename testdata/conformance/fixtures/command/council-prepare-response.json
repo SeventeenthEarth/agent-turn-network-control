@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "request_id": "req_council_prepare_001",
+  "ok": true,
+  "result": {
+    "cursor": "cur_000000000004_evt_preparation_requested_cmd_council_prepare_conformance",
+    "event_id": "evt_preparation_requested_cmd_council_prepare_conformance",
+    "offset": 4,
+    "deduplicated": false
+  }
+}

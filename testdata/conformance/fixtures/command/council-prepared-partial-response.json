@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "request_id": "req_council_prepared_partial_001",
+  "ok": true,
+  "result": {
+    "cursor": "cur_000000000006_evt_member_prepared_partial_cmd_council_prepared_partial_conformance",
+    "event_id": "evt_member_prepared_partial_cmd_council_prepared_partial_conformance",
+    "offset": 6,
+    "deduplicated": false
+  }
+}

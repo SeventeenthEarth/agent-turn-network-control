@@ -51,7 +51,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs are derived from the 
 
 | Task ID | Task Title | Task Status | Task Description |
 | --- | --- | --- | --- |
-| COUNC-001 | Council and consensus | planned | Implement stream-driven council discussion, speaker/moderator policy, voting/consensus state, and council/consensus tests. |
+| COUNC-001 | Council and consensus | completed | Implemented local council lifecycle commands, speaker/moderator policy, voting/consensus state, static conformance fixture handoff, and council tests. |
 
 ## TRANS — Transcript/distribution
 

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "request_id": "req_council_unresolved_001",
+  "ok": true,
+  "result": {
+    "cursor": "cur_000000000016_evt_council_unresolved_cmd_council_unresolved_conformance",
+    "event_id": "evt_council_unresolved_cmd_council_unresolved_conformance",
+    "offset": 16,
+    "deduplicated": false
+  }
+}

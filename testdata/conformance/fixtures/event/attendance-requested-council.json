@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_attendance_requested_cmd_council_request_attendance_conformance",
+  "command_id": "cmd_council_request_attendance_conformance",
+  "correlation_id": "sess_conformance_council",
+  "session_id": "sess_conformance_council",
+  "session_type": "council",
+  "phase": "created",
+  "type": "attendance_requested",
+  "from": "agent-mod",
+  "to": [
+    "agent-1",
+    "agent-2"
+  ],
+  "created_at": "2026-06-06T01:00:00Z",
+  "payload": {
+    "timeout_sec": 300,
+    "required_members": [
+      "agent-1",
+      "agent-2"
+    ],
+    "surface_kind": "discord_thread",
+    "thread_id": "thread_static_conformance"
+  }
+}

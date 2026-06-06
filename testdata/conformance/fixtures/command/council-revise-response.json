@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "request_id": "req_council_revise_001",
+  "ok": true,
+  "result": {
+    "cursor": "cur_000000000015_evt_draft_conclusion_cmd_council_revise_conformance",
+    "event_id": "evt_draft_conclusion_cmd_council_revise_conformance",
+    "offset": 15,
+    "deduplicated": false
+  }
+}

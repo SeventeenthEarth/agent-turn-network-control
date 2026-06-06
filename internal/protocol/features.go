@@ -13,6 +13,7 @@ const (
 	FeatureActiveSessionLock   = "active_session.lock"
 	FeatureDeliveryEvidence    = "delivery_evidence"
 	FeatureConformanceFixtures = "conformance.fixtures"
+	FeatureCouncilLifecycle    = "council.lifecycle"
 )
 
 var RequiredFeatureGroups = []string{
@@ -28,6 +29,7 @@ var RequiredFeatureGroups = []string{
 	FeatureActiveSessionLock,
 	FeatureDeliveryEvidence,
 	FeatureConformanceFixtures,
+	FeatureCouncilLifecycle,
 }
 
 type VersionFeatures struct {

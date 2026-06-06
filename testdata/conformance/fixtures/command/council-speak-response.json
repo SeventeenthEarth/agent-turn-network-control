@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "request_id": "req_council_speak_001",
+  "ok": true,
+  "result": {
+    "cursor": "cur_000000000010_evt_speech_cmd_council_speak_conformance",
+    "event_id": "evt_speech_cmd_council_speak_conformance",
+    "offset": 10,
+    "deduplicated": false
+  }
+}

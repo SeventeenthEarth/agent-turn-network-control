@@ -15,7 +15,8 @@
     "stream.status",
     "active_session.lock",
     "delivery_evidence",
-    "conformance.fixtures"
+    "conformance.fixtures",
+    "council.lifecycle"
   ],
   "feature_groups": [
     "version.read",
@@ -29,7 +30,8 @@
     "stream.status",
     "active_session.lock",
     "delivery_evidence",
-    "conformance.fixtures"
+    "conformance.fixtures",
+    "council.lifecycle"
   ],
   "fixture_manifest": "testdata/conformance/manifest.json"
 }

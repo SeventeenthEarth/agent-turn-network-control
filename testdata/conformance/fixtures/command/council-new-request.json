@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "request_id": "req_council_new_001",
+  "command": "council.new",
+  "params": {
+    "session_id": "sess_conformance_council",
+    "moderator": "agent-mod",
+    "members": [
+      "agent-1",
+      "agent-2"
+    ],
+    "title": "Conformance council fixture",
+    "surface": {
+      "kind": "discord_thread",
+      "thread_id": "thread_static_conformance"
+    },
+    "turn_mode": "moderator_direct",
+    "limits": {
+      "max_rounds": 2
+    },
+    "event_id": "evt_council_created_001",
+    "command_id": "cmd_council_new_conformance",
+    "correlation_id": "sess_conformance_council"
+  }
+}

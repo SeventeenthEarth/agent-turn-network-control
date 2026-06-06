@@ -22,6 +22,7 @@ REQUIRED_FEATURE_GROUPS = [
     "active_session.lock",
     "delivery_evidence",
     "conformance.fixtures",
+    "council.lifecycle",
 ]
 
 REQUIRED_SCHEMAS = [
@@ -72,6 +73,65 @@ REQUIRED_DELEGATION_REVIEW_FIXTURES = [
     "fixtures/error/delegate-review-submit-invalid-verdict.json",
 ]
 
+REQUIRED_COUNCIL_LIFECYCLE_FIXTURES = [
+    "fixtures/command/council-new-request.json",
+    "fixtures/command/council-new-response.json",
+    "fixtures/command/council-request-attendance-request.json",
+    "fixtures/command/council-request-attendance-response.json",
+    "fixtures/command/council-attend-request.json",
+    "fixtures/command/council-attend-response.json",
+    "fixtures/command/council-lock-agenda-request.json",
+    "fixtures/command/council-lock-agenda-response.json",
+    "fixtures/command/council-prepare-request.json",
+    "fixtures/command/council-prepare-response.json",
+    "fixtures/command/council-ready-request.json",
+    "fixtures/command/council-ready-response.json",
+    "fixtures/command/council-prepared-partial-request.json",
+    "fixtures/command/council-prepared-partial-response.json",
+    "fixtures/command/council-poll-request.json",
+    "fixtures/command/council-poll-response.json",
+    "fixtures/command/council-hand-raise-request.json",
+    "fixtures/command/council-hand-raise-response.json",
+    "fixtures/command/council-grant-request.json",
+    "fixtures/command/council-grant-response.json",
+    "fixtures/command/council-speak-request.json",
+    "fixtures/command/council-speak-response.json",
+    "fixtures/command/council-intervene-request.json",
+    "fixtures/command/council-intervene-response.json",
+    "fixtures/command/council-propose-request.json",
+    "fixtures/command/council-propose-response.json",
+    "fixtures/command/council-revise-request.json",
+    "fixtures/command/council-revise-response.json",
+    "fixtures/command/council-request-vote-request.json",
+    "fixtures/command/council-request-vote-response.json",
+    "fixtures/command/council-vote-request.json",
+    "fixtures/command/council-vote-response.json",
+    "fixtures/command/council-finalize-request.json",
+    "fixtures/command/council-finalize-response.json",
+    "fixtures/command/council-unresolved-request.json",
+    "fixtures/command/council-unresolved-response.json",
+    "fixtures/event/session-created-council.json",
+    "fixtures/event/attendance-requested-council.json",
+    "fixtures/event/member-attended-council.json",
+    "fixtures/event/agenda-locked-council.json",
+    "fixtures/event/preparation-requested-council.json",
+    "fixtures/event/member-ready-council.json",
+    "fixtures/event/member-prepared-partial-council.json",
+    "fixtures/event/hand-raise-requested-council.json",
+    "fixtures/event/hand-raise-council.json",
+    "fixtures/event/speaker-selected-council.json",
+    "fixtures/event/speech-council.json",
+    "fixtures/event/moderator-intervention-council.json",
+    "fixtures/event/draft-conclusion-council.json",
+    "fixtures/event/draft-conclusion-revised-council.json",
+    "fixtures/event/consensus-vote-requested-council.json",
+    "fixtures/event/consensus-vote-council.json",
+    "fixtures/event/council-finalized.json",
+    "fixtures/event/council-unresolved.json",
+    "fixtures/error/council-missing-attendance-agenda.json",
+    "fixtures/error/council-invalid-principal.json",
+]
+
 REQUIRED_FIXTURES = [
     "fixtures/command/version-read-request.json",
     "fixtures/command/stream-replay-request.json",
@@ -84,6 +144,7 @@ REQUIRED_FIXTURES = [
     "fixtures/event/stream-cursor-acknowledged.json",
     *REQUIRED_DELIVERY_FIXTURES[4:],
     *REQUIRED_DELEGATION_REVIEW_FIXTURES,
+    *REQUIRED_COUNCIL_LIFECYCLE_FIXTURES,
     "fixtures/error/unsupported-feature.json",
     "fixtures/error/active-session-lock.json",
     REQUIRED_CANCEL_FIXTURES[3],
@@ -184,6 +245,12 @@ if missing_delegation_review:
     raise SystemExit(
         "core manifest missing DELEG-002 delegation/review fixtures: "
         + ", ".join(missing_delegation_review)
+    )
+missing_council_lifecycle = sorted(set(REQUIRED_COUNCIL_LIFECYCLE_FIXTURES) - set(fixtures))
+if missing_council_lifecycle:
+    raise SystemExit(
+        "core manifest missing COUNC-001 council lifecycle fixtures: "
+        + ", ".join(missing_council_lifecycle)
     )
 
 for schema in schemas:
