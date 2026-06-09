@@ -48,23 +48,24 @@ The Python Hermes plugin has its own repository and documentation at `../../kkac
 21. `20-discord-thread-council-tobe.md` — Discord thread council surface design
 22. `21-cross-repo-development.md` — parallel control/plugin milestone, conformance, and cross-repo check contract
 23. `22-deleg-002-conformance-fixture-matrix.md` — DELEG-002 fixture publication task brief for delegation/review plugin handoff
+24. `23-release-v1-acceptance.md` — local Release v1 acceptance scope, gates, evidence, and non-live-readiness boundaries
 
 `11-distribution-and-skill.md` is deprecated by the repo split and replaced by `11-distribution-and-plugin.md`.
 
 ## Required Makefile targets
 
-Both the control and plugin repositories must expose the same operator targets:
+Both the control and plugin repositories must expose these baseline operator targets:
 
 ```bash
 make test-prepare  # lint/vet/formatting/guardrails; no external resources
 make test-unit     # unit tests
 make test-int      # integration tests with mock/fake/stub only; no external resources
 make test-e2e      # real external integrations only in isolated test environment
-make test          # sequential: test-prepare -> test-unit -> test-int -> test-e2e
+make test          # sequential baseline targets; control also runs local release acceptance
 make check-plugin-contract  # verify companion plugin milestone/contract readiness
 ```
 
-The control repo Makefile owns Go checks and control docs guardrails. The plugin repo Makefile owns Python/Hermes plugin checks and plugin docs guardrails.
+The control repo Makefile owns Go checks, control docs guardrails, and RELIA-001 `test-release-acceptance` local storage/replay/recovery evidence. The plugin repo Makefile owns Python/Hermes plugin checks and plugin docs guardrails; `test-release-acceptance` is not plugin-owned unless a later plugin task adds compatible local evidence.
 
 ## Reading order
 
@@ -80,7 +81,8 @@ The control repo Makefile owns Go checks and control docs guardrails. The plugin
 10. `21-cross-repo-development.md`
 11. `09-implementation-epics.md`
 12. `22-deleg-002-conformance-fixture-matrix.md` when planning or implementing DELEG-002 / plugin DELRV-2 unblock work
-13. plugin docs in `../../kkachi-agent-network-plugin/docs/`
+13. `23-release-v1-acceptance.md` when validating Release v1 local readiness
+14. plugin docs in `../../kkachi-agent-network-plugin/docs/`
 
 ## Current implementation state
 
@@ -88,4 +90,6 @@ This repository has the BOOTS-001 scaffold plus DAEMN-002 local control surfaces
 
 DELEG-002 publishes the control-owned plugin-consumable delegation/review fixture matrix for success, duplicate/idempotency, permission/error, retryable failure policy, and malformed-response handling. Plugin delegation/review failure coverage must consume these control fixtures and must not invent control-owned command or error shapes.
 
-`live_readiness` remains `false`: real wrappers/RUNRT, live Hermes/Discord/KAB/gateway/auth/token integrations, and external E2E are still future scope and are not contacted by default test targets.
+RELIA-001 release acceptance is in progress with a local-only `test-release-acceptance` target for storage/replay/recovery evidence.
+
+`live_readiness` remains `false`: live Hermes/Discord/KAB/gateway/auth/token integrations, production plugin-load evidence, and external E2E are not contacted by default test targets.

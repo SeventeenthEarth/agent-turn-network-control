@@ -697,10 +697,17 @@ func validateDelegationPayload(action string, payload map[string]any) error {
 
 func ingestArtifacts(sessionDir string, metadata *SessionMetadata, actor string, sourcePaths []string, now time.Time) ([]map[string]any, error) {
 	workspace := ""
-	if members := readSnapshotMembers(sessionDir); members != nil {
-		if member, ok := members[actor]; ok {
-			workspace = member.Workspace
-		}
+	members, err := readSnapshotMembers(sessionDir)
+	if err != nil {
+		return nil, err
+	}
+	member, ok := members[actor]
+	if !ok {
+		return nil, NewValidationError(CategoryPrincipalInvalid, "actor", "actor is missing from registry snapshot")
+	}
+	workspace = strings.TrimSpace(member.Workspace)
+	if workspace == "" {
+		return nil, NewValidationError(CategoryPrincipalInvalid, "workspace", "actor workspace is required in registry snapshot")
 	}
 	artifactDir := filepath.Join(filepath.Clean(sessionDir), "artifacts")
 	if err := os.MkdirAll(artifactDir, 0o700); err != nil {

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"kkachi-agent-network-control/internal/protocol"
+	"kkachi-agent-network-control/internal/registry"
 
 	_ "modernc.org/sqlite"
 )
@@ -198,6 +199,126 @@ func TestIntegrationDelegationRejectsUnsafeArtifactAndMalformedReview(t *testing
 	}
 }
 
+func TestIntegrationDelegationArtifactIngestionRequiresReadableSnapshot(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mutate func(t *testing.T, sessionDir string)
+		want   string
+	}{
+		{
+			name: "missing snapshot",
+			mutate: func(t *testing.T, sessionDir string) {
+				t.Helper()
+				if err := os.Remove(filepath.Join(sessionDir, registry.SnapshotFileName)); err != nil {
+					t.Fatalf("remove registry snapshot: %v", err)
+				}
+			},
+			want: CategorySnapshotRequired,
+		},
+		{
+			name: "corrupt snapshot",
+			mutate: func(t *testing.T, sessionDir string) {
+				t.Helper()
+				if err := os.WriteFile(filepath.Join(sessionDir, registry.SnapshotFileName), []byte("members:\n  - not-a-map\n"), 0o600); err != nil {
+					t.Fatalf("write corrupt registry snapshot: %v", err)
+				}
+			},
+			want: CategorySnapshotRequired,
+		},
+		{
+			name: "actor missing",
+			mutate: func(t *testing.T, sessionDir string) {
+				t.Helper()
+				content := []byte(`members:
+  agent-mod:
+    display_name: Moderator
+    wrapper: missing-agent-mod-wrapper
+    workspace: /tmp/agent-mod
+    role: moderator
+`)
+				if err := os.WriteFile(filepath.Join(sessionDir, registry.SnapshotFileName), content, 0o600); err != nil {
+					t.Fatalf("write registry snapshot without actor: %v", err)
+				}
+			},
+			want: CategoryPrincipalInvalid,
+		},
+		{
+			name: "actor empty workspace",
+			mutate: func(t *testing.T, sessionDir string) {
+				t.Helper()
+				content := []byte(`members:
+  agent-mod:
+    display_name: Moderator
+    wrapper: missing-agent-mod-wrapper
+    workspace: /tmp/agent-mod
+    role: moderator
+  agent-1:
+    display_name: Agent One
+    wrapper: missing-agent-1-wrapper
+    workspace: ""
+    role: assignee
+`)
+				if err := os.WriteFile(filepath.Join(sessionDir, registry.SnapshotFileName), content, 0o600); err != nil {
+					t.Fatalf("write registry snapshot with empty actor workspace: %v", err)
+				}
+			},
+			want: CategoryPrincipalInvalid,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dataHome, loaded := loadedTestRegistry(t)
+			workspace := t.TempDir()
+			artifactSource := filepath.Join(t.TempDir(), "outside.md")
+			if err := os.WriteFile(artifactSource, []byte("outside workspace\n"), 0o600); err != nil {
+				t.Fatalf("write artifact source: %v", err)
+			}
+			agentOne := loaded.Registry.Members["agent-1"]
+			agentOne.Workspace = workspace
+			loaded.Registry.Members["agent-1"] = agentOne
+
+			metadata, _, _, err := CreateDelegation(dataHome, loaded, DelegationStartSpec{
+				Session: SessionSpec{
+					ID:           "sess_deleg_snapshot_artifact",
+					SessionType:  SessionTypeDelegation,
+					Title:        "DELEG artifact snapshot",
+					Moderator:    "agent-mod",
+					Participants: []string{"agent-mod", "agent-1"},
+					EventID:      "evt_snapshot_created",
+					CommandID:    "cmd_snapshot_new",
+				},
+				Assignee:          "agent-1",
+				Task:              "snapshot fail closed",
+				AssignmentEventID: "evt_snapshot_assigned",
+				Now:               fixedRuntime().Now(),
+			}, fixedRuntime())
+			if err != nil {
+				t.Fatalf("CreateDelegation: %v", err)
+			}
+			sessionDir, err := SessionDir(dataHome, metadata.ID)
+			if err != nil {
+				t.Fatalf("SessionDir: %v", err)
+			}
+			appendDelegationForTest(t, sessionDir, metadata, DelegationEventSpec{Action: "ack", Actor: "agent-1", CommandID: "cmd_snapshot_ack", Payload: map[string]any{"understanding": "ok"}, Now: fixedRuntime().Now().Add(time.Second)})
+			before := eventCountForTest(t, sessionDir, metadata)
+			tc.mutate(t, sessionDir)
+
+			_, _, err = RecordDelegationEvent(sessionDir, metadata, DelegationEventSpec{
+				Action:              "submit",
+				Actor:               "agent-1",
+				CommandID:           "cmd_snapshot_submit",
+				Payload:             map[string]any{"summary": "should fail"},
+				ArtifactSourcePaths: []string{artifactSource},
+				Now:                 fixedRuntime().Now().Add(2 * time.Second),
+			})
+			assertStorageIssue(t, err, tc.want)
+			if after := eventCountForTest(t, sessionDir, metadata); after != before {
+				t.Fatalf("failed snapshot artifact submit appended event: before=%d after=%d", before, after)
+			}
+			assertNoArtifactsForTest(t, sessionDir)
+		})
+	}
+}
+
 func appendDelegationForTest(t *testing.T, sessionDir string, metadata *SessionMetadata, spec DelegationEventSpec) AppendResult {
 	t.Helper()
 	result, _, err := RecordDelegationEvent(sessionDir, metadata, spec)
@@ -251,6 +372,21 @@ func eventCountForTest(t *testing.T, sessionDir string, metadata *SessionMetadat
 		t.Fatalf("ReadLogIndex: %v", err)
 	}
 	return len(index.Events)
+}
+
+func assertNoArtifactsForTest(t *testing.T, sessionDir string) {
+	t.Helper()
+	artifactDir := filepath.Join(sessionDir, "artifacts")
+	entries, err := os.ReadDir(artifactDir)
+	if os.IsNotExist(err) {
+		return
+	}
+	if err != nil {
+		t.Fatalf("read artifact dir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("failed artifact submit stored artifacts: %#v", entries)
+	}
 }
 
 func assertProjectionNull(t *testing.T, db *sql.DB, column, sessionID string) {

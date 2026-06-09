@@ -1,8 +1,8 @@
 SHELL := /bin/sh
 
-.PHONY: test test-prepare test-unit test-int test-e2e docs-guardrails check-plugin-contract fmt lint vet help-smoke
+.PHONY: test test-prepare test-unit test-int test-release-acceptance test-e2e docs-guardrails check-plugin-contract fmt lint vet help-smoke
 
-test: test-prepare test-unit test-int test-e2e
+test: test-prepare test-unit test-int test-release-acceptance test-e2e
 
 # Preparation gate: local-only checks that never contact Hermes/Discord or other external services.
 test-prepare: fmt lint vet docs-guardrails help-smoke
@@ -57,6 +57,13 @@ test-int:
 		KAN_TEST_MODE=integration KAN_EXTERNAL=0 go test ./... -run 'TestIntegration|Integration' -count=1; \
 	else \
 		echo "test-int: no Go scaffold yet; docs-only pass"; \
+	fi
+
+test-release-acceptance:
+	@if command -v go >/dev/null 2>&1 && [ -f go.mod ]; then \
+		KAN_TEST_MODE=release KAN_EXTERNAL=0 go test ./internal/command -run 'TestReleaseAcceptance' -count=1; \
+	else \
+		echo "test-release-acceptance: no Go scaffold yet; docs-only pass"; \
 	fi
 
 test-e2e:

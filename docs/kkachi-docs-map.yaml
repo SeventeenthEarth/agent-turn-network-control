@@ -10,4 +10,5 @@ spec_dir: "docs"
 test_commands:
   - "make test-prepare"
   - "make check-plugin-contract"
+  - "make test-release-acceptance"
   - "make test"

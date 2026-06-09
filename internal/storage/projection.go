@@ -347,7 +347,10 @@ func ReplayProjectionState(dataHome string, opts ProjectionOptions) (*projection
 		if err != nil {
 			return nil, wrapProjectionError(ProjectionErrorReplay, "read channel.jsonl", err)
 		}
-		snapshotMembers := readSnapshotMembers(sessionDir)
+		snapshotMembers, err := readSnapshotMembers(sessionDir)
+		if err != nil {
+			return nil, wrapProjectionError(ProjectionErrorReplay, "read registry snapshot", err)
+		}
 		state.initSession(metadata, snapshotMembers)
 		for offset, event := range index.Events {
 			if _, ok := state.eventIDs[event.EventID]; ok {
@@ -475,21 +478,33 @@ type snapshotDoc struct {
 	Members map[string]snapshotMember `yaml:"members"`
 }
 
-func readSnapshotMembers(sessionDir string) map[string]snapshotMember {
+func readSnapshotMembers(sessionDir string) (map[string]snapshotMember, error) {
 	path := filepath.Join(sessionDir, registry.SnapshotFileName)
 	info, err := os.Lstat(path)
-	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
-		return nil
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, NewValidationError(CategorySnapshotRequired, path, "registry snapshot is required for replay")
+		}
+		return nil, NewValidationError(CategorySnapshotRequired, path, err.Error())
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil, NewValidationError(CategorySnapshotRequired, path, "registry snapshot symlinks are forbidden")
+	}
+	if !info.Mode().IsRegular() {
+		return nil, NewValidationError(CategorySnapshotRequired, path, "registry snapshot is not regular")
 	}
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return nil
+		return nil, NewValidationError(CategorySnapshotRequired, path, err.Error())
 	}
 	var doc snapshotDoc
 	if err := yaml.Unmarshal(content, &doc); err != nil {
-		return nil
+		return nil, NewValidationError(CategorySnapshotRequired, path, err.Error())
 	}
-	return doc.Members
+	if len(doc.Members) == 0 {
+		return nil, NewValidationError(CategorySnapshotRequired, path, "registry snapshot members are required")
+	}
+	return doc.Members, nil
 }
 
 func statusFromPhase(phase Phase) Status {

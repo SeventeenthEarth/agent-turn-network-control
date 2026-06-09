@@ -17,7 +17,7 @@ The normative SOT documents that disaster recovery depends on:
 - Projections (`network.sqlite`, `event_recipients`, `runner_invocations`, `escalation_batches`, `escalation_batch_items`, `stream_cursors`, `stream_subscribers`, `delegation_reviews`, `council_hand_raises`, `council_votes`, `commands_seen`, `artifacts`) are derived from events and can be rebuilt.
 - Replay must not invoke runners, deliver escalations, or invent events because a deadline passed.
 - Registry must not be reinterpreted for historical sessions; per-session `registry_snapshot.yaml` is authoritative.
-- Active-session lock state is recovered from the recorded lifecycle events, not from the lock file.
+- Active-session state is recovered from the recorded lifecycle events, not from stale metadata or runtime lock artifacts.
 
 ## What must be backed up
 
@@ -32,7 +32,7 @@ The normative SOT documents that disaster recovery depends on:
 | `operational.log`                      |        Optional | Pre-session failure audit (2-day retention)     |
 | `raw_logs/`                            |        Optional | Operational artifact, short retention           |
 | `runtime/<member>/stream_cursor`       |        Optional | Recoverable from `stream_cursor_acknowledged`   |
-| `active_session.lock`                  |              No | Recoverable from session lifecycle events       |
+| `active_session.lock` / runtime lock artifacts |              No | Recoverable from session lifecycle events       |
 | `run/kkachi-agent-networkd.sock`              |              No | Process socket; recreated by daemon start       |
 
 Backups should preserve file mode and ownership where possible. After restore, ownership and modes must satisfy the rules in `12-security.md`; `kkachi-agent-network doctor` (with `--repair-permissions`) or `kkachi-agent-network init` may correct them with explicit reporting.
@@ -116,28 +116,28 @@ Procedure:
 
 Because SQLite is a projection, a clean rebuild is always safe as long as `channel.jsonl` is intact.
 
-## active_session.lock mismatch
+## active-session lock mismatch
 
-Symptoms: the lock file claims a session is active but the recorded lifecycle events show terminal state, or vice versa.
+Symptoms: runtime lock artifacts or `session.yaml` claim a session is active but the recorded lifecycle events show terminal state, or vice versa.
 
 Procedure:
 
 1. Stop the daemon.
 2. Inspect the latest events for the suspected session in `channel.jsonl`. The lifecycle events (`session_created`, `session_cancelled`, `work_accepted`, `council_finalized`, `council_unresolved`) are the truth.
-3. If lifecycle events show a terminal phase, remove the stale `active_session.lock`.
-4. If lifecycle events show a non-terminal phase but the lock is missing, recreate the lock from the recorded session id during daemon start (this happens automatically once `storage rebuild-projection` runs and the daemon validates the session phase).
+3. If lifecycle events show a terminal phase, remove stale runtime lock artifacts and trust replay-derived terminal state.
+4. If lifecycle events show a non-terminal phase but the runtime lock is missing, recreate the lock from the recorded session id during daemon start. Replay-derived active-session discovery uses the latest durable event rather than stale `session.yaml` phase/status.
 5. Start the daemon.
 6. Run `kkachi-agent-network status` to confirm the lock matches the recorded state.
 
 ## registry_snapshot.yaml missing or corrupt
 
-Symptoms: dispatch fails with a session-scoped registry violation; `kkachi-agent-network storage verify` reports snapshot inconsistency.
+Symptoms: dispatch fails with a session-scoped registry violation; `kkachi-agent-network storage verify` reports replay failure for a missing, unsafe, empty, or corrupt session snapshot.
 
 Procedure:
 
 1. Stop the daemon.
 2. Restore `sessions/<session_id>/registry_snapshot.yaml` from the most recent backup.
-3. If no backup exists, the session must be cancelled. Replay must not regenerate the snapshot from the live `registry.yaml` (per `12-security.md` and `13-operational-contracts.md` §2).
+3. If no backup exists, the session cannot be rebuilt as valid local release evidence. Replay must not regenerate the snapshot from the live `registry.yaml` (per `12-security.md` and `13-operational-contracts.md` §2).
 4. Run `kkachi-agent-network storage verify` and start the daemon.
 5. Cancel the session through `kkachi-agent-network cancel <session_id>` if the snapshot cannot be restored.
 

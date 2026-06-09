@@ -14,9 +14,9 @@ Both repositories must expose these targets:
 | `test-unit` | isolated unit tests for functions/types/domain logic | forbidden |
 | `test-int` | integration between internal components using mock/fake/stub dependencies | forbidden |
 | `test-e2e` | real external integration tests against isolated test resources | allowed only in test environment |
-| `test` | sequentially runs all four targets above | follows each target |
+| `test` | sequentially runs all targets above | follows each target |
 
-`make test` must run in this order: `test-prepare`, `test-unit`, `test-int`, `test-e2e`.
+The control repo also exposes `test-release-acceptance` for RELIA-001 local storage/replay/recovery/observability evidence. That target is not a plugin-owned requirement unless a later plugin task adds compatible local evidence. Control `make test` runs `test-prepare`, `test-unit`, `test-int`, `test-release-acceptance`, then `test-e2e`; plugin `make test` may omit release acceptance until it owns such evidence.
 
 ## Control test layers
 
@@ -25,6 +25,7 @@ Both repositories must expose these targets:
 | Unit | protocol, engine, registry, security helpers | phase transitions, strict schema, safe path validation |
 | Unit | storage primitives | event envelope validation, cursor math, redaction helper |
 | Integration | daemon + storage + CLI using temp data home | append/replay/projection, storage verify/rebuild exit codes, idempotency, JSON errors |
+| Release acceptance | local CLI/storage/doctor fault matrix | corrupt logs, snapshot failures, unsafe paths, side-effect-free rebuild, active-session recovery |
 | Integration | fake member/runtime/runner | stream reconnect, cursor ack, timeout, cost parsing |
 | E2E | isolated Hermes/Discord test environment | plugin-visible session flow, Discord delivery evidence in a sandbox thread |
 | Fault injection | failure paths | truncation, projection corruption, late runner result, incompatible protocol |
@@ -108,9 +109,25 @@ RUNRT-001 tests are local/fake only. The control repo verifies:
 
 These tests must use temp data homes, fake wrappers/adapters/streams, and deterministic clocks. Passing RUNRT-001 tests does **not** imply live Hermes, Discord, KAB, gateway, or plugin readiness.
 
+## RELIA-001 release acceptance scope
+
+Control `make test-release-acceptance` is RELIA-001 local evidence for the control repo. It runs deterministic temp-data-home tests and must not contact live Hermes, Discord, KAB, gateway, auth, token, production install, or plugin-load resources. It is not a plugin-owned target unless a later plugin task adds compatible local evidence.
+
+The current release acceptance suite verifies:
+
+- `channel.jsonl` corruption fails closed for truncated tail, malformed mid-file JSON, duplicate `event_id`, and unsupported `schema_version`.
+- `registry_snapshot.yaml` missing or corrupt fails replay/rebuild closed, and live `registry.yaml` mutation does not reinterpret existing sessions.
+- `storage verify` reports missing projection as recoverable projection-only evidence, `storage rebuild-projection` rebuilds it, and unsafe projection paths fail closed.
+- Rebuild is side-effect free: it does not append events, invoke runner rows, synthesize timer/timeout events, or record outbound delivery events.
+- Active-session recovery is derived from durable lifecycle events, so stale terminal/open metadata does not override `channel.jsonl`.
+
+The suite is not live readiness. It does not prove plugin load, production Discord delivery, Hermes profile execution, KAB review, credentials, gateway config, or production install readiness.
+
+Heavy replay/load tests are outside the default release acceptance target unless bounded to practical local runtime. A 100k-event replay check must remain opt-in or explicitly skipped with evidence.
+
 ## CI guidance
 
-- `test-prepare`, `test-unit`, and `test-int` run on every commit/PR.
+- `test-prepare`, `test-unit`, `test-int`, and `test-release-acceptance` run on every commit/PR.
 - `test-e2e` runs only when isolated external resources are configured.
 - E2E absence is a skipped environment, not silent success, once tests exist.
 - A failed test is fixed at the owning boundary; tests are not weakened to pass broken behavior.
