@@ -60,6 +60,8 @@ Moderator/member runtime or operator
 
 The Go CLI and Python plugin do not share source code. They share the protocol contract and conformance fixtures. Any behavior implemented in both clients must be verified through cross-language conformance tests.
 
+Post-Release live-local work is governed by `24-live-transport-control-sot.md`. The control `LTRAN`, `MEMBR`, and `SURFD` epics own daemon/CLI compatibility, real participant runtime invocation, and delivery-evidence projection respectively; companion plugin epics start only after the corresponding control epic boundary is complete.
+
 ## Authority boundaries
 
 - `kkachi-agent-networkd` is the only component that mutates `channel.jsonl`, SQLite projections, session locks, cursor state, and replay state.

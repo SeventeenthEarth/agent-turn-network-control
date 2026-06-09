@@ -4,11 +4,13 @@ roadmap: "docs/roadmap.md"
 sot_docs:
   - "docs/03-protocol-spec.md"
   - "docs/02-architecture.md"
+  - "docs/24-live-transport-control-sot.md"
 adr_dir: "docs"
 todo_dir: "docs"
 spec_dir: "docs"
 test_commands:
   - "make test-prepare"
+  - "make docs-guardrails"
   - "make check-plugin-contract"
   - "make test-release-acceptance"
   - "make test"

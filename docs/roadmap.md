@@ -65,4 +65,26 @@ Epic IDs are five-letter uppercase English slugs. Task IDs are derived from the 
 | --- | --- | --- | --- |
 | RELIA-001 | Reliability and release acceptance | completed | Implement observability, disaster recovery, corruption handling, replay rebuild, full Release v1 acceptance suite, and release readiness evidence. |
 
-Every roadmap item must map to the Makefile target taxonomy in `18-testing-strategy.md` and to the phase dependencies in `09-implementation-epics.md`.
+## LTRAN — Live transport control compatibility
+
+| Task ID | Task Title | Task Status | Task Description |
+| --- | --- | --- | --- |
+| LTRAN-001 | Control live transport SOT and mapping | planned | Add the control companion SOT, update roadmap/docs cross-links, and record the daemon/CLI/plugin/member-runtime ownership split plus the epic-boundary repo handoff rule. |
+| LTRAN-002 | Confirm daemon compatibility reads | planned | Confirm existing `status`, `health`, `version.read`, `stream.replay`, `stream.follow`, `stream.ack`, and council command paths are sufficient for plugin live transport, or add minimal compatibility read shapes and conformance tests if required. |
+| LTRAN-003 | Prove CLI/daemon live-local support | planned | Run disposable data-home evidence showing CLI status/version/stream/write paths address the daemon state needed by plugin live-local equivalence tests, including command-id/idempotency and structured-error behavior. |
+
+## MEMBR — Member runtime profile invocation
+
+| Task ID | Task Title | Task Status | Task Description |
+| --- | --- | --- | --- |
+| MEMBR-001 | Select member runtime pilot mode | planned | Decide and document whether the first pilot uses main-agent mediated invocation or long-lived member runtimes, including runner/session evidence requirements and failure policy. |
+| MEMBR-002 | Prove selected participant invocation | planned | Prove `speaker_selected` causes a real participant profile/wrapper invocation, records successful `council.speak` or durable failure evidence, and does not substitute simulated role prompts. |
+
+## SURFD — Surface delivery evidence contract
+
+| Task ID | Task Title | Task Status | Task Description |
+| --- | --- | --- | --- |
+| SURFD-001 | Define surface rendering evidence contract | planned | Define the daemon event fields, transcript/projection inputs, delivery evidence status, and failure/pending-follow-up semantics needed for visible speech/final-result rendering. |
+| SURFD-002 | Prove delivery evidence projection | planned | Prove local projection/transcript/export or equivalent fixtures expose speech, finalization, unresolved/cancelled, and delivery-evidence pointer states for plugin-visible rendering tests. |
+
+Every roadmap item must map to the Makefile target taxonomy in `18-testing-strategy.md` and to the phase dependencies in `09-implementation-epics.md`. Active task transfer between this control repo and the plugin repo must happen only at an epic boundary; do not leave a control epic midstream to execute plugin tasks, and do not interrupt a plugin epic with control tasks except by blocking the active epic and completing the required sibling epic first. When a task ID is cited outside its repo-local roadmap, qualify it as `control/<task-id>` or `plugin/<task-id>`.

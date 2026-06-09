@@ -23,6 +23,9 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | COUNC | Council/consensus | council discussion, voting, and consensus state |
 | TRANS | Transcript/distribution | transcript/export, distribution docs, plugin handoff |
 | RELIA | Reliability/release | observability, disaster recovery, release acceptance |
+| LTRAN | Live transport control compatibility | daemon/CLI compatibility reads and live-local support |
+| MEMBR | Member runtime profile invocation | real participant profile/wrapper invocation proof |
+| SURFD | Surface delivery evidence contract | event-to-visible rendering and evidence projection |
 
 ## Epic dependency graph
 
@@ -37,6 +40,9 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | COUNC | DAEMN, RUNRT | council depends on stream-driven runtimes |
 | TRANS | STORE, DELEG, COUNC | rendering depends on event log and collaboration events |
 | RELIA | REGST, STORE, DAEMN, RUNRT, DELEG, COUNC, TRANS | full acceptance, recovery, observability |
+| LTRAN | RELIA | live-local control compatibility starts after Release v1 local acceptance |
+| MEMBR | LTRAN | real participant invocation needs live-local stream/control compatibility |
+| SURFD | MEMBR, TRANS | visible rendering needs participant response evidence plus transcript/export surfaces |
 
 ## Implementation phase grouping
 
@@ -51,6 +57,9 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | Phase 6 | COUNC | council and consensus | council/consensus tests pass |
 | Phase 7 | TRANS | transcript/export/distribution docs | golden transcript + install docs pass |
 | Phase 8 | RELIA | reliability, observability, disaster recovery | full Release v1 acceptance suite pass |
+| Phase 9 | LTRAN | live-local daemon/CLI compatibility for plugin transport | disposable control live-local evidence and compatibility checks pass |
+| Phase 10 | MEMBR | real participant profile/wrapper invocation path | selected participant invocation evidence passes without role substitution |
+| Phase 11 | SURFD | surface delivery evidence contract | projection/transcript/export or fixture evidence supports visible rendering |
 
 ## BOOTS — Bootstrap
 
@@ -101,4 +110,20 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 
 ## RUNRT / COUNC / TRANS / RELIA summary
 
-Remaining summarized epics preserve the previous product behavior: member runtime and runner adapter, council discussion, consensus, transcript/export, distribution, observability, disaster recovery, and full testing. Each epic must include unit, integration, and, when appropriate, isolated E2E tests mapped to the Makefile target contract in `18-testing-strategy.md`.
+Remaining summarized Release v1 epics preserve the previous product behavior: member runtime and runner adapter, council discussion, consensus, transcript/export, distribution, observability, disaster recovery, and full testing. Each epic must include unit, integration, and, when appropriate, isolated E2E tests mapped to the Makefile target contract in `18-testing-strategy.md`.
+
+## Post-Release live-local epics
+
+These epics are planned after Release v1 local acceptance. They are repo-owned control epics that gate companion plugin epics in `../../kkachi-agent-network-plugin/docs/06-implementation-epics-tasks.md`.
+
+Active task transfer between control and plugin happens only at an epic boundary. Do not interrupt a control epic with plugin tasks, and do not interrupt a plugin epic with control tasks. If a missing sibling capability is found, block the active epic with evidence and complete the sibling epic that owns the missing capability before resuming.
+
+| Task ID | Scope | Suggested paths | Verification |
+| --- | --- | --- | --- |
+| LTRAN-001 | Add the control companion live transport SOT, roadmap entries, docs-map/index updates, and cross-repo handoff rule. | `docs/24-live-transport-control-sot.md`, `docs/roadmap.md`, `docs/README.md`, `docs/kkachi-docs-map.yaml`, `docs/21-cross-repo-development.md` | docs guardrails, `make check-plugin-contract`, plugin `make check-core-contract` when practical |
+| LTRAN-002 | Confirm or add daemon compatibility read shapes needed by plugin live transport. | `internal/daemon/`, `internal/command/`, `internal/protocol/`, `testdata/conformance/`, `docs/03-protocol-spec.md`, `docs/04-cli-spec.md` | status/version/health/stream/council command tests, conformance checks, `make test` |
+| LTRAN-003 | Prove disposable CLI/daemon live-local support for plugin equivalence. | CLI integration tests, conformance fixtures, release/local scripts, docs evidence | disposable data-home smoke, command-id/idempotency checks, stream replay/follow/ack checks |
+| MEMBR-001 | Select and document first participant invocation pilot mode and evidence rules. | `docs/14-streaming-member-runtime.md`, `docs/24-live-transport-control-sot.md`, runtime docs/evidence | docs guardrails and review acceptance |
+| MEMBR-002 | Prove selected real participant profile/wrapper invocation and durable success/failure event recording. | `internal/memberruntime/`, `internal/runner/`, CLI/runtime tests, docs | fake/isolated wrapper tests plus real-profile evidence when authorized; no role substitution |
+| SURFD-001 | Define event-to-visible-surface rendering/evidence contract. | `docs/03-protocol-spec.md`, `docs/07-moderator-policy.md`, `docs/13-operational-contracts.md`, `docs/24-live-transport-control-sot.md` | docs guardrails, protocol consistency checks |
+| SURFD-002 | Prove projection/transcript/export or fixture evidence for visible rendering tests. | `internal/transcript/`, `internal/storage/`, `testdata/conformance/`, docs | transcript/export/projection tests, delivery evidence fixture checks, `make test` |

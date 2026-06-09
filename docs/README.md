@@ -49,6 +49,7 @@ The Python Hermes plugin has its own repository and documentation at `../../kkac
 22. `21-cross-repo-development.md` — parallel control/plugin milestone, conformance, and cross-repo check contract
 23. `22-deleg-002-conformance-fixture-matrix.md` — DELEG-002 fixture publication task brief for delegation/review plugin handoff
 24. `23-release-v1-acceptance.md` — local Release v1 acceptance scope, gates, evidence, and non-live-readiness boundaries
+25. `24-live-transport-control-sot.md` — control-side live transport SOT for `LTRAN` / `MEMBR` / `SURFD`, companion to the plugin live transport SOT
 
 `11-distribution-and-skill.md` is deprecated by the repo split and replaced by `11-distribution-and-plugin.md`.
 
@@ -82,7 +83,8 @@ The control repo Makefile owns Go checks, control docs guardrails, and RELIA-001
 11. `09-implementation-epics.md`
 12. `22-deleg-002-conformance-fixture-matrix.md` when planning or implementing DELEG-002 / plugin DELRV-2 unblock work
 13. `23-release-v1-acceptance.md` when validating Release v1 local readiness
-14. plugin docs in `../../kkachi-agent-network-plugin/docs/`
+14. `24-live-transport-control-sot.md` when planning post-Release `LTRAN`, `MEMBR`, or `SURFD` live-local work
+15. plugin docs in `../../kkachi-agent-network-plugin/docs/`
 
 ## Current implementation state
 
@@ -90,6 +92,6 @@ This repository has the BOOTS-001 scaffold plus DAEMN-002 local control surfaces
 
 DELEG-002 publishes the control-owned plugin-consumable delegation/review fixture matrix for success, duplicate/idempotency, permission/error, retryable failure policy, and malformed-response handling. Plugin delegation/review failure coverage must consume these control fixtures and must not invent control-owned command or error shapes.
 
-RELIA-001 release acceptance is in progress with a local-only `test-release-acceptance` target for storage/replay/recovery evidence.
+RELIA-001 release acceptance is complete for local Release v1 readiness. Post-Release live-local work is now planned through `LTRAN`, `MEMBR`, and `SURFD`; those epics do not claim production activation.
 
 `live_readiness` remains `false`: live Hermes/Discord/KAB/gateway/auth/token integrations, production plugin-load evidence, and external E2E are not contacted by default test targets.

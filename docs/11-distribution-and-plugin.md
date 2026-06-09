@@ -29,6 +29,8 @@ Control docs must specify the daemon contract the plugin consumes:
 
 For TRANS-001, plugin distribution handoff is limited to consuming the control-owned `transcript.render` and `export.bundle` command fixtures plus the local bundle shape documented by the manifest. This is not a live Discord, Hermes, KAB, gateway, or production install readiness claim, and the control repo must not mutate plugin source while publishing the handoff.
 
+For post-Release live-local work, `24-live-transport-control-sot.md` owns the control-side `LTRAN`, `MEMBR`, and `SURFD` gates. The companion plugin repo may start its matching plugin epic only after the control epic boundary is complete.
+
 ## Compatibility rule
 
 The plugin may support multiple control protocol versions only when it can prove behavior through conformance tests. If the daemon reports an unsupported protocol or missing required feature, the plugin fails closed and points to the CLI fallback.
