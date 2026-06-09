@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "request_id": "req_transcript_render_001",
+  "ok": true,
+  "result": {
+    "session_id": "sess_conformance_delegation",
+    "format": "md",
+    "content": "# Conformance delegation fixture\n\n- session_id: `sess_conformance_delegation`\n- session_type: `delegation`\n- status: `terminal`\n\n## Runner And Cost Summary\n\n## Events\n\n### 000 `evt_session_created_delegation_001`\n\n- type: `session_created`\n"
+  }
+}

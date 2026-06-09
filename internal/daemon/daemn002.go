@@ -54,6 +54,12 @@ func (s *Server) handleDAEMN002(request protocol.CommandRequest) (protocol.Comma
 		return s.handleLimitsExtend(request), true
 	case "status.session":
 		return s.handleSessionStatus(request), true
+	case "transcript.render":
+		return s.handleTranscriptRender(request), true
+	case "export.bundle":
+		return s.handleExportBundle(request), true
+	case "tail.session":
+		return s.handleTailSession(request), true
 	default:
 		return protocol.CommandResponse{}, false
 	}
@@ -113,6 +119,57 @@ func (s *Server) handleStreamStatus(request protocol.CommandRequest) protocol.Co
 		return protocol.ErrorResponse(request, daemonProtocolError(err))
 	}
 	return protocol.SuccessResponse(request, structToMap(status))
+}
+
+func (s *Server) handleTranscriptRender(request protocol.CommandRequest) protocol.CommandResponse {
+	metadata, sessionDir, err := s.loadSession(stringParam(request, "session_id"))
+	if err != nil {
+		return protocol.ErrorResponse(request, daemonProtocolError(err))
+	}
+	format := stringParam(request, "format")
+	if format == "" {
+		format = storage.TranscriptMarkdownFormat
+	}
+	content, err := storage.RenderTranscript(sessionDir, metadata, format)
+	if err != nil {
+		return protocol.ErrorResponse(request, daemonProtocolError(err))
+	}
+	return protocol.SuccessResponse(request, map[string]any{
+		"session_id": metadata.ID,
+		"format":     format,
+		"content":    string(content),
+	})
+}
+
+func (s *Server) handleExportBundle(request protocol.CommandRequest) protocol.CommandResponse {
+	metadata, sessionDir, err := s.loadSession(stringParam(request, "session_id"))
+	if err != nil {
+		return protocol.ErrorResponse(request, daemonProtocolError(err))
+	}
+	result, err := storage.BuildExportBundle(sessionDir, metadata, storage.ExportBundleOptions{OutputPath: stringParam(request, "output_path")})
+	if err != nil {
+		return protocol.ErrorResponse(request, daemonProtocolError(err))
+	}
+	return protocol.SuccessResponse(request, structToMap(result))
+}
+
+func (s *Server) handleTailSession(request protocol.CommandRequest) protocol.CommandResponse {
+	metadata, sessionDir, err := s.loadSession(stringParam(request, "session_id"))
+	if err != nil {
+		return protocol.ErrorResponse(request, daemonProtocolError(err))
+	}
+	frames, err := storage.ReplayStream(sessionDir, metadata, storage.ReplayOptions{FromStart: true})
+	if err != nil {
+		return protocol.ErrorResponse(request, daemonProtocolError(err))
+	}
+	limit := intParam(request, "limit")
+	if limit <= 0 {
+		limit = 20
+	}
+	if len(frames) > limit {
+		frames = frames[len(frames)-limit:]
+	}
+	return protocol.SuccessResponse(request, map[string]any{"frames": frames})
 }
 
 func (s *Server) handleDeliveryEvidence(request protocol.CommandRequest, kind string) protocol.CommandResponse {
@@ -205,6 +262,22 @@ func durationParam(request protocol.CommandRequest, key string, unit time.Durati
 		}
 	}
 	return 0
+}
+
+func intParam(request protocol.CommandRequest, key string) int {
+	if request.Params == nil {
+		return 0
+	}
+	switch value := request.Params[key].(type) {
+	case int:
+		return value
+	case int64:
+		return int(value)
+	case float64:
+		return int(value)
+	default:
+		return 0
+	}
 }
 
 func stringSliceParam(request protocol.CommandRequest, key string) []string {

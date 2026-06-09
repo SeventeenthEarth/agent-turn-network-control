@@ -23,6 +23,8 @@ REQUIRED_FEATURE_GROUPS = [
     "delivery_evidence",
     "conformance.fixtures",
     "council.lifecycle",
+    "transcript.render",
+    "export.bundle",
 ]
 
 REQUIRED_SCHEMAS = [
@@ -137,6 +139,10 @@ REQUIRED_FIXTURES = [
     "fixtures/command/stream-replay-request.json",
     "fixtures/command/stream-ack-request.json",
     "fixtures/command/stream-ack-response.json",
+    "fixtures/command/transcript-render-request.json",
+    "fixtures/command/transcript-render-response.json",
+    "fixtures/command/export-bundle-request.json",
+    "fixtures/command/export-bundle-response.json",
     *REQUIRED_CANCEL_FIXTURES[:2],
     *REQUIRED_DELIVERY_FIXTURES[:4],
     "fixtures/event/session-created-delegation.json",

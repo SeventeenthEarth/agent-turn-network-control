@@ -14,6 +14,8 @@ const (
 	FeatureDeliveryEvidence    = "delivery_evidence"
 	FeatureConformanceFixtures = "conformance.fixtures"
 	FeatureCouncilLifecycle    = "council.lifecycle"
+	FeatureTranscriptRender    = "transcript.render"
+	FeatureExportBundle        = "export.bundle"
 )
 
 var RequiredFeatureGroups = []string{
@@ -30,6 +32,8 @@ var RequiredFeatureGroups = []string{
 	FeatureDeliveryEvidence,
 	FeatureConformanceFixtures,
 	FeatureCouncilLifecycle,
+	FeatureTranscriptRender,
+	FeatureExportBundle,
 }
 
 type VersionFeatures struct {

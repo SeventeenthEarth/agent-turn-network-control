@@ -24,7 +24,10 @@ Control docs must specify the daemon contract the plugin consumes:
 - structured error schema;
 - version/feature compatibility endpoint;
 - delivery evidence command path;
+- transcript/export local rendering commands and control-owned conformance fixtures;
 - conformance fixture version.
+
+For TRANS-001, plugin distribution handoff is limited to consuming the control-owned `transcript.render` and `export.bundle` command fixtures plus the local bundle shape documented by the manifest. This is not a live Discord, Hermes, KAB, gateway, or production install readiness claim, and the control repo must not mutate plugin source while publishing the handoff.
 
 ## Compatibility rule
 

@@ -57,7 +57,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs are derived from the 
 
 | Task ID | Task Title | Task Status | Task Description |
 | --- | --- | --- | --- |
-| TRANS-001 | Transcript and distribution | planned | Implement golden transcript/export rendering, install/distribution docs, plugin handoff checks, and operator acceptance evidence. |
+| TRANS-001 | Transcript and distribution | completed | Implemented golden transcript/export rendering, install/distribution docs, plugin handoff checks, and operator acceptance evidence. |
 
 ## RELIA — Reliability/release
 

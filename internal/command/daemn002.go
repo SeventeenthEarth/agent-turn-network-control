@@ -13,6 +13,7 @@ import (
 
 	"kkachi-agent-network-control/internal/protocol"
 	"kkachi-agent-network-control/internal/registry"
+	"kkachi-agent-network-control/internal/storage"
 	"kkachi-agent-network-control/internal/transport"
 )
 
@@ -174,6 +175,138 @@ func (a App) runStreamAck(args []string, stdout io.Writer, stderr io.Writer) int
 		return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "stream ack requires --member and --cursor", protocol.ExitUsage, nil))
 	}
 	return a.daemonRequestWithParams(stdout, stderr, protocol.FeatureStreamAck, params)
+}
+
+func (a App) runTranscript(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) == 0 || isHelp(args[0]) {
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s transcript <session_id> --format md|jsonl [--output <path>]\n", a.Name)
+		return protocol.ExitOK
+	}
+	params := map[string]any{"session_id": args[0]}
+	output := ""
+	for i := 1; i < len(args); i++ {
+		switch args[i] {
+		case "--format":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--format requires a value", protocol.ExitUsage, nil))
+			}
+			params["format"] = args[i+1]
+			i++
+		case "--output":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--output requires a value", protocol.ExitUsage, nil))
+			}
+			output = args[i+1]
+			i++
+		default:
+			return writeProtocolError(stderr, protocol.UnsupportedFeature("transcript "+args[i]))
+		}
+	}
+	if params["format"] == nil {
+		return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "transcript requires --format md or --format jsonl", protocol.ExitUsage, nil))
+	}
+	if params["format"] != storage.TranscriptMarkdownFormat && params["format"] != storage.TranscriptJSONLFormat {
+		return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "transcript format must be md or jsonl", protocol.ExitUsage, nil))
+	}
+	response, exit := a.daemonCommand("transcript.render", params, stderr)
+	if exit != protocol.ExitOK {
+		return exit
+	}
+	content, ok := response.Result["content"].(string)
+	if !ok {
+		return writeProtocolError(stderr, protocol.InternalError("transcript.render response missing content"))
+	}
+	if output == "" {
+		_, _ = io.WriteString(stdout, content)
+		return protocol.ExitOK
+	}
+	path, err := safeOperatorOutputPath(output)
+	if err != nil {
+		return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, err.Error(), protocol.ExitUsage, nil))
+	}
+	if err := writeOperatorFile(path, []byte(content)); err != nil {
+		return writeProtocolError(stderr, protocol.InternalError(err.Error()))
+	}
+	writeJSON(stdout, map[string]any{"session_id": args[0], "format": params["format"], "output_path": path})
+	return protocol.ExitOK
+}
+
+func (a App) runExport(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) == 0 || isHelp(args[0]) {
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s export <session_id> --bundle [--output <directory>]\n", a.Name)
+		return protocol.ExitOK
+	}
+	params := map[string]any{"session_id": args[0]}
+	bundle := false
+	for i := 1; i < len(args); i++ {
+		switch args[i] {
+		case "--bundle":
+			bundle = true
+		case "--output":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--output requires a value", protocol.ExitUsage, nil))
+			}
+			path, err := safeOperatorOutputPath(args[i+1])
+			if err != nil {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, err.Error(), protocol.ExitUsage, nil))
+			}
+			params["output_path"] = path
+			i++
+		default:
+			return writeProtocolError(stderr, protocol.UnsupportedFeature("export "+args[i]))
+		}
+	}
+	if !bundle {
+		return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "export requires --bundle", protocol.ExitUsage, nil))
+	}
+	return a.daemonRequestWithParams(stdout, stderr, "export.bundle", params)
+}
+
+func (a App) runTail(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) == 0 || isHelp(args[0]) {
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s tail <session_id> [--limit <n>] --format ndjson\n", a.Name)
+		return protocol.ExitOK
+	}
+	params := map[string]any{"session_id": args[0]}
+	format := ""
+	for i := 1; i < len(args); i++ {
+		switch args[i] {
+		case "--limit":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--limit requires a value", protocol.ExitUsage, nil))
+			}
+			value, ok := positiveIntArg(args[i+1])
+			if !ok {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--limit must be a positive integer", protocol.ExitUsage, nil))
+			}
+			params["limit"] = value
+			i++
+		case "--format":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--format requires a value", protocol.ExitUsage, nil))
+			}
+			format = args[i+1]
+			i++
+		default:
+			return writeProtocolError(stderr, protocol.UnsupportedFeature("tail "+args[i]))
+		}
+	}
+	if format != "ndjson" {
+		return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "tail requires --format ndjson", protocol.ExitUsage, nil))
+	}
+	response, exit := a.daemonCommand("tail.session", params, stderr)
+	if exit != protocol.ExitOK {
+		return exit
+	}
+	frames, _ := response.Result["frames"].([]any)
+	for _, frame := range frames {
+		data, err := json.Marshal(frame)
+		if err != nil {
+			return writeProtocolError(stderr, protocol.InternalError(err.Error()))
+		}
+		_, _ = stdout.Write(append(data, '\n'))
+	}
+	return protocol.ExitOK
 }
 
 func (a App) runDelegate(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -628,6 +761,47 @@ func (a App) daemonCommand(command string, params map[string]any, stderr io.Writ
 		return response, writeProtocolError(stderr, protocol.ToStructuredError(err))
 	}
 	return response, protocol.ExitOK
+}
+
+func safeOperatorOutputPath(value string) (string, error) {
+	if strings.TrimSpace(value) == "" {
+		return "", fmt.Errorf("output path is required")
+	}
+	clean := filepath.Clean(value)
+	if strings.Contains(clean, "\x00") || strings.Contains(clean, "..") {
+		return "", fmt.Errorf("output path must not contain NUL or dot-dot segments")
+	}
+	if filepath.IsAbs(clean) {
+		return clean, nil
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	path := filepath.Join(cwd, clean)
+	if !strings.HasPrefix(path, cwd+string(os.PathSeparator)) && path != cwd {
+		return "", fmt.Errorf("output path escapes current directory")
+	}
+	return path, nil
+}
+
+func writeOperatorFile(path string, content []byte) error {
+	parent := filepath.Dir(path)
+	if err := os.MkdirAll(parent, 0o700); err != nil {
+		return err
+	}
+	if info, err := os.Lstat(path); err == nil {
+		if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+			return fmt.Errorf("output path must be a regular non-symlink file")
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, content, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 func repoRootForConformance() (string, error) {

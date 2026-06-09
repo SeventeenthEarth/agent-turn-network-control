@@ -16,7 +16,9 @@
     "active_session.lock",
     "delivery_evidence",
     "conformance.fixtures",
-    "council.lifecycle"
+    "council.lifecycle",
+    "transcript.render",
+    "export.bundle"
   ],
   "feature_groups": [
     "version.read",
@@ -31,7 +33,9 @@
     "active_session.lock",
     "delivery_evidence",
     "conformance.fixtures",
-    "council.lifecycle"
+    "council.lifecycle",
+    "transcript.render",
+    "export.bundle"
   ],
   "fixture_manifest": "testdata/conformance/manifest.json"
 }

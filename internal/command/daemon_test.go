@@ -38,6 +38,48 @@ func TestIntegrationDaemonUnavailableMapsToExitTwo(t *testing.T) {
 	assertCommandJSONError(t, stderr.String(), "daemon_unavailable", "daemon")
 }
 
+func TestUnitTranscriptExportTailCLIValidationDoesNotRequireDaemon(t *testing.T) {
+	app := command.NewCLIWithRuntime(commandFixedRuntime())
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "transcript format", args: []string{"transcript", "sess_command", "--format", "html"}, want: "transcript format must be md or jsonl"},
+		{name: "export unsafe output", args: []string{"export", "sess_command", "--bundle", "--output", "../escape"}, want: "output path must not contain NUL or dot-dot segments"},
+		{name: "tail format", args: []string{"tail", "sess_command"}, want: "tail requires --format ndjson"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			if exitCode := app.Run(tc.args, &stdout, &stderr); exitCode != protocol.ExitUsage {
+				t.Fatalf("exit=%d stdout=%q stderr=%q", exitCode, stdout.String(), stderr.String())
+			}
+			if !strings.Contains(stderr.String(), tc.want) {
+				t.Fatalf("stderr missing %q: %s", tc.want, stderr.String())
+			}
+		})
+	}
+
+	var helpOut bytes.Buffer
+	var helpErr bytes.Buffer
+	if exitCode := app.Run([]string{"transcript", "--help"}, &helpOut, &helpErr); exitCode != 0 {
+		t.Fatalf("help exit=%d stderr=%q", exitCode, helpErr.String())
+	}
+	if !strings.Contains(helpOut.String(), "transcript <session_id> --format md|jsonl") {
+		t.Fatalf("transcript help missing usage: %s", helpOut.String())
+	}
+}
+
+func TestUnitRootHelpListsTranscriptExportAndTail(t *testing.T) {
+	help := command.NewCLI().Help()
+	for _, want := range []string{"transcript", "export", "tail"} {
+		if !strings.Contains(help, want) {
+			t.Fatalf("root help missing %q:\n%s", want, help)
+		}
+	}
+}
+
 func TestIntegrationDaemonLifecycleStartStatusHealthStopAndAlreadyRunning(t *testing.T) {
 	dataHome := commandDaemonFixture(t)
 	t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)

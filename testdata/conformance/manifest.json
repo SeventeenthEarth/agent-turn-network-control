@@ -18,6 +18,10 @@
     "fixtures/command/stream-replay-request.json",
     "fixtures/command/stream-ack-request.json",
     "fixtures/command/stream-ack-response.json",
+    "fixtures/command/transcript-render-request.json",
+    "fixtures/command/transcript-render-response.json",
+    "fixtures/command/export-bundle-request.json",
+    "fixtures/command/export-bundle-response.json",
     "fixtures/command/cancel-request.json",
     "fixtures/command/cancel-response.json",
     "fixtures/command/delegate-escalation-delivered-request.json",
@@ -134,7 +138,9 @@
     "active_session.lock",
     "delivery_evidence",
     "conformance.fixtures",
-    "council.lifecycle"
+    "council.lifecycle",
+    "transcript.render",
+    "export.bundle"
   ],
   "notes": "Static DAEMN-002, local/fake RUNRT-001, DELEG-002 delegation/review, and COUNC-001 council lifecycle conformance artifacts only; they do not start a daemon or contact Hermes, Discord, KAB, auth, token, gateway, or other live services."
 }

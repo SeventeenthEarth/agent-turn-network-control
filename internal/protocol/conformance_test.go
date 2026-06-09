@@ -23,6 +23,10 @@ var requiredConformanceFixtures = []string{
 	"fixtures/command/stream-replay-request.json",
 	"fixtures/command/stream-ack-request.json",
 	"fixtures/command/stream-ack-response.json",
+	"fixtures/command/transcript-render-request.json",
+	"fixtures/command/transcript-render-response.json",
+	"fixtures/command/export-bundle-request.json",
+	"fixtures/command/export-bundle-response.json",
 	"fixtures/command/cancel-request.json",
 	"fixtures/command/cancel-response.json",
 	"fixtures/command/delegate-escalation-delivered-request.json",
@@ -198,6 +202,14 @@ func TestUnitConformanceFixturesUseCanonicalCommandsAndDeliveryEvidence(t *testi
 	}
 	if usesStreamTail(string(readConformanceBytes(t, "fixtures/command/stream-replay-request.json"))) {
 		t.Fatalf("stream replay fixture must not mention stream.tail")
+	}
+	transcriptRequest := readJSONFixture[CommandRequest](t, "fixtures/command/transcript-render-request.json")
+	if transcriptRequest.Command != FeatureTranscriptRender || transcriptRequest.Params["format"] != "md" {
+		t.Fatalf("transcript fixture has wrong command shape: %+v", transcriptRequest)
+	}
+	exportRequest := readJSONFixture[CommandRequest](t, "fixtures/command/export-bundle-request.json")
+	if exportRequest.Command != FeatureExportBundle {
+		t.Fatalf("export fixture command = %q, want %q", exportRequest.Command, FeatureExportBundle)
 	}
 	cancelRequest := readJSONFixture[CommandRequest](t, "fixtures/command/cancel-request.json")
 	if cancelRequest.Command != "cancel" {

@@ -493,6 +493,18 @@ CREATE INDEX event_recipients_by_event
 
 `event_recipients` is a query projection over `events.recipient_json`. For an event with `"to": ["agent-1", "agent-2"]`, the table contains two rows; for `"to": []`, no rows. `ordinal` is for deterministic transcript rendering and debugging only; recipient order has no semantic meaning.
 
+## Transcript and export renderings
+
+`channel.jsonl` remains the source of truth. `transcript.md`, `transcript.jsonl`, `brief.md`, and export bundle files are generated renderings and may be recreated from the session directory.
+
+Renderer rules:
+
+- Markdown transcript rendering reads `session.yaml`, `registry_snapshot.yaml` metadata, and `channel.jsonl` only. It renders stable event order, `from`/`to` semantic recipients, surface metadata, linked-authority metadata and `linked_authority_result` payloads, council attendance/agenda evidence, delegation/review evidence, blockers, terminal/cancelled phase evidence, and runner/cost summary values when present.
+- JSONL transcript rendering is a deterministic re-emission of persisted event envelopes from `channel.jsonl`; it does not add status fields or plugin-only fields.
+- Export bundles are local directories containing `transcript.md`, `transcript.jsonl`, `brief.md`, `session.json`, `channel.jsonl`, `registry_snapshot.yaml`, and `bundle_manifest.json`.
+- Default export output is `<session_dir>/exports/<session_id>-bundle`. Explicit output paths must not contain NUL or dot-dot segments and must resolve to regular non-symlink files/directories. Existing regular generated files are overwritten deterministically.
+- Transcript/export/status/tail are side-effect free for session state: they do not append events, rebuild projections, invoke runners, deliver escalations, or write any linked-authority external system.
+
 ### Append and replay rule
 
 When appending an event the daemon:

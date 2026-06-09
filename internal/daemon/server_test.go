@@ -97,6 +97,41 @@ func TestUnitDaemonDAEMN002VersionFeaturesAreImplemented(t *testing.T) {
 	}
 }
 
+func TestUnitDaemonTranscriptExportAndTailAreReadOnlyCommandPaths(t *testing.T) {
+	dataHome := daemonDataHome(t)
+	metadata := daemonSessionFixture(t, dataHome)
+	sessionDir, err := storage.SessionDir(dataHome, metadata.ID)
+	if err != nil {
+		t.Fatalf("SessionDir: %v", err)
+	}
+	beforeLog := readFileForDaemonTest(t, filepath.Join(sessionDir, storage.ChannelJSONLName))
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+
+	transcript := server.Handle(protocol.NewRequest("transcript", "transcript.render", map[string]any{"session_id": metadata.ID, "format": "md"}))
+	if !transcript.OK || !strings.Contains(fmt.Sprint(transcript.Result["content"]), "Daemon stream fixture") {
+		t.Fatalf("unexpected transcript response: %+v", transcript)
+	}
+	jsonl := server.Handle(protocol.NewRequest("transcript-jsonl", "transcript.render", map[string]any{"session_id": metadata.ID, "format": "jsonl"}))
+	if !jsonl.OK || !strings.Contains(fmt.Sprint(jsonl.Result["content"]), `"event_id":"evt_created_001"`) {
+		t.Fatalf("unexpected transcript jsonl response: %+v", jsonl)
+	}
+	tail := server.Handle(protocol.NewRequest("tail", "tail.session", map[string]any{"session_id": metadata.ID, "limit": 1}))
+	if !tail.OK {
+		t.Fatalf("unexpected tail response: %+v", tail)
+	}
+	export := server.Handle(protocol.NewRequest("export", "export.bundle", map[string]any{"session_id": metadata.ID}))
+	if !export.OK || !strings.Contains(fmt.Sprint(export.Result["bundle_dir"]), filepath.Join("exports", metadata.ID+"-bundle")) {
+		t.Fatalf("unexpected export response: %+v", export)
+	}
+	afterLog := readFileForDaemonTest(t, filepath.Join(sessionDir, storage.ChannelJSONLName))
+	if beforeLog != afterLog {
+		t.Fatalf("read-only transcript/export/tail commands changed channel.jsonl")
+	}
+	if strings.Contains(mustJSON(t, protocol.NewVersionFeatures()), "stream.tail") {
+		t.Fatalf("version features must not advertise stream.tail")
+	}
+}
+
 func TestIntegrationDaemonStreamAckStatusAndDeliveryEvidence(t *testing.T) {
 	dataHome := daemonDataHome(t)
 	metadata := daemonSessionFixture(t, dataHome)
@@ -402,6 +437,15 @@ func mustJSON(t *testing.T, value any) string {
 	data, err := json.Marshal(value)
 	if err != nil {
 		t.Fatalf("marshal json: %v", err)
+	}
+	return string(data)
+}
+
+func readFileForDaemonTest(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read file %s: %v", path, err)
 	}
 	return string(data)
 }

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "request_id": "req_export_bundle_001",
+  "ok": true,
+  "result": {
+    "session_id": "sess_conformance_delegation",
+    "bundle_dir": "sessions/sess_conformance_delegation/exports/sess_conformance_delegation-bundle",
+    "files": [
+      "brief.md",
+      "bundle_manifest.json",
+      "channel.jsonl",
+      "registry_snapshot.yaml",
+      "session.json",
+      "transcript.jsonl",
+      "transcript.md"
+    ]
+  }
+}

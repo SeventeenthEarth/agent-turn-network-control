@@ -67,7 +67,10 @@ Control conformance fixtures are stored under `testdata/conformance/` once code 
 - delivery evidence commands for Discord/helper surfaces;
 - DELEG-001 local/fake delegation and review-gate behavior, including canonical `cancel` / `session_cancelled` coverage;
 - DELEG-002 plugin-consumable delegation/review command envelopes, structured-error fixtures, duplicate/idempotency policy, permission/error examples, retryable failure policy, and malformed-response fail-closed policy;
-- local/fake RUNRT runner event envelopes (`runner_invocation_started`, `runner_invocation_failed`, terminal semantic runner events, and `runner_result_discarded`).
+- local/fake RUNRT runner event envelopes (`runner_invocation_started`, `runner_invocation_failed`, terminal semantic runner events, and `runner_result_discarded`);
+- TRANS-001 transcript/export command envelopes, deterministic renderer golden coverage, local bundle contents, and plugin handoff fixture checks.
+
+Transcript/export tests must cover deterministic Markdown and JSONL rendering, output path rejection, missing/corrupt session errors, export bundle contents, read-only fingerprints for `status`/`transcript`/`export`/`tail`, council linked-authority evidence, delegation/review evidence, terminal/blocked state rendering, and runner/cost summaries.
 
 The plugin repository must run its Python client against either copied fixtures or a temporary daemon built from this repo.
 

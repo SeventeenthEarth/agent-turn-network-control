@@ -70,6 +70,9 @@ func NewCLIWithRuntime(runtime registry.Runtime) App {
 			{Name: "resume", Description: "Resume a blocked session from its recorded resume phase."},
 			{Name: "limits", Description: "Show or extend local session limits with explicit authorization."},
 			{Name: "status", Description: "Show daemon or session status."},
+			{Name: "transcript", Description: "Render a deterministic local session transcript."},
+			{Name: "export", Description: "Create a deterministic local session export bundle."},
+			{Name: "tail", Description: "Print recent session stream frames without appending events."},
 			{Name: "version", Description: "Print protocol and binary version information."},
 		},
 	}
@@ -134,6 +137,12 @@ func (a App) Run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return a.runLimits(args[1:], stdout, stderr)
 		case "status":
 			return a.runStatus(args[1:], stdout, stderr)
+		case "transcript":
+			return a.runTranscript(args[1:], stdout, stderr)
+		case "export":
+			return a.runExport(args[1:], stdout, stderr)
+		case "tail":
+			return a.runTail(args[1:], stdout, stderr)
 		}
 	}
 	if a.Kind == appKindDaemon {

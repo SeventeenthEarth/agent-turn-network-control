@@ -146,7 +146,25 @@ kkachi-agent-network export <session_id> --bundle
 kkachi-agent-network tail <session_id>
 ```
 
-`kkachi-agent-network cancel` emits `session_cancelled`. `status`, `transcript`, `export`, and `tail` are read-only and emit no events.
+`kkachi-agent-network cancel` emits `session_cancelled`. `status`, `transcript`, `export`, and `tail` are read-only with respect to session events and emit no events.
+
+### Transcript, export, and tail
+
+```bash
+kkachi-agent-network transcript <session_id> --format md [--output transcript.md]
+kkachi-agent-network transcript <session_id> --format jsonl [--output transcript.jsonl]
+kkachi-agent-network export <session_id> --bundle [--output export-directory]
+kkachi-agent-network tail <session_id> [--limit 20] --format ndjson
+```
+
+Rules:
+
+- `transcript --format md` renders a deterministic Markdown view from `session.yaml`, `registry_snapshot.yaml` metadata, and `channel.jsonl`. It includes surface and linked-authority metadata, semantic recipients, council attendance/agenda and linked-authority-result payloads when present, delegation/review evidence, blockers, terminal/cancelled phase evidence, and a runner/cost summary when recorded.
+- `transcript --format jsonl` emits the canonical event stream from `channel.jsonl` in persisted order. It does not invent fields and does not read live services.
+- `transcript --output <path>` writes a local operator file after daemon rendering succeeds. Output paths must be local, regular, non-symlink paths and must not contain NUL or dot-dot segments. Existing regular files are overwritten deterministically.
+- `export --bundle` writes a deterministic local directory. Without `--output`, the daemon writes under `<session_dir>/exports/<session_id>-bundle`. With `--output`, the path must pass the same local safety checks. The bundle includes `transcript.md`, `transcript.jsonl`, `brief.md`, `session.json`, `channel.jsonl`, `registry_snapshot.yaml`, and `bundle_manifest.json`; existing regular bundle files are overwritten deterministically.
+- `tail` is a CLI convenience over bounded replay of existing stream frames. It is not a protocol feature group and must not be advertised as `stream.tail`.
+- These commands must not append events, invoke member runners, deliver escalations, create Kanban comments, write Vault notes, send Discord messages, call Hermes/KAB/gateway/auth/token endpoints, or treat linked authorities as ordering/state authority.
 
 ### Block and resume
 

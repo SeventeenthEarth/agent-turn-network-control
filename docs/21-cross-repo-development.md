@@ -43,7 +43,7 @@ The control repo can move without waiting for plugin UX work. The plugin can mov
 | DELEG-002 delegation/review fixture matrix | plugin-consumable command and structured-error fixtures for delegation/review success, canonical non-review `delegate.accept`, duplicate/idempotency, permission/error, retryable failure policy, and malformed-response fail-closed policy | Plugin DELRV-2 delegation/review failure coverage | no live gateway/runtime readiness claim; plugin consumes control fixtures and remains fail-closed on malformed daemon responses |
 | COUNC-001 council commands | implemented local council lifecycle commands plus static command/event/error fixtures and `council.lifecycle` feature group | Plugin P4 council tools and static fake-daemon/parser handoff | `live_readiness=false`; no live Discord support without isolated E2E |
 | DAEMN-002 delivery evidence commands | implemented local delivery success/failure evidence fixtures and daemon/CLI checks | Discord surface helper audit | fake gateway only until isolated e2e target exists |
-| TRANS-001 transcript/export | transcript and export commands | Plugin transcript/export tools | fixture rendering only |
+| TRANS-001 transcript/export | implemented control-owned `transcript.render` and `export.bundle` command fixtures, deterministic local transcript/export rendering, and bundle output fixtures under `testdata/conformance/` | Plugin transcript/export tools can consume the control fixture manifest and render/parser contract | fixture/local rendering only; no live Discord/Hermes/KAB/gateway readiness; no plugin source mutation |
 
 ## Plugin milestone expectations
 
