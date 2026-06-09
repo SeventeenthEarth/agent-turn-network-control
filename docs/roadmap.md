@@ -69,7 +69,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs are derived from the 
 
 | Task ID | Task Title | Task Status | Task Description |
 | --- | --- | --- | --- |
-| LTRAN-001 | Control live transport SOT and mapping | planned | Add the control companion SOT, update roadmap/docs cross-links, and record the daemon/CLI/plugin/member-runtime ownership split plus the epic-boundary repo handoff rule. |
+| LTRAN-001 | Control live transport SOT and mapping | completed | Record the control companion SOT, roadmap/docs cross-links, daemon/CLI/plugin/member-runtime ownership split, and epic-boundary repo handoff rule. |
 | LTRAN-002 | Confirm daemon compatibility reads | planned | Confirm existing `status`, `health`, `version.read`, `stream.replay`, `stream.follow`, `stream.ack`, and council command paths are sufficient for plugin live transport, or add minimal compatibility read shapes and conformance tests if required. |
 | LTRAN-003 | Prove CLI/daemon live-local support | planned | Run disposable data-home evidence showing CLI status/version/stream/write paths address the daemon state needed by plugin live-local equivalence tests, including command-id/idempotency and structured-error behavior. |
 

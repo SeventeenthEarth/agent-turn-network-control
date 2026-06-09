@@ -44,7 +44,7 @@ The control repo can move without waiting for plugin UX work. The plugin can mov
 | COUNC-001 council commands | implemented local council lifecycle commands plus static command/event/error fixtures and `council.lifecycle` feature group | Plugin P4 council tools and static fake-daemon/parser handoff | `live_readiness=false`; no live Discord support without isolated E2E |
 | DAEMN-002 delivery evidence commands | implemented local delivery success/failure evidence fixtures and daemon/CLI checks | Discord surface helper audit | fake gateway only until isolated e2e target exists |
 | TRANS-001 transcript/export | implemented control-owned `transcript.render` and `export.bundle` command fixtures, deterministic local transcript/export rendering, and bundle output fixtures under `testdata/conformance/` | Plugin transcript/export tools can consume the control fixture manifest and render/parser contract | fixture/local rendering only; no live Discord/Hermes/KAB/gateway readiness; no plugin source mutation |
-| LTRAN control epic | control companion SOT, daemon/CLI compatibility read confirmation, disposable live-local control evidence | Plugin `LTRAN` explicit live daemon transport and plugin/CLI/daemon equivalence | plugin `LTRAN` stays blocked until control `LTRAN` is complete; no production activation claim |
+| LTRAN control epic | control companion SOT, daemon/CLI compatibility read confirmation, disposable live-local control evidence | Plugin `LTRAN` explicit live daemon transport and plugin/CLI/daemon equivalence | plugin `LTRAN` stays blocked until control `LTRAN` is complete; `control/LTRAN-001` records docs-only SOT/mapping and does not unblock plugin live transport by itself; no production activation claim |
 | MEMBR control epic | real participant profile/wrapper invocation evidence for `speaker_selected` success/failure | Plugin `PARTC` participant stream/write and selected response proof | no simulated role prompt substitution; no always-on production runtime claim |
 | SURFD control epic | event-to-visible rendering contract and delivery evidence projection/fixture support | Plugin `SURFD` visible helper/rendering boundary | visible messages remain presentation/evidence, not lifecycle authority |
 
@@ -92,7 +92,7 @@ Valid fixture manifest entries should remain schema-valid examples. Malformed JS
 
 ## Active epic handoff rule
 
-Cross-repo active work transfers only at repo-owned epic boundaries. Control `LTRAN` gates plugin `LTRAN`; control `MEMBR` gates plugin `PARTC`; control `SURFD` gates plugin `SURFD`. A missing sibling capability found mid-epic blocks the active epic with evidence; it does not authorize switching into the sibling repo for an individual task while the current epic remains active.
+Cross-repo active work transfers only at repo-owned epic boundaries. Control `LTRAN` gates plugin `LTRAN`; control `MEMBR` gates plugin `PARTC`; control `SURFD` gates plugin `SURFD`. `control/LTRAN-001` is only the control-side SOT/mapping task; plugin `LTRAN` remains blocked until `control/LTRAN-002` confirms daemon compatibility reads and `control/LTRAN-003` proves disposable live-local support. A missing sibling capability found mid-epic blocks the active epic with evidence; it does not authorize switching into the sibling repo for an individual task while the current epic remains active.
 
 ## Parallel development modes
 

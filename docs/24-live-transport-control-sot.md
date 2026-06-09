@@ -2,7 +2,7 @@
 
 ## Status
 
-This document is the control-side Source of Truth for the local live transport path that connects `kkachi-agent-networkd`, the `kkachi-agent-network` CLI, and the companion `kkachi-agent-network-plugin`.
+This document is the control-side Source of Truth for planned post-Release local live transport work across `kkachi-agent-networkd`, the `kkachi-agent-network` CLI, and the companion `kkachi-agent-network-plugin`.
 
 The plugin-side companion SOT is `../../kkachi-agent-network-plugin/docs/10-live-transport-sot.md`. This control SOT owns daemon, CLI, protocol, conformance, member-runtime, and event-to-visible-surface delivery-evidence boundaries. The plugin SOT owns Python plugin transport, Hermes tool behavior, bundled skill/operator guidance, and plugin-side visible helper behavior.
 
@@ -10,7 +10,7 @@ This document does **not** authorize production activation, live Discord deliver
 
 ## Scope
 
-Control-side live transport covers the daemon/CLI/runtime authority required for a main agent to control a council session while participant agents observe daemon events and respond through a real member runtime path.
+Control-side live transport scope covers the daemon/CLI/runtime authority required before a main agent can control a council session while participant agents observe daemon events and respond through a real member runtime path.
 
 In scope:
 
@@ -20,7 +20,7 @@ In scope:
 - stream replay/follow/ack behavior and cursor failure handling;
 - member runtime real profile/wrapper invocation evidence;
 - event-to-visible-surface rendering contract and delivery-evidence pointer semantics;
-- local disposable live-local pilots that prove CLI/plugin/daemon equivalence without production activation.
+- later local disposable live-local pilots that prove CLI/plugin/daemon equivalence without production activation.
 
 Out of scope unless a later task explicitly opens it:
 
@@ -56,7 +56,7 @@ Recommended execution order:
 
 | Order | Repo | Epic | Purpose | Next gate |
 |---:|---|---|---|---|
-| 1 | control | `LTRAN` | companion SOT, daemon/CLI compatibility reads, live-local fixture/equivalence support | plugin `LTRAN` may start |
+| 1 | control | `LTRAN` | companion SOT, daemon/CLI compatibility reads, live-local fixture/equivalence support | plugin `LTRAN` may start only after all control `LTRAN` tasks complete |
 | 2 | plugin | `LTRAN` | plugin explicit live transport and plugin/CLI/daemon equivalence | control `MEMBR` may start |
 | 3 | control | `MEMBR` | real participant profile/wrapper invocation path | plugin `PARTC` may start |
 | 4 | plugin | `PARTC` | participant plugin stream/write path and selected response proof | control `SURFD` may start |
@@ -73,9 +73,36 @@ Exit: control exposes or confirms the daemon/CLI/protocol behavior needed for pl
 
 | Task ID | Task Title | Task Status | Task Description |
 |---|---|---|---|
-| LTRAN-001 | Control live transport SOT and mapping | planned | Add this companion SOT, update control roadmap/docs, cross-link plugin SOT, and record the repo-owned epic/task split and active epic handoff rule. |
+| LTRAN-001 | Control live transport SOT and mapping | completed | Add this companion SOT, update control roadmap/docs, cross-link plugin SOT, and record the repo-owned epic/task split and active epic handoff rule. This is a docs-only SOT/mapping exit and does not unblock plugin live transport by itself. |
 | LTRAN-002 | Confirm daemon compatibility reads | planned | Confirm existing `status`, `health`, `version.read`, `stream.replay`, `stream.follow`, `stream.ack`, and council command paths are sufficient for plugin live transport, or add minimal `status.read`/diagnostic shapes with conformance tests if required. |
 | LTRAN-003 | Prove CLI/daemon live-local support | planned | Run disposable data-home evidence showing CLI status/version/stream/write paths address the same daemon state needed by plugin live-local equivalence tests, including command-id/idempotency and structured-error behavior. |
+
+#### control/LTRAN-001 docs-only acceptance
+
+`control/LTRAN-001` is complete when the control docs record the live transport SOT, repo ownership split, cross-repo handoff rule, and companion plugin SOT link. It is a documentation and mapping task only.
+
+Acceptance evidence:
+
+- `docs/24-live-transport-control-sot.md` names control-owned daemon/CLI/protocol/member-runtime/surface boundaries and plugin-owned transport/helper boundaries.
+- `docs/21-cross-repo-development.md` states that control `LTRAN` gates plugin `LTRAN`, while `control/LTRAN-001` alone does not unblock plugin live transport implementation.
+- `docs/09-implementation-epics.md`, `docs/README.md`, and `docs/roadmap.md` keep `LTRAN-001` docs-only and leave `LTRAN-002`/`LTRAN-003` planned.
+- `docs/kkachi-docs-map.yaml` already indexes this SOT and the relevant docs guardrails.
+
+`control/LTRAN-001` does **not** confirm daemon read compatibility, create or change protocol shapes, prove disposable live-local daemon behavior, change plugin code, or authorize production/live activation. Those exits remain owned by `control/LTRAN-002`, `control/LTRAN-003`, and then plugin `LTRAN`.
+
+#### Control-side operation mapping for later LTRAN tasks
+
+This table mirrors the plugin SOT in control terms without implementing or confirming new daemon shapes. `control/LTRAN-002` owns compatibility confirmation or minimal conformance-backed additions; `control/LTRAN-003` owns disposable live-local proof.
+
+| Plugin-side operation | Current or candidate control path | Control owner | Requirement before plugin equivalence claims |
+|---|---|---|---|
+| `version.read` | daemon/CLI `version.read` | `control/LTRAN-002` confirmation | Direct compatibility read must expose protocol version and feature evidence. |
+| `status.read` | existing `status` or future `status.read` | `control/LTRAN-002` confirmation/addition | Response must identify protocol version, daemon version, feature groups, and capability state without plugin guessing. |
+| `diagnostics.read` | existing `health` or future `diagnostics.read` | `control/LTRAN-002` confirmation/addition | Plugin diagnostics must normalize from explicit daemon output and fail closed on missing/unknown shape. |
+| `stream.tail` | `stream.replay` / bounded replay-tail behavior | `control/LTRAN-002` confirmation | Preserve replay-before-live, cursor, member, and limit semantics. |
+| future `stream.follow` | `stream.replay` with bounded follow or daemon follow stream | `control/LTRAN-002` confirmation | Must be bounded, resumable, and fail closed on gaps or unknown schemas. |
+| future `stream.ack` | `stream.ack` | `control/LTRAN-002` confirmation | Acknowledge only after processing or durable failure recording. |
+| `command.submit` | concrete daemon commands such as `delegate.*`, `council.*`, and delivery-evidence commands | `control/LTRAN-002` confirmation plus `control/LTRAN-003` local proof | Do not assume a generic daemon alias unless implemented; command idempotency and structured errors must be proven before plugin equivalence claims. |
 
 ### MEMBR: Member runtime profile invocation
 
@@ -110,9 +137,25 @@ Control tasks must preserve these invariants:
 
 ## Verification requirements
 
-Control live transport work is not complete without command evidence for all applicable layers.
+`control/LTRAN-001` docs-only verification:
 
-Baseline checks:
+```bash
+make docs-guardrails
+make check-plugin-contract
+make test-prepare
+```
+
+Optional companion guardrail when practical:
+
+```bash
+cd ../kkachi-agent-network-plugin && make check-core-contract
+```
+
+`control/LTRAN-001` verification does not require live daemon, Hermes, Discord, KAB, gateway/auth/token, plugin mutation, external E2E, or localhost/TCP fallback evidence.
+
+Full control live transport work is not complete without command evidence for all applicable later layers.
+
+Baseline checks for `control/LTRAN-002`/`control/LTRAN-003` and later post-Release live-local work:
 
 ```bash
 make test-prepare
