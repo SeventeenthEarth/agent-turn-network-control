@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "request_id": "req_stream_status_001",
+  "ok": true,
+  "result": {
+    "session_id": "sess_conformance_delegation",
+    "latest_cursor": "cur_000000000002_evt_stream_ack_cmd_stream_ack_conformance",
+    "latest_event_id": "evt_stream_ack_cmd_stream_ack_conformance",
+    "cursors": {
+      "agent-1": {
+        "cursor": "cur_000000000000_evt_created_001",
+        "event_id": "evt_created_001",
+        "acknowledged_at": "2026-06-10T01:46:10Z"
+      }
+    },
+    "subscribers": [
+      {
+        "member": "agent-1",
+        "subscriber_id": "sub_agent_1",
+        "last_cursor": "cur_000000000001_evt_user_escalation_requested_01",
+        "status": "connected",
+        "last_heartbeat_at": "2026-06-10T01:46:11Z"
+      }
+    ]
+  }
+}

@@ -11,6 +11,8 @@ CONFORMANCE = CORE / "testdata" / "conformance"
 
 REQUIRED_FEATURE_GROUPS = [
     "version.read",
+    "status.read",
+    "diagnostics.read",
     "command_envelope",
     "event_envelope",
     "structured_error",
@@ -136,9 +138,16 @@ REQUIRED_COUNCIL_LIFECYCLE_FIXTURES = [
 
 REQUIRED_FIXTURES = [
     "fixtures/command/version-read-request.json",
+    "fixtures/command/status-read-request.json",
+    "fixtures/command/status-read-response.json",
+    "fixtures/command/diagnostics-read-request.json",
+    "fixtures/command/diagnostics-read-response.json",
     "fixtures/command/stream-replay-request.json",
+    "fixtures/command/stream-follow-request.json",
     "fixtures/command/stream-ack-request.json",
     "fixtures/command/stream-ack-response.json",
+    "fixtures/command/stream-status-request.json",
+    "fixtures/command/stream-status-response.json",
     "fixtures/command/transcript-render-request.json",
     "fixtures/command/transcript-render-response.json",
     "fixtures/command/export-bundle-request.json",

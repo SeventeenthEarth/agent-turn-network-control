@@ -132,8 +132,12 @@ func (s *Server) Handle(request protocol.CommandRequest) protocol.CommandRespons
 		return protocol.SuccessResponse(request, map[string]any{"ready": s.Ready()})
 	case "status":
 		return protocol.SuccessResponse(request, s.statusResult())
+	case protocol.FeatureStatusRead:
+		return protocol.SuccessResponse(request, s.statusReadResult())
 	case "health":
 		return protocol.SuccessResponse(request, s.healthResult())
+	case protocol.FeatureDiagnosticsRead:
+		return protocol.SuccessResponse(request, s.diagnosticsReadResult())
 	case "shutdown":
 		return protocol.SuccessResponse(request, map[string]any{"stopping": true})
 	default:
@@ -158,6 +162,42 @@ func (s *Server) statusResult() map[string]any {
 	if !started.IsZero() {
 		result["started_at"] = started.Format(time.RFC3339Nano)
 	}
+	return result
+}
+
+func (s *Server) statusReadResult() map[string]any {
+	status := s.statusResult()
+	result := map[string]any{
+		"daemon":                status["daemon"],
+		"ready":                 status["ready"],
+		"socket":                status["socket"],
+		"data_home":             status["data_home"],
+		"operational_readiness": map[string]any{"ready": status["ready"], "daemon": status["daemon"]},
+	}
+	if startedAt, ok := status["started_at"]; ok {
+		result["started_at"] = startedAt
+	}
+	return addCompatibilityEvidence(result)
+}
+
+func (s *Server) diagnosticsReadResult() map[string]any {
+	health := s.healthResult()
+	return addCompatibilityEvidence(map[string]any{
+		"ready":      health["ready"],
+		"categories": health["categories"],
+	})
+}
+
+func addCompatibilityEvidence(result map[string]any) map[string]any {
+	features := protocol.NewVersionFeatures()
+	result["schema_version"] = features.SchemaVersion
+	result["protocol_version"] = features.ProtocolVersion
+	result["daemon_version"] = features.DaemonVersion
+	result["min_plugin_protocol_version"] = features.MinPluginProtocolVersion
+	result["features"] = append([]string(nil), features.Features...)
+	result["feature_groups"] = append([]string(nil), features.FeatureGroups...)
+	result["fixture_manifest"] = features.FixtureManifest
+	result["capability_state"] = protocol.FeatureCapabilityState(features.FeatureGroups)
 	return result
 }
 

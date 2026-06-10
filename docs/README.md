@@ -92,6 +92,6 @@ This repository has the BOOTS-001 scaffold plus DAEMN-002 local control surfaces
 
 DELEG-002 publishes the control-owned plugin-consumable delegation/review fixture matrix for success, duplicate/idempotency, permission/error, retryable failure policy, and malformed-response handling. Plugin delegation/review failure coverage must consume these control fixtures and must not invent control-owned command or error shapes.
 
-RELIA-001 release acceptance is complete for local Release v1 readiness. `LTRAN-001` records the control-side live transport SOT/mapping only; `LTRAN-002`/`LTRAN-003`, `MEMBR`, and `SURFD` remain planned post-Release live-local work. These epics do not claim production activation.
+RELIA-001 release acceptance is complete for local Release v1 readiness. `LTRAN-001` records the control-side live transport SOT/mapping only. `LTRAN-002` is complete for daemon compatibility reads and conformance-backed capability evidence, while `LTRAN-003`, `MEMBR`, and `SURFD` remain planned post-Release live-local work. These epics do not claim production activation or disposable live-local proof until their own exits are verified.
 
 `live_readiness` remains `false`: live Hermes/Discord/KAB/gateway/auth/token integrations, production plugin-load evidence, and external E2E are not contacted by default test targets.

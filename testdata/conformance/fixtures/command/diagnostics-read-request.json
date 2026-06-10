@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "request_id": "req_diagnostics_read_001",
+  "command": "diagnostics.read",
+  "params": {}
+}

@@ -49,6 +49,8 @@ kkachi-agent-network daemon status
 
 `kkachi-agent-network daemon start` validates `<data_home>` and `registry.yaml` before reporting ready. If validation fails, the daemon does not accept session creation or dispatch commands; the failure is written to `<data_home>/operational.log` per `12-security.md`.
 
+The daemon protocol also exposes plugin-facing read-only compatibility commands `version.read`, `status.read`, and `diagnostics.read`. These are not replacements for concise operator `daemon status` / `health` output; they provide explicit protocol version, daemon version, minimum plugin protocol version, feature groups/features, capability state, and readiness/diagnostic categories for fail-closed plugin negotiation.
+
 ## Setup and diagnostic commands
 
 ```bash

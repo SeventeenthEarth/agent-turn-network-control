@@ -5,6 +5,8 @@
   "min_plugin_protocol_version": "kan-protocol-v1alpha0",
   "features": [
     "version.read",
+    "status.read",
+    "diagnostics.read",
     "command_envelope",
     "event_envelope",
     "structured_error",
@@ -22,6 +24,8 @@
   ],
   "feature_groups": [
     "version.read",
+    "status.read",
+    "diagnostics.read",
     "command_envelope",
     "event_envelope",
     "structured_error",

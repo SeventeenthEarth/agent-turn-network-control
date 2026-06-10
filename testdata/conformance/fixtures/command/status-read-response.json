@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "request_id": "req_status_read_001",
+  "ok": true,
+  "result": {
+    "schema_version": 1,
+    "fixture_manifest": "testdata/conformance/manifest.json",
+    "protocol_version": "kan-protocol-v1alpha0",
+    "daemon_version": "daemn-002-local",
+    "min_plugin_protocol_version": "kan-protocol-v1alpha0",
+    "features": [
+      "version.read",
+      "status.read",
+      "diagnostics.read",
+      "command_envelope",
+      "event_envelope",
+      "structured_error",
+      "stream_frame",
+      "stream.replay",
+      "stream.follow",
+      "stream.ack",
+      "stream.status",
+      "active_session.lock",
+      "delivery_evidence",
+      "conformance.fixtures",
+      "council.lifecycle",
+      "transcript.render",
+      "export.bundle"
+    ],
+    "feature_groups": [
+      "version.read",
+      "status.read",
+      "diagnostics.read",
+      "command_envelope",
+      "event_envelope",
+      "structured_error",
+      "stream_frame",
+      "stream.replay",
+      "stream.follow",
+      "stream.ack",
+      "stream.status",
+      "active_session.lock",
+      "delivery_evidence",
+      "conformance.fixtures",
+      "council.lifecycle",
+      "transcript.render",
+      "export.bundle"
+    ],
+    "capability_state": {
+      "version.read": {
+        "state": "supported",
+        "read_only": true
+      },
+      "status.read": {
+        "state": "supported",
+        "read_only": true
+      },
+      "diagnostics.read": {
+        "state": "supported",
+        "read_only": true
+      },
+      "command_envelope": {
+        "state": "supported",
+        "read_only": true
+      },
+      "event_envelope": {
+        "state": "supported",
+        "read_only": true
+      },
+      "structured_error": {
+        "state": "supported",
+        "read_only": true
+      },
+      "stream_frame": {
+        "state": "supported",
+        "read_only": true
+      },
+      "stream.replay": {
+        "state": "supported",
+        "read_only": true
+      },
+      "stream.follow": {
+        "state": "supported",
+        "read_only": true
+      },
+      "stream.ack": {
+        "state": "supported",
+        "read_only": false
+      },
+      "stream.status": {
+        "state": "supported",
+        "read_only": true
+      },
+      "active_session.lock": {
+        "state": "supported",
+        "read_only": false
+      },
+      "delivery_evidence": {
+        "state": "supported",
+        "read_only": false
+      },
+      "conformance.fixtures": {
+        "state": "supported",
+        "read_only": true
+      },
+      "council.lifecycle": {
+        "state": "supported",
+        "read_only": false
+      },
+      "transcript.render": {
+        "state": "supported",
+        "read_only": true
+      },
+      "export.bundle": {
+        "state": "supported",
+        "read_only": true
+      }
+    },
+    "daemon": "running",
+    "ready": true,
+    "socket": "/tmp/kkachi-agent-network/daemon.sock",
+    "data_home": "/tmp/kkachi-agent-network",
+    "started_at": "2026-06-10T01:46:10Z",
+    "operational_readiness": {
+      "ready": true,
+      "daemon": "running"
+    }
+  }
+}

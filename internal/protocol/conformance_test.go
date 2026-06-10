@@ -196,12 +196,47 @@ func TestUnitConformanceFixturesUseCanonicalCommandsAndDeliveryEvidence(t *testi
 	if versionRequest.Command != FeatureVersionRead {
 		t.Fatalf("version fixture command = %q, want %q", versionRequest.Command, FeatureVersionRead)
 	}
+	statusReadRequest := readJSONFixture[CommandRequest](t, "fixtures/command/status-read-request.json")
+	if statusReadRequest.Command != FeatureStatusRead {
+		t.Fatalf("status.read fixture command = %q, want %q", statusReadRequest.Command, FeatureStatusRead)
+	}
+	statusReadResponse := readJSONFixture[CommandResponse](t, "fixtures/command/status-read-response.json")
+	for _, key := range []string{"schema_version", "protocol_version", "daemon_version", "min_plugin_protocol_version", "feature_groups", "fixture_manifest", "capability_state", "operational_readiness"} {
+		if _, ok := statusReadResponse.Result[key]; !ok {
+			t.Fatalf("status.read response missing %q in %+v", key, statusReadResponse.Result)
+		}
+	}
+	diagnosticsReadRequest := readJSONFixture[CommandRequest](t, "fixtures/command/diagnostics-read-request.json")
+	if diagnosticsReadRequest.Command != FeatureDiagnosticsRead {
+		t.Fatalf("diagnostics.read fixture command = %q, want %q", diagnosticsReadRequest.Command, FeatureDiagnosticsRead)
+	}
+	diagnosticsReadResponse := readJSONFixture[CommandResponse](t, "fixtures/command/diagnostics-read-response.json")
+	for _, key := range []string{"schema_version", "protocol_version", "daemon_version", "min_plugin_protocol_version", "feature_groups", "fixture_manifest", "capability_state", "categories"} {
+		if _, ok := diagnosticsReadResponse.Result[key]; !ok {
+			t.Fatalf("diagnostics.read response missing %q in %+v", key, diagnosticsReadResponse.Result)
+		}
+	}
+
 	streamRequest := readJSONFixture[CommandRequest](t, "fixtures/command/stream-replay-request.json")
 	if streamRequest.Command != FeatureStreamReplay {
 		t.Fatalf("stream fixture command = %q, want %q", streamRequest.Command, FeatureStreamReplay)
 	}
-	if usesStreamTail(string(readConformanceBytes(t, "fixtures/command/stream-replay-request.json"))) {
-		t.Fatalf("stream replay fixture must not mention stream.tail")
+	streamFollowRequest := readJSONFixture[CommandRequest](t, "fixtures/command/stream-follow-request.json")
+	if streamFollowRequest.Command != FeatureStreamReplay || streamFollowRequest.Params["follow"] != true || streamFollowRequest.Params["follow_timeout_ms"] == nil || streamFollowRequest.Params["follow_poll_ms"] == nil {
+		t.Fatalf("stream follow fixture has wrong bounded follow shape: %+v", streamFollowRequest)
+	}
+	streamStatusRequest := readJSONFixture[CommandRequest](t, "fixtures/command/stream-status-request.json")
+	if streamStatusRequest.Command != FeatureStreamStatus || streamStatusRequest.Params["session_id"] == "" {
+		t.Fatalf("stream status fixture has wrong command shape: %+v", streamStatusRequest)
+	}
+	streamStatusResponse := readJSONFixture[CommandResponse](t, "fixtures/command/stream-status-response.json")
+	for _, key := range []string{"session_id", "latest_cursor", "latest_event_id", "cursors", "subscribers"} {
+		if _, ok := streamStatusResponse.Result[key]; !ok {
+			t.Fatalf("stream.status response missing %q in %+v", key, streamStatusResponse.Result)
+		}
+	}
+	if usesStreamTail(string(readConformanceBytes(t, "fixtures/command/stream-replay-request.json")) + string(readConformanceBytes(t, "fixtures/command/stream-follow-request.json")) + string(readConformanceBytes(t, "fixtures/command/stream-status-request.json"))) {
+		t.Fatalf("stream fixtures must not mention stream.tail")
 	}
 	transcriptRequest := readJSONFixture[CommandRequest](t, "fixtures/command/transcript-render-request.json")
 	if transcriptRequest.Command != FeatureTranscriptRender || transcriptRequest.Params["format"] != "md" {

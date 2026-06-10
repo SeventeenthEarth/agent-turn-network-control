@@ -67,6 +67,16 @@ The event envelope deliberately does **not** include `status`. `status` is a der
 
 This initial Release v1 schema uses `to` as `array<string>` from the start. Changing `to` between string and array form is a breaking envelope change and requires a `schema_version` migration per `13-operational-contracts.md`.
 
+## Daemon compatibility read commands
+
+The daemon exposes explicit read-only compatibility commands for plugin live-transport negotiation:
+
+- `version.read`: returns `schema_version`, `protocol_version`, `daemon_version`, `min_plugin_protocol_version`, `features`, `feature_groups`, and `fixture_manifest`.
+- `status.read`: returns the version fields above plus daemon readiness, socket/data-home identity, `operational_readiness`, and per-feature `capability_state`. It is additive to, and does not change, the operator-facing `status` command.
+- `diagnostics.read`: returns the version fields above plus health `categories`, readiness, and per-feature `capability_state`. It is additive to, and does not change, the operator-facing `health` command.
+
+Unknown command names and unsupported features fail closed with the structured `unsupported_feature` error; readers must not guess capabilities from missing fields or fall back to another transport.
+
 ## Event origin classes
 
 Each event type declares one of the following origin classes:

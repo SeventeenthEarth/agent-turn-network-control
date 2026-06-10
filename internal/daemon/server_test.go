@@ -33,6 +33,21 @@ func TestIntegrationDaemonLifecycleStatusHealthAndShutdown(t *testing.T) {
 	if !status.OK || status.Result["daemon"] != "running" || status.Result["ready"] != true {
 		t.Fatalf("unexpected status response: %+v", status)
 	}
+	if _, exists := status.Result["protocol_version"]; exists {
+		t.Fatalf("operator status must not grow compatibility fields: %+v", status.Result)
+	}
+
+	statusRead, err := transport.RoundTrip(dataHome, protocol.NewRequest("status-read", protocol.FeatureStatusRead, nil), time.Second)
+	if err != nil {
+		t.Fatalf("status.read round trip: %v", err)
+	}
+	statusReadJSON := mustJSON(t, statusRead.Result)
+	for _, want := range []string{protocol.ProtocolVersion, "daemn-002-local", "min_plugin_protocol_version", "feature_groups", "capability_state", protocol.FeatureDiagnosticsRead, "schema_version", "fixture_manifest"} {
+		if !strings.Contains(statusReadJSON, want) {
+			t.Fatalf("status.read missing %q: %s", want, statusReadJSON)
+		}
+	}
+	assertCompatibilityReadEvidence(t, "status.read", statusRead.Result)
 
 	health, err := transport.RoundTrip(dataHome, protocol.NewRequest("health", "health", nil), time.Second)
 	if err != nil {
@@ -44,6 +59,21 @@ func TestIntegrationDaemonLifecycleStatusHealthAndShutdown(t *testing.T) {
 			t.Fatalf("expected health to contain %s, got %s", want, healthJSON)
 		}
 	}
+	if _, exists := health.Result["protocol_version"]; exists {
+		t.Fatalf("operator health must not grow compatibility fields: %+v", health.Result)
+	}
+
+	diagnosticsRead, err := transport.RoundTrip(dataHome, protocol.NewRequest("diagnostics-read", protocol.FeatureDiagnosticsRead, nil), time.Second)
+	if err != nil {
+		t.Fatalf("diagnostics.read round trip: %v", err)
+	}
+	diagnosticsJSON := mustJSON(t, diagnosticsRead.Result)
+	for _, want := range []string{protocol.ProtocolVersion, "daemn-002-local", "min_plugin_protocol_version", "feature_groups", "capability_state", `"categories"`, `"readiness"`, "schema_version", "fixture_manifest"} {
+		if !strings.Contains(diagnosticsJSON, want) {
+			t.Fatalf("diagnostics.read missing %q: %s", want, diagnosticsJSON)
+		}
+	}
+	assertCompatibilityReadEvidence(t, "diagnostics.read", diagnosticsRead.Result)
 
 	stop, err := transport.RoundTrip(dataHome, protocol.NewRequest("stop", "shutdown", nil), time.Second)
 	if err != nil {
@@ -87,13 +117,100 @@ func TestUnitDaemonDAEMN002VersionFeaturesAreImplemented(t *testing.T) {
 		t.Fatalf("version.read should succeed, got %+v", response)
 	}
 	featuresJSON := mustJSON(t, response.Result)
-	for _, want := range []string{"version.read", "stream.replay", "stream.follow", "stream.ack", "stream.status", "delivery_evidence", "conformance.fixtures"} {
+	for _, want := range []string{"version.read", "status.read", "diagnostics.read", "stream.replay", "stream.follow", "stream.ack", "stream.status", "delivery_evidence", "conformance.fixtures"} {
 		if !strings.Contains(featuresJSON, want) {
 			t.Fatalf("version features missing %q: %s", want, featuresJSON)
 		}
 	}
 	if strings.Contains(featuresJSON, "stream.tail") {
 		t.Fatalf("version features must not advertise stream.tail: %s", featuresJSON)
+	}
+}
+
+func TestUnitDaemonCompatibilityReadsExposeProtocolEvidenceWithoutChangingOperatorShapes(t *testing.T) {
+	dataHome := daemonDataHome(t)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+
+	status := server.Handle(protocol.NewRequest("status", "status", nil))
+	if !status.OK {
+		t.Fatalf("status should succeed: %+v", status)
+	}
+	if _, exists := status.Result["protocol_version"]; exists {
+		t.Fatalf("operator status must not grow compatibility fields: %+v", status.Result)
+	}
+
+	statusRead := server.Handle(protocol.NewRequest("status-read", protocol.FeatureStatusRead, nil))
+	if !statusRead.OK {
+		t.Fatalf("status.read should succeed: %+v", statusRead)
+	}
+	statusReadJSON := mustJSON(t, statusRead.Result)
+	for _, want := range []string{protocol.ProtocolVersion, "daemn-002-local", "min_plugin_protocol_version", "feature_groups", "capability_state", "operational_readiness", protocol.FeatureDiagnosticsRead, "schema_version", "fixture_manifest"} {
+		if !strings.Contains(statusReadJSON, want) {
+			t.Fatalf("status.read missing %q: %s", want, statusReadJSON)
+		}
+	}
+	assertCompatibilityReadEvidence(t, "status.read", statusRead.Result)
+
+	health := server.Handle(protocol.NewRequest("health", "health", nil))
+	if !health.OK {
+		t.Fatalf("health should succeed: %+v", health)
+	}
+	if _, exists := health.Result["protocol_version"]; exists {
+		t.Fatalf("operator health must not grow compatibility fields: %+v", health.Result)
+	}
+
+	diagnosticsRead := server.Handle(protocol.NewRequest("diagnostics-read", protocol.FeatureDiagnosticsRead, nil))
+	if !diagnosticsRead.OK {
+		t.Fatalf("diagnostics.read should succeed: %+v", diagnosticsRead)
+	}
+	diagnosticsJSON := mustJSON(t, diagnosticsRead.Result)
+	for _, want := range []string{protocol.ProtocolVersion, "daemn-002-local", "min_plugin_protocol_version", "feature_groups", "capability_state", `"categories"`, `"readiness"`, "schema_version", "fixture_manifest"} {
+		if !strings.Contains(diagnosticsJSON, want) {
+			t.Fatalf("diagnostics.read missing %q: %s", want, diagnosticsJSON)
+		}
+	}
+	assertCompatibilityReadEvidence(t, "diagnostics.read", diagnosticsRead.Result)
+}
+
+func assertCompatibilityReadEvidence(t *testing.T, command string, result map[string]any) {
+	t.Helper()
+	features := protocol.NewVersionFeatures()
+	schemaVersion, ok := numericInt(result["schema_version"])
+	if !ok || schemaVersion != features.SchemaVersion {
+		t.Fatalf("%s schema_version = %v, want %d", command, result["schema_version"], features.SchemaVersion)
+	}
+	if result["fixture_manifest"] != features.FixtureManifest {
+		t.Fatalf("%s fixture_manifest = %v, want %q", command, result["fixture_manifest"], features.FixtureManifest)
+	}
+}
+
+func numericInt(value any) (int, bool) {
+	switch typed := value.(type) {
+	case int:
+		return typed, true
+	case float64:
+		if typed == float64(int(typed)) {
+			return int(typed), true
+		}
+	}
+	return 0, false
+}
+
+func TestUnitDaemonCompatibilityReadsDoNotMutateDataHome(t *testing.T) {
+	dataHome := daemonDataHome(t)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	before := treeFingerprint(t, dataHome)
+
+	for _, command := range []string{protocol.FeatureStatusRead, protocol.FeatureDiagnosticsRead} {
+		response := server.Handle(protocol.NewRequest(command, command, nil))
+		if !response.OK {
+			t.Fatalf("%s should succeed: %+v", command, response)
+		}
+	}
+
+	after := treeFingerprint(t, dataHome)
+	if before != after {
+		t.Fatalf("compatibility read commands wrote files\nbefore=%s\nafter=%s", before, after)
 	}
 }
 

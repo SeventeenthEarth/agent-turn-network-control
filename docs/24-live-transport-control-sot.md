@@ -74,7 +74,7 @@ Exit: control exposes or confirms the daemon/CLI/protocol behavior needed for pl
 | Task ID | Task Title | Task Status | Task Description |
 |---|---|---|---|
 | LTRAN-001 | Control live transport SOT and mapping | completed | Add this companion SOT, update control roadmap/docs, cross-link plugin SOT, and record the repo-owned epic/task split and active epic handoff rule. This is a docs-only SOT/mapping exit and does not unblock plugin live transport by itself. |
-| LTRAN-002 | Confirm daemon compatibility reads | planned | Confirm existing `status`, `health`, `version.read`, `stream.replay`, `stream.follow`, `stream.ack`, and council command paths are sufficient for plugin live transport, or add minimal `status.read`/diagnostic shapes with conformance tests if required. |
+| LTRAN-002 | Confirm daemon compatibility reads | completed | Added explicit `status.read` and `diagnostics.read` compatibility reads, confirmed `version.read`, bounded `stream.replay` follow, `stream.status`, `stream.ack`, and concrete command-path feature evidence through conformance fixtures/checks. Operator `status`/`health` stay concise. |
 | LTRAN-003 | Prove CLI/daemon live-local support | planned | Run disposable data-home evidence showing CLI status/version/stream/write paths address the same daemon state needed by plugin live-local equivalence tests, including command-id/idempotency and structured-error behavior. |
 
 #### control/LTRAN-001 docs-only acceptance
@@ -85,23 +85,36 @@ Acceptance evidence:
 
 - `docs/24-live-transport-control-sot.md` names control-owned daemon/CLI/protocol/member-runtime/surface boundaries and plugin-owned transport/helper boundaries.
 - `docs/21-cross-repo-development.md` states that control `LTRAN` gates plugin `LTRAN`, while `control/LTRAN-001` alone does not unblock plugin live transport implementation.
-- `docs/09-implementation-epics.md`, `docs/README.md`, and `docs/roadmap.md` keep `LTRAN-001` docs-only and leave `LTRAN-002`/`LTRAN-003` planned.
+- `docs/09-implementation-epics.md`, `docs/README.md`, and `docs/roadmap.md` keep `LTRAN-001` docs-only; at LTRAN-001 closeout they left `LTRAN-002`/`LTRAN-003` planned.
 - `docs/kkachi-docs-map.yaml` already indexes this SOT and the relevant docs guardrails.
 
 `control/LTRAN-001` does **not** confirm daemon read compatibility, create or change protocol shapes, prove disposable live-local daemon behavior, change plugin code, or authorize production/live activation. Those exits remain owned by `control/LTRAN-002`, `control/LTRAN-003`, and then plugin `LTRAN`.
 
+#### control/LTRAN-002 compatibility-read acceptance
+
+`control/LTRAN-002` is complete when the daemon/protocol contract exposes explicit plugin-facing compatibility reads and conformance-backed stream/command capability evidence without changing plugin code, mutating production/live integrations, or claiming disposable live-local equivalence.
+
+Acceptance evidence:
+
+- `docs/03-protocol-spec.md` and `docs/04-cli-spec.md` document plugin-facing `version.read`, `status.read`, and `diagnostics.read` compatibility commands as additive to operator-facing `status` and `health`.
+- `internal/protocol/features.go`, `testdata/conformance/manifest.json`, and command fixtures publish `status.read`, `diagnostics.read`, bounded follow over `stream.replay`, `stream.status`, and existing command/stream feature groups for plugin fail-closed negotiation.
+- Daemon tests cover compatibility reads exposing protocol/version/feature/capability evidence, preserving concise operator `status`/`health` shapes, and avoiding data-home mutation for read commands.
+- Verification for run `run-20260610T014610Z-208f4877d244` passed: `git diff --check`, `make test-prepare`, `make check-plugin-contract`, `make test-release-acceptance`, `make test`, and sibling plugin `make check-core-contract`.
+
+`control/LTRAN-002` does **not** prove disposable live-local CLI/daemon equivalence, mutate plugin code, activate production transport, contact Discord/Hermes/gateway/auth/token/provider/profile systems, or implement a KAB bridge. Those exits remain owned by `control/LTRAN-003` and later plugin-side work.
+
 #### Control-side operation mapping for later LTRAN tasks
 
-This table mirrors the plugin SOT in control terms without implementing or confirming new daemon shapes. `control/LTRAN-002` owns compatibility confirmation or minimal conformance-backed additions; `control/LTRAN-003` owns disposable live-local proof.
+This table mirrors the plugin SOT in control terms. `control/LTRAN-002` adds explicit conformance-backed compatibility reads where the existing operator shapes were insufficient; `control/LTRAN-003` owns disposable live-local proof.
 
-| Plugin-side operation | Current or candidate control path | Control owner | Requirement before plugin equivalence claims |
+| Plugin-side operation | Control path | Control owner | Requirement before plugin equivalence claims |
 |---|---|---|---|
 | `version.read` | daemon/CLI `version.read` | `control/LTRAN-002` confirmation | Direct compatibility read must expose protocol version and feature evidence. |
-| `status.read` | existing `status` or future `status.read` | `control/LTRAN-002` confirmation/addition | Response must identify protocol version, daemon version, feature groups, and capability state without plugin guessing. |
-| `diagnostics.read` | existing `health` or future `diagnostics.read` | `control/LTRAN-002` confirmation/addition | Plugin diagnostics must normalize from explicit daemon output and fail closed on missing/unknown shape. |
+| `status.read` | daemon `status.read` | `control/LTRAN-002` addition | Response identifies protocol version, daemon version, minimum plugin protocol version, feature groups/features, capability state, and operational readiness without changing operator-facing `status`. |
+| `diagnostics.read` | daemon `diagnostics.read` | `control/LTRAN-002` addition | Response identifies protocol/version/feature evidence plus readiness and diagnostic categories without changing operator-facing `health`; missing/unknown shapes fail closed. |
 | `stream.tail` | `stream.replay` / bounded replay-tail behavior | `control/LTRAN-002` confirmation | Preserve replay-before-live, cursor, member, and limit semantics. |
-| future `stream.follow` | `stream.replay` with bounded follow or daemon follow stream | `control/LTRAN-002` confirmation | Must be bounded, resumable, and fail closed on gaps or unknown schemas. |
-| future `stream.ack` | `stream.ack` | `control/LTRAN-002` confirmation | Acknowledge only after processing or durable failure recording. |
+| `stream.follow` | `stream.replay` with bounded follow parameters | `control/LTRAN-002` confirmation | Must be bounded, resumable, and fail closed on gaps or unknown schemas. |
+| `stream.ack` | `stream.ack` | `control/LTRAN-002` confirmation | Acknowledge only after processing or durable failure recording. |
 | `command.submit` | concrete daemon commands such as `delegate.*`, `council.*`, and delivery-evidence commands | `control/LTRAN-002` confirmation plus `control/LTRAN-003` local proof | Do not assume a generic daemon alias unless implemented; command idempotency and structured errors must be proven before plugin equivalence claims. |
 
 ### MEMBR: Member runtime profile invocation
@@ -167,7 +180,7 @@ make test
 Task-specific checks must include, as applicable:
 
 - disposable data-home daemon/CLI smoke;
-- CLI status/version/health output with protocol/feature evidence;
+- CLI/daemon status.read/version.read/diagnostics.read output with protocol/feature evidence;
 - stream replay/follow/ack behavior with cursor gap and unknown schema failure coverage;
 - command-id/idempotency behavior for participant-originated council writes;
 - member runtime real profile/wrapper invocation evidence;
@@ -176,7 +189,7 @@ Task-specific checks must include, as applicable:
 
 ## Open decisions before implementation
 
-1. Is existing `status`/`health`/`version.read` sufficient for plugin live transport, or is a dedicated `status.read` command required?
+1. Resolved by `control/LTRAN-002`: dedicated `status.read` and `diagnostics.read` commands are required because operator-facing `status`/`health` remain concise and do not carry the full compatibility contract.
 2. Does the first participant pilot use main-agent mediated invocation or long-lived member runtimes?
 3. What exact runner/session evidence proves that a response came from the real participant profile?
 4. Which event/projection fields are the minimum rendering contract for plugin-visible surface delivery?

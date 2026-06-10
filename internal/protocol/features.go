@@ -2,6 +2,8 @@ package protocol
 
 const (
 	FeatureVersionRead         = "version.read"
+	FeatureStatusRead          = "status.read"
+	FeatureDiagnosticsRead     = "diagnostics.read"
 	FeatureCommandEnvelope     = "command_envelope"
 	FeatureEventEnvelope       = "event_envelope"
 	FeatureStructuredError     = "structured_error"
@@ -20,6 +22,8 @@ const (
 
 var RequiredFeatureGroups = []string{
 	FeatureVersionRead,
+	FeatureStatusRead,
+	FeatureDiagnosticsRead,
 	FeatureCommandEnvelope,
 	FeatureEventEnvelope,
 	FeatureStructuredError,
@@ -56,5 +60,29 @@ func NewVersionFeatures() VersionFeatures {
 		Features:                 append([]string(nil), groups...),
 		FeatureGroups:            groups,
 		FixtureManifest:          "testdata/conformance/manifest.json",
+	}
+}
+
+func FeatureCapabilityState(featureGroups []string) map[string]any {
+	state := make(map[string]any, len(featureGroups))
+	for _, feature := range featureGroups {
+		state[feature] = map[string]any{
+			"state":     "supported",
+			"read_only": readOnlyFeature(feature),
+		}
+	}
+	return state
+}
+
+func readOnlyFeature(feature string) bool {
+	switch feature {
+	case FeatureVersionRead, FeatureStatusRead, FeatureDiagnosticsRead,
+		FeatureStreamReplay, FeatureStreamFollow, FeatureStreamStatus,
+		FeatureTranscriptRender, FeatureExportBundle,
+		FeatureCommandEnvelope, FeatureEventEnvelope, FeatureStructuredError,
+		FeatureStreamFrame, FeatureConformanceFixtures:
+		return true
+	default:
+		return false
 	}
 }
