@@ -136,8 +136,53 @@ Exit: a selected participant can be invoked through a real member profile/wrappe
 
 | Task ID | Task Title | Task Status | Task Description |
 |---|---|---|---|
-| MEMBR-001 | Select member runtime pilot mode | planned | Decide and document whether the first pilot uses main-agent mediated invocation or long-lived member runtimes, including runner/session evidence requirements and failure policy. |
+| MEMBR-001 | Select member runtime pilot mode | completed | Select main-agent mediated bounded runner invocation as the first disposable local proof mode before long-lived member runtimes, with minimum runner/session evidence, fail-closed policy, and MEMBR-002 handoff conditions. |
 | MEMBR-002 | Prove selected participant invocation | planned | Prove `speaker_selected` causes a real participant profile/wrapper invocation, records successful `council.speak` or durable failure evidence, and does not substitute simulated role prompts. |
+
+#### control/MEMBR-001 docs-only acceptance
+
+`control/MEMBR-001` is a documentation gate. It selects the first participant invocation pilot mode and records the evidence and failure rules that `control/MEMBR-002` must implement. It does not edit source code, run member profiles, activate daemons, execute KAB, mutate providers/gateways/auth/tokens/secrets, or claim production/live readiness.
+
+Selected first pilot mode:
+
+- Use main-agent mediated bounded runner invocation as a disposable local proof step.
+- Preserve the selected member's real registry profile, wrapper boundary, and backend/session handle or redacted equivalent.
+- Record durable runner/session evidence from selection through terminal outcome.
+- Do not replace a missing or unsafe participant with a simulated role prompt.
+
+Long-lived member runtimes remain the target model because participant agents ultimately need replay-first stream observation, cursor ownership, real profile/session continuity, and typed participant-originated KAN writes. They are not the first proof mode because `control/MEMBR-002` needs a smaller local proof: one selected participant invocation through a real profile/wrapper boundary with durable success or failure evidence before always-on runtime loops are introduced.
+
+Minimum runner/session evidence:
+
+- selected profile/member identity and the session `registry_snapshot.yaml` binding;
+- command id, session id, and request id for the selected participant turn;
+- runner invocation id preserved from `runner_invocation_started` through terminal outcome;
+- wrapper, backend, and session handle, or redacted equivalent sufficient to prove real invocation;
+- started timestamp and terminal timestamp/status;
+- stdout, stderr, log, and artifact pointers as redacted evidence pointers only;
+- produced typed KAN event on success, for example `council.speak` when applicable;
+- durable failure event on failure, timeout, or unsafe setup.
+
+Failure policy:
+
+- Fail closed on registry mismatch, missing wrapper, unsafe profile, missing evidence, command id conflict, timeout, unsupported transport, cursor gap, or schema gap.
+- Record durable failure instead of fake progress.
+- Do not fall back from a missing real member to a role prompt.
+
+KAS lane contract:
+
+- Task/phase contract: `control/MEMBR-001` is docs-only; `control/MEMBR-002` owns implementation and proof of the selected invocation path.
+- Prompt/profile boundary: the participant identity comes from the registry snapshot and wrapper/backend session evidence, not from a substituted role prompt.
+- Acceptance criteria: the docs select the pilot mode, explain why long-lived member runtimes remain the target, define minimum evidence, define fail-closed behavior, and record MEMBR-002 handoff conditions.
+- MEMBR-002 handoff: implement/prove the selected participant invocation after this gate, with fake or isolated wrapper tests first and real-profile evidence only when explicitly authorized.
+
+KAH lane contract:
+
+- Run/evidence rule: every proof run must have a stable run id, command/session/request ids, and a runner invocation id preserved across start and terminal outcome.
+- Gate/schema rule: registry snapshot binding, wrapper/backend/session evidence, cursor continuity, supported transport, and known schema version are mandatory.
+- Artifact rule: stdout, stderr, logs, and artifacts are stored as redacted pointers; secret-bearing inline output is not evidence.
+- Event rule: success produces a typed KAN event such as `council.speak` when applicable; failure produces durable failure evidence.
+- Failure policy: missing or inconsistent evidence fails the run closed and must not be rewritten as progress.
 
 ### SURFD: Surface delivery evidence contract
 
@@ -203,8 +248,8 @@ Task-specific checks must include, as applicable:
 ## Open decisions before implementation
 
 1. Resolved by `control/LTRAN-002`: dedicated `status.read` and `diagnostics.read` commands are required because operator-facing `status`/`health` remain concise and do not carry the full compatibility contract.
-2. Does the first participant pilot use main-agent mediated invocation or long-lived member runtimes?
-3. What exact runner/session evidence proves that a response came from the real participant profile?
+2. Resolved by `control/MEMBR-001`: the first participant pilot uses main-agent mediated bounded runner invocation as a disposable local proof before long-lived member runtimes.
+3. Resolved by `control/MEMBR-001`: runner/session evidence must bind selected profile/member identity, registry snapshot, command/session/request ids, preserved runner invocation id, wrapper/backend/session handle or redacted equivalent, timestamps/status, redacted evidence pointers, and the typed success or durable failure event.
 4. Which event/projection fields are the minimum rendering contract for plugin-visible surface delivery?
 5. Which local pilot is sufficient before any later production activation discussion?
 

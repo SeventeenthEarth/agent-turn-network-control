@@ -77,7 +77,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs are derived from the 
 
 | Task ID | Task Title | Task Status | Task Description |
 | --- | --- | --- | --- |
-| MEMBR-001 | Select member runtime pilot mode | planned | Decide and document whether the first pilot uses main-agent mediated invocation or long-lived member runtimes, including runner/session evidence requirements and failure policy. |
+| MEMBR-001 | Select member runtime pilot mode | completed | Selected main-agent mediated bounded runner invocation as the first disposable local proof before long-lived member runtimes, with real profile/wrapper identity, runner/session evidence requirements, fail-closed policy, and no role substitution. |
 | MEMBR-002 | Prove selected participant invocation | planned | Prove `speaker_selected` causes a real participant profile/wrapper invocation, records successful `council.speak` or durable failure evidence, and does not substitute simulated role prompts. |
 
 ## SURFD — Surface delivery evidence contract

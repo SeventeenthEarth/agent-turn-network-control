@@ -168,6 +168,29 @@ The current control-repo implementation provides local/fake RUNRT support only:
 
 The bounded runner seam uses only fake adapters/wrappers in tests. It does not implement DELEG/COUNC lifecycle, live Hermes dispatch readiness, Discord delivery, KAB integration, or gateway behavior.
 
+## MEMBR-001 pilot decision
+
+The first participant invocation pilot uses main-agent mediated bounded runner invocation as a disposable local proof step before long-lived member runtimes.
+
+This pilot means the main agent or operator-controlled lane observes the daemon-selected participant turn, invokes the selected member through the existing bounded runner path, and records the result back to the daemon with durable runner/session evidence. It is not a simulated role prompt and it must not replace the participant profile with an ad hoc Codex role. The selected member's real registry identity, wrapper boundary, and session handle or redacted equivalent remain part of the evidence contract.
+
+Long-lived member runtimes remain the target model because KAN is stream-driven: each participant should eventually observe replay/live frames, manage its own cursor, preserve its real profile identity, and write typed KAN events as the participant. They are not the first proof mode because the next risk to retire is narrower: prove one selected participant can be invoked through a real profile/wrapper boundary and leave enough durable evidence to distinguish success, failure, timeout, and unsafe setup. The bounded pilot keeps that proof disposable and reviewable before introducing always-on participant loops.
+
+The minimum runner/session evidence for the pilot is:
+
+- selected profile/member identity and the session `registry_snapshot.yaml` binding used for that invocation;
+- command, session, and request identifiers for the selected turn;
+- one runner invocation id preserved from start through terminal outcome;
+- wrapper, backend, and session handle, or a redacted equivalent sufficient to prove real invocation without exposing secrets;
+- started timestamp and terminal timestamp/status;
+- stdout, stderr, log, and artifact pointers as redacted evidence pointers only, not inline secret-bearing payloads;
+- on success, the produced typed KAN event such as `council.speak` when applicable;
+- on failure, a durable failure event that records the failed invocation instead of fake progress.
+
+The pilot fails closed on registry mismatch, missing wrapper, unsafe profile, missing evidence, command id conflict, timeout, unsupported transport, cursor gap, or schema gap. A missing real member must never fall back to a role prompt.
+
+MEMBR-002 owns implementation and proof of this selected invocation path. Its tests start with fake or isolated wrapper coverage, and real-profile evidence is allowed only when explicitly authorized. MEMBR-002 must not substitute simulated role prompts for participant profiles.
+
 ## Failure policy
 
 - Daemon unavailable: runtime stops or retries with bounded backoff; no fake progress event.

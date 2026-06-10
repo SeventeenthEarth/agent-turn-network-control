@@ -109,6 +109,12 @@ RUNRT-001 tests are local/fake only. The control repo verifies:
 
 These tests must use temp data homes, fake wrappers/adapters/streams, and deterministic clocks. Passing RUNRT-001 tests does **not** imply live Hermes, Discord, KAB, gateway, or plugin readiness.
 
+## MEMBR-001 docs gate and MEMBR-002 test shape
+
+MEMBR-001 is docs-only. Its verification is limited to documentation guardrails and contract checks; it does not run real member profiles, activate daemons, execute KAB, mutate gateway/auth/token/provider/profile state, or claim production/live readiness.
+
+MEMBR-002 owns implementation and proof for the selected participant invocation pilot. The first proof mode is main-agent mediated bounded runner invocation as a disposable local step before long-lived member runtimes. Local tests must use fake or isolated wrappers first, preserve real profile/wrapper identity in the evidence model, and fail closed on registry mismatch, missing wrapper, unsafe profile, missing evidence, command id conflict, timeout, unsupported transport, cursor gaps, or schema gaps. Real-profile evidence is permitted only when explicitly authorized and must record redacted artifact/log pointers rather than secret-bearing inline output.
+
 ## RELIA-001 release acceptance scope
 
 Control `make test-release-acceptance` is RELIA-001 local evidence for the control repo. It runs deterministic temp-data-home tests and must not contact live Hermes, Discord, KAB, gateway, auth, token, production install, or plugin-load resources. It is not a plugin-owned target unless a later plugin task adds compatible local evidence.
