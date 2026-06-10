@@ -204,13 +204,15 @@ type fakeRunRTResult struct {
 type fakeRunRTAdapter struct {
 	results []fakeRunRTResult
 	calls   int
+	reqs    []runner.Request
 }
 
 func (f *fakeRunRTAdapter) Kind() string       { return runner.HermesAgentKind }
 func (f *fakeRunRTAdapter) CostSource() string { return runner.HermesAgentCostSource }
-func (f *fakeRunRTAdapter) Send(context.Context, runner.Request) (runner.Result, error) {
+func (f *fakeRunRTAdapter) Send(ctx context.Context, req runner.Request) (runner.Result, error) {
 	idx := f.calls
 	f.calls++
+	f.reqs = append(f.reqs, req)
 	if idx >= len(f.results) {
 		return runner.Result{OK: true}, nil
 	}

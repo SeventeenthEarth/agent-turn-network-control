@@ -26,18 +26,20 @@ type RunnerDispatchService struct {
 }
 
 type RunnerDispatchRequest struct {
-	CommandID       string
-	SourceCommandID string
-	Prompt          string
-	MaxRetries      int
-	Timeout         time.Duration
-	Cancelled       func() bool
+	CommandID        string
+	SourceCommandID  string
+	CausationEventID string
+	Prompt           string
+	MaxRetries       int
+	Timeout          time.Duration
+	Cancelled        func() bool
 }
 
 type RunnerDispatchResult struct {
-	InvocationIDs []string
-	TerminalEvent string
-	Attempts      int
+	InvocationIDs     []string
+	TerminalEvent     string
+	TerminalEventType string
+	Attempts          int
 }
 
 type DispatchLocks struct {
@@ -108,6 +110,7 @@ func (s *RunnerDispatchService) Dispatch(ctx context.Context, req RunnerDispatch
 		if discarded {
 			terminal, appendErr := s.appendTerminal(req, "runner_result_discarded", invocationID, sourceCommandID, attempt, result, map[string]any{"reason": "cancelled_or_late_result"})
 			out.TerminalEvent = terminal.EventID
+			out.TerminalEventType = terminal.Type
 			return out, appendErr
 		}
 		if err == nil && result.OK {
@@ -121,6 +124,7 @@ func (s *RunnerDispatchService) Dispatch(ctx context.Context, req RunnerDispatch
 			}
 			terminal, appendErr := s.appendTerminal(req, terminalType, invocationID, sourceCommandID, attempt, result, payload)
 			out.TerminalEvent = terminal.EventID
+			out.TerminalEventType = terminal.Type
 			return out, appendErr
 		}
 		priorErr = err
@@ -131,6 +135,7 @@ func (s *RunnerDispatchService) Dispatch(ctx context.Context, req RunnerDispatch
 			}
 			terminal, appendErr := s.appendTerminal(req, "runner_invocation_failed", invocationID, sourceCommandID, attempt, result, payload)
 			out.TerminalEvent = terminal.EventID
+			out.TerminalEventType = terminal.Type
 			return out, appendErr
 		}
 	}
@@ -163,7 +168,14 @@ func (s *RunnerDispatchService) preflight() error {
 }
 
 func (s *RunnerDispatchService) appendStarted(req RunnerDispatchRequest, invocationID, sourceCommandID string, attempt int) error {
-	_, err := storage.AppendEvent(s.SessionDir, s.Metadata, s.baseEvent(req, "runner_invocation_started", invocationID, sourceCommandID, attempt, nil, map[string]any{"prompt_sha256": sha256Text(req.Prompt)}))
+	payload := map[string]any{
+		"prompt_sha256":       sha256Text(req.Prompt),
+		"member_id":           s.Member.ID,
+		"adapter_kind":        runner.HermesAgentKind,
+		"wrapper_path_sha256": sha256Text(resolvedWrapper(s.Member)),
+		"evidence_kind":       "redacted_wrapper_binding",
+	}
+	_, err := storage.AppendEvent(s.SessionDir, s.Metadata, s.baseEvent(req, "runner_invocation_started", invocationID, sourceCommandID, attempt, nil, payload))
 	return err
 }
 
@@ -228,19 +240,20 @@ func (s *RunnerDispatchService) baseEvent(req RunnerDispatchRequest, typ, invoca
 		commandID = strings.TrimSpace(req.CommandID)
 	}
 	return storage.EventEnvelope{
-		SchemaVersion: protocol.SchemaVersion,
-		EventID:       eventIDFor(commandID, typ, attempt, s.now()),
-		CommandID:     commandID,
-		CorrelationID: s.Metadata.ID,
-		SessionID:     s.Metadata.ID,
-		SessionType:   s.Metadata.SessionType,
-		Phase:         s.Metadata.State.Phase,
-		Type:          typ,
-		From:          from,
-		To:            to,
-		CreatedAt:     s.now(),
-		Runner:        &storage.RunnerInfo{InvocationID: invocationID, AdapterKind: runner.HermesAgentKind, Member: s.Member.ID, Attempt: attempt, IsRetry: attempt > 1, SourceCommandID: sourceCommandID, Status: status, DurationSec: duration},
-		Payload:       payload,
+		SchemaVersion:    protocol.SchemaVersion,
+		EventID:          eventIDFor(commandID, typ, attempt, s.now()),
+		CommandID:        commandID,
+		CausationEventID: strings.TrimSpace(req.CausationEventID),
+		CorrelationID:    s.Metadata.ID,
+		SessionID:        s.Metadata.ID,
+		SessionType:      s.Metadata.SessionType,
+		Phase:            s.Metadata.State.Phase,
+		Type:             typ,
+		From:             from,
+		To:               to,
+		CreatedAt:        s.now(),
+		Runner:           &storage.RunnerInfo{InvocationID: invocationID, AdapterKind: runner.HermesAgentKind, Member: s.Member.ID, Attempt: attempt, IsRetry: attempt > 1, SourceCommandID: sourceCommandID, Status: status, DurationSec: duration},
+		Payload:          payload,
 	}
 }
 
