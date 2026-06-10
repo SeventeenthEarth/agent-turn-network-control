@@ -113,6 +113,253 @@ func TestUnitTranscriptCouncilLinkedAuthorityEvidence(t *testing.T) {
 	}
 }
 
+func TestUnitSURFD002TranscriptProjectsVisibleSurfaceDeliveryStates(t *testing.T) {
+	sessionDir := createBareSessionDir(t)
+	metadata := testMetadata()
+	metadata.SessionType = SessionTypeCouncil
+	metadata.Title = "SURFD-002 surface projection"
+	metadata.State.Phase = "finalized"
+	metadata.Status = StatusTerminal
+	metadata.Participants = []string{"agent-mod", "agent-1", "agent-2"}
+	metadata.Surface = &Surface{Kind: "discord_thread", Platform: "discord", ThreadID: "thread-surfd-002", DeliveryOwner: "moderator_runtime"}
+	metadata.LinkedAuthority = &LinkedAuthority{KanbanCardID: "t_surfd_002"}
+	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
+		t.Fatalf("WriteSessionYAMLAtomic: %v", err)
+	}
+	appendTranscriptEvent(t, sessionDir, metadata, councilTranscriptEvent(metadata, "evt_select_001", "discussion", "speaker_selected", map[string]any{"turn": float64(1), "selection_mode": "role_order"}))
+	appendTranscriptEvent(t, sessionDir, metadata, EventEnvelope{
+		SchemaVersion: protocol.SchemaVersion,
+		EventID:       "evt_speech_001",
+		CommandID:     "cmd_evt_speech_001",
+		CorrelationID: metadata.ID,
+		SessionID:     metadata.ID,
+		SessionType:   metadata.SessionType,
+		Phase:         "discussion",
+		Type:          "speech",
+		From:          "agent-1",
+		To:            []string{"agent-mod", "agent-2"},
+		CreatedAt:     fixedTranscriptTime().Add(time.Minute),
+		Payload:       map[string]any{"turn": float64(1), "speech": "Visible speech from selected participant."},
+	})
+	appendTranscriptEvent(t, sessionDir, metadata, councilTranscriptEvent(metadata, "evt_final_posted", "finalized", "council_finalized", map[string]any{
+		"final_summary":           "accepted",
+		"surface_evidence":        map[string]any{"kind": "discord_thread", "thread_id": "thread-surfd-002", "final_message_id": "msg-final-001"},
+		"linked_authority_result": map[string]any{"status": "posted", "kanban_card_id": "t_surfd_002", "kanban_comment_id": "comment-001"},
+	}))
+	appendTranscriptEvent(t, sessionDir, metadata, councilTranscriptEvent(metadata, "evt_unresolved_failed", "unresolved", "council_unresolved", map[string]any{
+		"reason":                  "blocked follow-up",
+		"surface_evidence":        map[string]any{"status": "failed", "failure_reason": "discord write failed"},
+		"linked_authority_result": map[string]any{"status": "pending_followup", "followup_card_id": "t_followup"},
+	}))
+	appendTranscriptEvent(t, sessionDir, metadata, councilTranscriptEvent(metadata, "evt_cancel_missing", "cancelled", "session_cancelled", map[string]any{"reason": "user cancelled before visible post"}))
+
+	out, err := RenderTranscript(sessionDir, metadata, TranscriptMarkdownFormat)
+	if err != nil {
+		t.Fatalf("RenderTranscript md: %v", err)
+	}
+	for _, want := range []string{
+		"Visible Surface Projection Summary",
+		"evt_speech_001", "speech", "renderable", "turn=1 selected=agent-1",
+		"evt_final_posted", "visible_surface", "posted", "msg-final-001", "linked_authority", "comment-001",
+		"evt_unresolved_failed", "failed", "pending_followup", "discord write failed", "t_followup",
+		"evt_cancel_missing", "missing/unproven",
+	} {
+		if !strings.Contains(string(out), want) {
+			t.Fatalf("SURFD-002 transcript missing %q:\n%s", want, string(out))
+		}
+	}
+}
+
+func TestUnitSURFD002ExportManifestDeclaresVisibleEvidenceProjection(t *testing.T) {
+	sessionDir := createBareSessionDir(t)
+	metadata := testMetadata()
+	metadata.SessionType = SessionTypeCouncil
+	metadata.Title = "SURFD-002 export projection"
+	metadata.State.Phase = "finalized"
+	metadata.Status = StatusTerminal
+	metadata.Participants = []string{"agent-mod", "agent-1", "agent-2"}
+	metadata.Surface = &Surface{Kind: "discord_thread", Platform: "discord", ThreadID: "thread-surfd-export"}
+	metadata.LinkedAuthority = &LinkedAuthority{KanbanCardID: "t_surfd_export"}
+	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
+		t.Fatalf("WriteSessionYAMLAtomic: %v", err)
+	}
+	appendTranscriptEvent(t, sessionDir, metadata, councilTranscriptEvent(metadata, "evt_final_export", "finalized", "council_finalized", map[string]any{
+		"surface_evidence":        map[string]any{"kind": "discord_thread", "final_message_id": "msg-export-final"},
+		"linked_authority_result": map[string]any{"status": "posted", "kanban_comment_id": "comment-export"},
+	}))
+	if err := os.WriteFile(filepath.Join(sessionDir, registry.SnapshotFileName), []byte("schema_version: 1\n"), 0o600); err != nil {
+		t.Fatalf("write snapshot: %v", err)
+	}
+
+	result, err := BuildExportBundle(sessionDir, metadata, ExportBundleOptions{})
+	if err != nil {
+		t.Fatalf("BuildExportBundle: %v", err)
+	}
+	manifestBytes, err := os.ReadFile(filepath.Join(result.BundleDir, "bundle_manifest.json"))
+	if err != nil {
+		t.Fatalf("read bundle_manifest.json: %v", err)
+	}
+	for _, want := range []string{"surface_delivery_projection", "visible_surface", "linked_authority", "msg-export-final", "comment-export"} {
+		if !strings.Contains(string(manifestBytes), want) {
+			t.Fatalf("bundle manifest missing %q:\n%s", want, string(manifestBytes))
+		}
+	}
+}
+
+func TestUnitSURFD002TranscriptRequiresPriorFloorGrantForSpeech(t *testing.T) {
+	sessionDir := createBareSessionDir(t)
+	metadata := testMetadata()
+	metadata.SessionType = SessionTypeCouncil
+	metadata.Title = "SURFD-002 prior floor grant"
+	metadata.State.Phase = "discussion"
+	metadata.Status = StatusOpen
+	metadata.Participants = []string{"agent-mod", "agent-1", "agent-2"}
+	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
+		t.Fatalf("WriteSessionYAMLAtomic: %v", err)
+	}
+	appendTranscriptEvent(t, sessionDir, metadata, EventEnvelope{
+		SchemaVersion: protocol.SchemaVersion,
+		EventID:       "evt_speech_before_grant",
+		CommandID:     "cmd_evt_speech_before_grant",
+		CorrelationID: metadata.ID,
+		SessionID:     metadata.ID,
+		SessionType:   metadata.SessionType,
+		Phase:         "discussion",
+		Type:          "speech",
+		From:          "agent-1",
+		To:            []string{"agent-mod", "agent-2"},
+		CreatedAt:     fixedTranscriptTime(),
+		Payload:       map[string]any{"turn": float64(7), "speech": "This must not become renderable from a later floor grant."},
+	})
+	appendTranscriptEvent(t, sessionDir, metadata, councilTranscriptEvent(metadata, "evt_select_late", "discussion", "speaker_selected", map[string]any{"turn": float64(7), "selection_mode": "role_order"}))
+
+	out, err := RenderTranscript(sessionDir, metadata, TranscriptMarkdownFormat)
+	if err != nil {
+		t.Fatalf("RenderTranscript md: %v", err)
+	}
+	if strings.Contains(string(out), "evt_speech_before_grant` | `speech` | `speech` | `renderable`") {
+		t.Fatalf("speech before cursor-ordered floor grant must not render as accepted:\n%s", string(out))
+	}
+	if !strings.Contains(string(out), "evt_speech_before_grant` | `speech` | `speech` | `floor_grant_missing_or_mismatched`") {
+		t.Fatalf("speech before floor grant must fail closed:\n%s", string(out))
+	}
+}
+
+func TestUnitSURFD002DeliveryStatusFailsClosedForUnsupportedExplicitStatus(t *testing.T) {
+	sessionDir := createBareSessionDir(t)
+	metadata := testMetadata()
+	metadata.SessionType = SessionTypeCouncil
+	metadata.Title = "SURFD-002 unsupported status"
+	metadata.State.Phase = "finalized"
+	metadata.Status = StatusTerminal
+	metadata.Participants = []string{"agent-mod", "agent-1", "agent-2"}
+	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
+		t.Fatalf("WriteSessionYAMLAtomic: %v", err)
+	}
+	appendTranscriptEvent(t, sessionDir, metadata, councilTranscriptEvent(metadata, "evt_final_bad_status", "finalized", "council_finalized", map[string]any{
+		"surface_evidence":        map[string]any{"status": "succeeded", "final_message_id": "msg-unsupported"},
+		"linked_authority_result": map[string]any{"status": "complete", "kanban_comment_id": "comment-unsupported"},
+	}))
+
+	out, err := RenderTranscript(sessionDir, metadata, TranscriptMarkdownFormat)
+	if err != nil {
+		t.Fatalf("RenderTranscript md: %v", err)
+	}
+	if strings.Contains(string(out), "| `evt_final_bad_status` | `council_finalized` | `visible_surface` | `succeeded` |") || strings.Contains(string(out), "| `evt_final_bad_status` | `council_finalized` | `linked_authority` | `complete` |") {
+		t.Fatalf("unsupported explicit statuses must not project as success:\n%s", string(out))
+	}
+	if strings.Count(string(out), "missing/unproven") < 2 {
+		t.Fatalf("unsupported explicit statuses must fail closed as missing/unproven:\n%s", string(out))
+	}
+}
+
+func TestUnitSURFD002DeliveryStatusFailsClosedForProoflessExplicitStatus(t *testing.T) {
+	sessionDir := createBareSessionDir(t)
+	metadata := testMetadata()
+	metadata.SessionType = SessionTypeCouncil
+	metadata.Title = "SURFD-002 proofless status"
+	metadata.State.Phase = "finalized"
+	metadata.Status = StatusTerminal
+	metadata.Participants = []string{"agent-mod", "agent-1", "agent-2"}
+	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
+		t.Fatalf("WriteSessionYAMLAtomic: %v", err)
+	}
+	appendTranscriptEvent(t, sessionDir, metadata, councilTranscriptEvent(metadata, "evt_posted_no_proof", "finalized", "council_finalized", map[string]any{
+		"surface_evidence":        map[string]any{"status": "posted"},
+		"linked_authority_result": map[string]any{"status": "posted"},
+	}))
+	appendTranscriptEvent(t, sessionDir, metadata, councilTranscriptEvent(metadata, "evt_failed_no_proof", "unresolved", "council_unresolved", map[string]any{
+		"surface_evidence":        map[string]any{"status": "failed"},
+		"linked_authority_result": map[string]any{"status": "pending_followup"},
+	}))
+
+	out, err := RenderTranscript(sessionDir, metadata, TranscriptMarkdownFormat)
+	if err != nil {
+		t.Fatalf("RenderTranscript md: %v", err)
+	}
+	for _, forbidden := range []string{
+		"| `evt_posted_no_proof` | `council_finalized` | `visible_surface` | `posted` |",
+		"| `evt_posted_no_proof` | `council_finalized` | `linked_authority` | `posted` |",
+		"| `evt_failed_no_proof` | `council_unresolved` | `visible_surface` | `failed` |",
+		"| `evt_failed_no_proof` | `council_unresolved` | `linked_authority` | `pending_followup` |",
+	} {
+		if strings.Contains(string(out), forbidden) {
+			t.Fatalf("proofless explicit delivery status must fail closed, found %q:\n%s", forbidden, string(out))
+		}
+	}
+	if strings.Count(string(out), "missing/unproven") < 4 {
+		t.Fatalf("proofless explicit statuses must all fail closed as missing/unproven:\n%s", string(out))
+	}
+}
+
+func TestUnitSURFD002DeliveryStatusFailsClosedForEmptyNonStringEvidencePointers(t *testing.T) {
+	sessionDir := createBareSessionDir(t)
+	metadata := testMetadata()
+	metadata.SessionType = SessionTypeCouncil
+	metadata.Title = "SURFD-002 empty evidence pointers"
+	metadata.State.Phase = "finalized"
+	metadata.Status = StatusTerminal
+	metadata.Participants = []string{"agent-mod", "agent-1", "agent-2"}
+	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
+		t.Fatalf("WriteSessionYAMLAtomic: %v", err)
+	}
+	appendTranscriptEvent(t, sessionDir, metadata, councilTranscriptEvent(metadata, "evt_empty_non_string_proof", "finalized", "council_finalized", map[string]any{
+		"surface_evidence": map[string]any{
+			"status":           "posted",
+			"final_message_id": []any{},
+			"evidence":         map[string]any{},
+		},
+		"linked_authority_result": map[string]any{
+			"status":              "pending_followup",
+			"followup_card_id":    false,
+			"vault_decision_note": []any{},
+		},
+	}))
+	appendTranscriptEvent(t, sessionDir, metadata, councilTranscriptEvent(metadata, "evt_empty_failure_proof", "unresolved", "council_unresolved", map[string]any{
+		"surface_evidence": map[string]any{
+			"status":         "failed",
+			"failure_reason": map[string]any{},
+		},
+	}))
+
+	out, err := RenderTranscript(sessionDir, metadata, TranscriptMarkdownFormat)
+	if err != nil {
+		t.Fatalf("RenderTranscript md: %v", err)
+	}
+	for _, forbidden := range []string{
+		"| `evt_empty_non_string_proof` | `council_finalized` | `visible_surface` | `posted` |",
+		"| `evt_empty_non_string_proof` | `council_finalized` | `linked_authority` | `pending_followup` |",
+		"| `evt_empty_failure_proof` | `council_unresolved` | `visible_surface` | `failed` |",
+	} {
+		if strings.Contains(string(out), forbidden) {
+			t.Fatalf("empty non-string evidence pointer must fail closed, found %q:\n%s", forbidden, string(out))
+		}
+	}
+	if strings.Count(string(out), "missing/unproven") < 3 {
+		t.Fatalf("empty non-string evidence pointers must fail closed as missing/unproven:\n%s", string(out))
+	}
+}
+
 func TestUnitTranscriptRejectsUnsupportedFormatAndCorruptLog(t *testing.T) {
 	sessionDir := createBareSessionDir(t)
 	metadata := testMetadata()

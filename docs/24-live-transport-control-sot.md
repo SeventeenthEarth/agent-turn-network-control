@@ -191,7 +191,7 @@ Exit: control defines and verifies the event-to-visible-surface rendering/eviden
 | Task ID | Task Title | Task Status | Task Description |
 |---|---|---|---|
 | SURFD-001 | Define surface rendering evidence contract | completed/docs-only | Defines the daemon event fields, transcript/projection inputs, delivery evidence status, and failure/pending-follow-up semantics needed for visible speech/final-result rendering. Blue accepted the docs-only contract after KAN Red/Orange/Gray review; runtime projection proof remains `control/SURFD-002`. |
-| SURFD-002 | Prove delivery evidence projection | planned | Prove local projection/transcript/export or equivalent fixtures expose speech, finalization, unresolved/cancelled, and delivery-evidence pointer states for plugin-visible rendering tests. |
+| SURFD-002 | Prove delivery evidence projection | completed/local proof | Local transcript/export proof exposes speech renderability, finalization, unresolved/cancelled outcomes, and `posted`/`failed`/`pending_followup`/missing delivery-evidence states for plugin-visible rendering tests. Blue accepted the local proof after KAN Red/Orange/Gray review; plugin implementation remains separate. |
 
 `control/SURFD-001` resolves the minimum rendering contract as a docs-only SOT gate:
 
@@ -203,6 +203,17 @@ Exit: control defines and verifies the event-to-visible-surface rendering/eviden
 - Replay, transcript, export, status, and projection rebuild expose evidence fields but remain side-effect free: no Discord API calls, Kanban comments, Vault writes, synthesized message ids, or inferred `posted` evidence.
 
 Review evidence: Red `t_c0eff6d8`, Orange `t_d6beef4e`, Gray `t_a39ec23b`, Blue synthesis `t_37d1f0b9`. This acceptance is docs-only and does not approve live/default Discord delivery, gateway/auth/token/provider/profile mutation, live daemon activation, plugin SURFD implementation readiness, or production readiness.
+
+`control/SURFD-002` accepted local proof implements the first local projection evidence over this contract:
+
+- Markdown transcripts include a `Visible Surface Projection Summary` derived from cursor-ordered events.
+- Speech rows show whether the selected-speaker floor grant makes a `speech` event renderable or fail-closed as `floor_grant_missing_or_mismatched`.
+- Finalized, unresolved, and cancelled terminal events project visible-surface delivery as `posted`, `failed`, `pending_followup`, or `missing/unproven` without collapsing failure/pending/missing into success.
+- Explicit delivery statuses require reconstructable non-empty evidence pointers; unsupported, proofless, or empty evidence values fail closed as `missing/unproven`.
+- Export bundles include `surface_delivery_projection` in `bundle_manifest.json`, preserving visible-surface and linked-authority evidence pointers for plugin-visible fixture checks.
+- This remains local proof only; it does not perform external delivery, mutate gateway/auth/token/provider/profile state, start live daemons, or approve plugin SURFD readiness.
+
+Review evidence: initial Red `t_592ce309`, Orange request-change `t_89ec92f3`, Gray request-change `t_b6872961`, Blue request-change `t_ab9fa678`; remediation re-reviews Red `t_5fd8db68`, Orange `t_b970af89`, Gray request-change `t_3e602238`, Red `t_e0a198b5`, Gray request-change `t_5471dea7`, Red `t_d6e6102d`, Gray approve `t_f5a57911`; final Blue synthesis `t_aaafacae`.
 
 ## Control implementation requirements
 

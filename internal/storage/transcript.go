@@ -28,6 +28,14 @@ type ExportBundleResult struct {
 	Files     []string `json:"files"`
 }
 
+type surfaceProjectionRow struct {
+	EventID   string `json:"event_id"`
+	EventType string `json:"event_type"`
+	Target    string `json:"target"`
+	Status    string `json:"status"`
+	Evidence  string `json:"evidence,omitempty"`
+}
+
 func RenderTranscript(sessionDir string, metadata *SessionMetadata, format string) ([]byte, error) {
 	if metadata == nil {
 		loaded, err := LoadSessionYAML(sessionDir)
@@ -103,12 +111,17 @@ func BuildExportBundle(sessionDir string, metadata *SessionMetadata, opts Export
 	if files[5].content, err = readSafeSessionFile(sessionDir, registry.SnapshotFileName); err != nil {
 		return ExportBundleResult{}, err
 	}
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		return ExportBundleResult{}, err
+	}
 	manifest := map[string]any{
-		"session_id":                 metadata.ID,
-		"protocol_export":            "transcript-export-v1",
-		"source_event_log":           ChannelJSONLName,
-		"registry_snapshot":          metadata.RegistrySnapshot,
-		"includes_operator_evidence": true,
+		"session_id":                  metadata.ID,
+		"protocol_export":             "transcript-export-v1",
+		"source_event_log":            ChannelJSONLName,
+		"registry_snapshot":           metadata.RegistrySnapshot,
+		"includes_operator_evidence":  true,
+		"surface_delivery_projection": visibleSurfaceProjectionRows(index.Events),
 		"files": []string{
 			"transcript.md",
 			"transcript.jsonl",
@@ -168,6 +181,7 @@ func renderTranscriptMarkdown(metadata *SessionMetadata, events []EventEnvelope)
 	fmt.Fprintf(&b, "- runner_calls_total: `%d`\n", metadata.Cost.RunnerCallsTotal)
 	fmt.Fprintf(&b, "- usd_estimate_total: `%.6f`\n", metadata.Cost.USDEstimateTotal)
 	fmt.Fprintf(&b, "- missing_cost_runner_calls_total: `%d`\n\n", metadata.Cost.MissingCostRunnerCallsTotal)
+	renderVisibleSurfaceProjectionSummary(&b, events)
 	fmt.Fprintln(&b, "## Events")
 	for i, event := range events {
 		fmt.Fprintf(&b, "\n### %03d `%s`\n\n", i, event.EventID)
@@ -199,6 +213,203 @@ func renderTranscriptMarkdown(metadata *SessionMetadata, events []EventEnvelope)
 		fmt.Fprintln(&b, "\n```")
 	}
 	return []byte(b.String()), nil
+}
+
+func renderVisibleSurfaceProjectionSummary(b *strings.Builder, events []EventEnvelope) {
+	rows := visibleSurfaceProjectionRows(events)
+	if len(rows) == 0 {
+		return
+	}
+	fmt.Fprintln(b, "## Visible Surface Projection Summary")
+	fmt.Fprintln(b)
+	fmt.Fprintln(b, "| event_id | type | target | status | evidence |")
+	fmt.Fprintln(b, "| --- | --- | --- | --- | --- |")
+	for _, row := range rows {
+		fmt.Fprintf(b, "| `%s` | `%s` | `%s` | `%s` | `%s` |\n", row.EventID, row.EventType, row.Target, row.Status, escapeMarkdownTableCell(row.Evidence))
+	}
+	fmt.Fprintln(b)
+}
+
+func visibleSurfaceProjectionRows(events []EventEnvelope) []surfaceProjectionRow {
+	selectedByTurn := map[int]string{}
+	rows := make([]surfaceProjectionRow, 0)
+	for _, event := range events {
+		if event.Type == "speaker_selected" {
+			turn, ok := payloadInt(event.Payload, "turn")
+			if ok && len(event.To) > 0 {
+				selectedByTurn[turn] = event.To[0]
+			}
+			continue
+		}
+		switch event.Type {
+		case "speech":
+			turn, ok := payloadInt(event.Payload, "turn")
+			selected := ""
+			status := "floor_grant_missing_or_mismatched"
+			if ok {
+				selected = selectedByTurn[turn]
+				if selected == event.From {
+					status = "renderable"
+				}
+			}
+			evidence := "turn=unknown selected=" + selected + " speaker=" + event.From
+			if ok {
+				evidence = fmt.Sprintf("turn=%d selected=%s speaker=%s", turn, selected, event.From)
+			}
+			rows = append(rows, surfaceProjectionRow{EventID: event.EventID, EventType: event.Type, Target: "speech", Status: status, Evidence: evidence})
+		case "council_finalized", "council_unresolved", "session_cancelled":
+			status, evidence := deliveryEvidenceStatus(event.Payload["surface_evidence"])
+			rows = append(rows, surfaceProjectionRow{EventID: event.EventID, EventType: event.Type, Target: "visible_surface", Status: status, Evidence: evidence})
+			if _, ok := event.Payload["linked_authority_result"]; ok {
+				linkedStatus, linkedEvidence := deliveryEvidenceStatus(event.Payload["linked_authority_result"])
+				rows = append(rows, surfaceProjectionRow{EventID: event.EventID, EventType: event.Type, Target: "linked_authority", Status: linkedStatus, Evidence: linkedEvidence})
+			}
+		}
+	}
+	return rows
+}
+
+func deliveryEvidenceStatus(value any) (string, string) {
+	payload, ok := asStringMap(value)
+	if !ok || len(payload) == 0 {
+		return "missing/unproven", ""
+	}
+	status, _ := stringValue(payload["status"])
+	status = strings.TrimSpace(status)
+	if status != "" {
+		switch status {
+		case "posted":
+			if !hasAnyEvidencePointer(payload, "final_message_id", "message_id", "message_ref", "kanban_comment_id", "vault_decision_note", "evidence") {
+				status = "missing/unproven"
+			}
+		case "failed":
+			if !hasAnyEvidencePointer(payload, "failure_reason", "reason") {
+				status = "missing/unproven"
+			}
+		case "pending_followup":
+			if !hasAnyEvidencePointer(payload, "followup_card_id", "pending_review", "handoff", "reason") {
+				status = "missing/unproven"
+			}
+		default:
+			status = "missing/unproven"
+		}
+	}
+	if status == "" {
+		switch {
+		case hasAnyEvidencePointer(payload, "failure_reason", "reason"):
+			status = "failed"
+		case hasAnyEvidencePointer(payload, "followup_card_id", "pending_review", "handoff"):
+			status = "pending_followup"
+		case hasAnyEvidencePointer(payload, "final_message_id", "message_id", "message_ref", "kanban_comment_id", "vault_decision_note", "evidence"):
+			status = "posted"
+		default:
+			status = "missing/unproven"
+		}
+	}
+	return status, mustCompactJSON(payload)
+}
+
+func payloadInt(payload map[string]any, key string) (int, bool) {
+	value, ok := payload[key]
+	if !ok {
+		return 0, false
+	}
+	switch typed := value.(type) {
+	case int:
+		return typed, true
+	case int64:
+		return int(typed), true
+	case float64:
+		return int(typed), true
+	case json.Number:
+		parsed, err := typed.Int64()
+		if err != nil {
+			return 0, false
+		}
+		return int(parsed), true
+	default:
+		return 0, false
+	}
+}
+
+func asStringMap(value any) (map[string]any, bool) {
+	switch typed := value.(type) {
+	case map[string]any:
+		return typed, true
+	case map[string]string:
+		converted := make(map[string]any, len(typed))
+		for key, val := range typed {
+			converted[key] = val
+		}
+		return converted, true
+	default:
+		return nil, false
+	}
+}
+
+func stringValue(value any) (string, bool) {
+	switch typed := value.(type) {
+	case string:
+		return typed, true
+	default:
+		return "", false
+	}
+}
+
+func hasAnyEvidencePointer(payload map[string]any, keys ...string) bool {
+	for _, key := range keys {
+		value, ok := payload[key]
+		if !ok {
+			continue
+		}
+		if isNonEmptyEvidencePointer(value) {
+			return true
+		}
+	}
+	return false
+}
+
+func isNonEmptyEvidencePointer(value any) bool {
+	switch typed := value.(type) {
+	case nil:
+		return false
+	case string:
+		return strings.TrimSpace(typed) != ""
+	case []string:
+		for _, item := range typed {
+			if strings.TrimSpace(item) != "" {
+				return true
+			}
+		}
+		return false
+	case []any:
+		for _, item := range typed {
+			if isNonEmptyEvidencePointer(item) {
+				return true
+			}
+		}
+		return false
+	case map[string]string:
+		for _, item := range typed {
+			if strings.TrimSpace(item) != "" {
+				return true
+			}
+		}
+		return false
+	case map[string]any:
+		for _, item := range typed {
+			if isNonEmptyEvidencePointer(item) {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
+	}
+}
+
+func escapeMarkdownTableCell(value string) string {
+	return strings.ReplaceAll(value, "|", "\\|")
 }
 
 func renderBrief(metadata *SessionMetadata) []byte {
