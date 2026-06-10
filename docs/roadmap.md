@@ -71,7 +71,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs are derived from the 
 | --- | --- | --- | --- |
 | LTRAN-001 | Control live transport SOT and mapping | completed | Record the control companion SOT, roadmap/docs cross-links, daemon/CLI/plugin/member-runtime ownership split, and epic-boundary repo handoff rule. |
 | LTRAN-002 | Confirm daemon compatibility reads | completed | Added/confirmed explicit `version.read`, `status.read`, `diagnostics.read`, bounded `stream.replay` follow, `stream.status`, `stream.ack`, and concrete command-path compatibility evidence with conformance fixtures/checks; operator `status`/`health` remain concise and no live-local proof is claimed. |
-| LTRAN-003 | Prove CLI/daemon live-local support | planned | Run disposable data-home evidence showing CLI status/version/stream/write paths address the daemon state needed by plugin live-local equivalence tests, including command-id/idempotency and structured-error behavior. |
+| LTRAN-003 | Prove CLI/daemon live-local support | completed | Proved disposable data-home CLI/daemon live-local support with daemon-backed `compat` reads, stream replay/follow/ack/status, `delegate.submit` write/idempotency, structured command-id conflict behavior, first color review, GLM Octo, post-Octo re-review, and local/cross-repo verification evidence; no production activation or plugin mutation is claimed. |
 
 ## MEMBR — Member runtime profile invocation
 

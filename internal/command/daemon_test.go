@@ -71,9 +71,9 @@ func TestUnitTranscriptExportTailCLIValidationDoesNotRequireDaemon(t *testing.T)
 	}
 }
 
-func TestUnitRootHelpListsTranscriptExportAndTail(t *testing.T) {
+func TestUnitRootHelpListsTranscriptExportTailAndCompat(t *testing.T) {
 	help := command.NewCLI().Help()
-	for _, want := range []string{"transcript", "export", "tail"} {
+	for _, want := range []string{"transcript", "export", "tail", "compat"} {
 		if !strings.Contains(help, want) {
 			t.Fatalf("root help missing %q:\n%s", want, help)
 		}
@@ -412,6 +412,85 @@ func TestIntegrationDAEMN002CLIStreamAckStatusAndDeliveryEvidence(t *testing.T) 
 	var failedOut, failedErr bytes.Buffer
 	if exitCode := app.Run([]string{"delegate", "escalation-delivery-failed", metadata.ID, "--escalation", "evt_user_escalation_requested_01", "--target", "telegram", "--reason", "unreachable", "--will-retry-target", "origin", "--command-id", "cmd_cli_delivery_failed"}, &failedOut, &failedErr); exitCode != 0 {
 		t.Fatalf("delivery failure evidence: exit=%d stdout=%q stderr=%q", exitCode, failedOut.String(), failedErr.String())
+	}
+}
+
+func TestIntegrationLTRAN003LiveLocalCLIProof(t *testing.T) {
+	dataHome := commandDaemonFixture(t)
+	t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+	app, cancel := cliWithInProcessDaemon(t)
+	defer cancel()
+	var startOut, startErr bytes.Buffer
+	if exitCode := app.Run([]string{"daemon", "start"}, &startOut, &startErr); exitCode != 0 {
+		t.Fatalf("start daemon: exit=%d stdout=%q stderr=%q", exitCode, startOut.String(), startErr.String())
+	}
+
+	runOK := func(args ...string) string {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		if exitCode := app.Run(args, &stdout, &stderr); exitCode != 0 {
+			t.Fatalf("%v exit=%d stdout=%q stderr=%q", args, exitCode, stdout.String(), stderr.String())
+		}
+		if len(stdout.Bytes()) > 0 && !json.Valid(stdout.Bytes()) && args[0] != "stream" {
+			t.Fatalf("%v expected JSON stdout, got %q", args, stdout.String())
+		}
+		return stdout.String()
+	}
+	runFail := func(args ...string) string {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		if exitCode := app.Run(args, &stdout, &stderr); exitCode == 0 {
+			t.Fatalf("%v expected failure, stdout=%q stderr=%q", args, stdout.String(), stderr.String())
+		}
+		if !strings.Contains(stderr.String(), `"error"`) {
+			t.Fatalf("%v expected structured error, got stdout=%q stderr=%q", args, stdout.String(), stderr.String())
+		}
+		return stderr.String()
+	}
+
+	for _, args := range [][]string{
+		{"compat", "version", "--format", "json"},
+		{"compat", "status", "--format", "json"},
+		{"compat", "diagnostics", "--format", "json"},
+	} {
+		output := runOK(args...)
+		for _, want := range []string{protocol.ProtocolVersion, "schema_version", "daemon_version", "min_plugin_protocol_version", "version.read", "status.read", "diagnostics.read", "stream.replay", "stream.ack", "stream.status"} {
+			if !strings.Contains(output, want) {
+				t.Fatalf("%v missing %q: %s", args, want, output)
+			}
+		}
+	}
+
+	runOK("daemon", "status")
+	runOK("status")
+	runOK("daemon", "health")
+	runOK("delegate", "new", "sess_ltran_003", "--moderator", "agent-mod", "--assignee", "agent-1", "--title", "LTRAN-003 disposable proof", "--task", "prove live-local write path", "--event-id", "evt_ltran003_created", "--assignment-event-id", "evt_ltran003_assigned", "--command-id", "cmd_ltran003_new")
+
+	replay := runOK("stream", "sess_ltran_003", "--member", "agent-1", "--from-start", "--format", "ndjson")
+	if !strings.Contains(replay, `"is_replay":true`) || !strings.Contains(replay, "evt_ltran003_created") {
+		t.Fatalf("replay missing durable frames: %s", replay)
+	}
+	runFail("stream", "sess_ltran_003", "--member", "agent-1", "--since", "cur_999999999999_evt_gap", "--format", "ndjson")
+	runFail("stream", "sess_ltran_003", "--member", "agent-1", "--from-start", "--format", "ndjson", "--teleport")
+
+	runOK("stream", "ack", "sess_ltran_003", "--member", "agent-1", "--cursor", "cur_000000000000_evt_ltran003_created", "--command-id", "cmd_ltran003_ack_cursor")
+	status := runOK("stream", "status", "sess_ltran_003")
+	if !strings.Contains(status, "cmd_ltran003_ack_cursor") || !strings.Contains(status, "cur_000000000000_evt_ltran003_created") {
+		t.Fatalf("stream status missing ack evidence: %s", status)
+	}
+
+	runOK("delegate", "ack", "sess_ltran_003", "--actor", "agent-1", "--understanding", "ready", "--command-id", "cmd_ltran003_ack")
+	submit := runOK("delegate", "submit", "sess_ltran_003", "--actor", "agent-1", "--summary", "first submit", "--command-id", "cmd_ltran003_submit")
+	if !strings.Contains(submit, `"deduplicated":false`) {
+		t.Fatalf("first submit should append: %s", submit)
+	}
+	duplicate := runOK("delegate", "submit", "sess_ltran_003", "--actor", "agent-1", "--summary", "first submit", "--command-id", "cmd_ltran003_submit")
+	if !strings.Contains(duplicate, `"deduplicated":true`) {
+		t.Fatalf("duplicate submit should dedupe: %s", duplicate)
+	}
+	conflict := runFail("delegate", "submit", "sess_ltran_003", "--actor", "agent-1", "--summary", "different submit", "--command-id", "cmd_ltran003_submit")
+	if !strings.Contains(conflict, "command_id already used with different payload") {
+		t.Fatalf("conflict missing command-id message: %s", conflict)
 	}
 }
 

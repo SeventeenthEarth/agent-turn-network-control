@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "request_id": "req_command_id_conflict_001",
+  "ok": false,
+  "error": {
+    "code": "validation_error",
+    "category": "validation",
+    "message": "command_id already used with different payload",
+    "details": {
+      "category": "storage_command_conflict",
+      "path": "command_id"
+    }
+  }
+}

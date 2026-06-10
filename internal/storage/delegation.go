@@ -150,9 +150,6 @@ func RecordDelegationEvent(sessionDir string, metadata *SessionMetadata, spec De
 		return AppendResult{}, false, err
 	}
 	current := latestPhase(metadata, index)
-	if statusFromPhase(current) == StatusTerminal {
-		return AppendResult{}, false, NewValidationError(CategoryCommandConflict, "phase", "delegation session is terminal")
-	}
 	action := strings.TrimSpace(spec.Action)
 	if action == "" {
 		return AppendResult{}, false, NewValidationError(CategoryInvalidEnvelope, "action", "delegation action is required")
@@ -167,6 +164,12 @@ func RecordDelegationEvent(sessionDir string, metadata *SessionMetadata, spec De
 	payload := clonePayload(spec.Payload)
 	if payload == nil {
 		payload = map[string]any{}
+	}
+	if result, deduplicated, handled, err := replayExistingDelegationCommand(metadata, index, action, spec, payload); handled {
+		return result, deduplicated, err
+	}
+	if statusFromPhase(current) == StatusTerminal {
+		return AppendResult{}, false, NewValidationError(CategoryCommandConflict, "phase", "delegation session is terminal")
 	}
 	eventType, phase, from, to, err := delegationTransition(metadata, index, current, action, spec, payload)
 	if err != nil {
@@ -204,6 +207,55 @@ func RecordDelegationEvent(sessionDir string, metadata *SessionMetadata, spec De
 	}
 	sort.Strings(event.To)
 	return appendIdempotentEvent(sessionDir, metadata, index, event)
+}
+
+// replayExistingDelegationCommand handles exact command-id retries before the
+// current phase gate rejects them. Artifact-bearing writes still go through the
+// normal append path so file-copy side effects are not replayed implicitly.
+func replayExistingDelegationCommand(metadata *SessionMetadata, index *LogIndex, action string, spec DelegationEventSpec, payload map[string]any) (AppendResult, bool, bool, error) {
+	if strings.TrimSpace(spec.CommandID) == "" || len(spec.ArtifactSourcePaths) > 0 {
+		return AppendResult{}, false, false, nil
+	}
+	for offset, existing := range index.Events {
+		if existing.CommandID != spec.CommandID {
+			continue
+		}
+		priorPhase := metadata.State.Phase
+		if offset > 0 {
+			priorPhase = index.Events[offset-1].Phase
+		}
+		replayPayload := clonePayload(payload)
+		if replayPayload == nil {
+			replayPayload = map[string]any{}
+		}
+		eventType, phase, from, to, err := delegationTransition(metadata, index, priorPhase, action, spec, replayPayload)
+		if err != nil {
+			return AppendResult{}, false, true, NewValidationError(CategoryCommandConflict, "command_id", "command_id already used with different payload")
+		}
+		if err := validateDelegationPayload(action, replayPayload); err != nil {
+			return AppendResult{}, false, true, NewValidationError(CategoryCommandConflict, "command_id", "command_id already used with different payload")
+		}
+		event := EventEnvelope{
+			SchemaVersion:    protocol.SchemaVersion,
+			EventID:          eventIDFromCommand("evt_"+eventType, spec.CommandID),
+			CommandID:        spec.CommandID,
+			CausationEventID: strings.TrimSpace(spec.CausationEventID),
+			CorrelationID:    metadata.ID,
+			SessionID:        metadata.ID,
+			SessionType:      metadata.SessionType,
+			Phase:            phase,
+			Type:             eventType,
+			From:             from,
+			To:               to,
+			Payload:          replayPayload,
+		}
+		sort.Strings(event.To)
+		if commandEquivalent(existing, event) {
+			return AppendResult{Cursor: cursorFor(int64(offset), existing.EventID), Offset: int64(offset), EventID: existing.EventID}, true, true, nil
+		}
+		return AppendResult{}, false, true, NewValidationError(CategoryCommandConflict, "command_id", "command_id already used with different payload")
+	}
+	return AppendResult{}, false, false, nil
 }
 
 func CancelSession(sessionDir string, metadata *SessionMetadata, spec SessionCancelSpec) (AppendResult, bool, error) {

@@ -660,6 +660,7 @@ func TestUnitConformanceStructuredErrorFixtures(t *testing.T) {
 		"fixtures/error/active-session-lock.json",
 		"fixtures/error/cancel-unauthorized.json",
 		"fixtures/error/cursor-gap.json",
+		"fixtures/error/command-id-conflict.json",
 		"fixtures/error/unauthorized-member.json",
 		"fixtures/error/invalid-delivery-escalation-reference.json",
 		"fixtures/error/unauthorized-delivery-reporter.json",

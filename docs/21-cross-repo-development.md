@@ -92,7 +92,7 @@ Valid fixture manifest entries should remain schema-valid examples. Malformed JS
 
 ## Active epic handoff rule
 
-Cross-repo active work transfers only at repo-owned epic boundaries. Control `LTRAN` gates plugin `LTRAN`; control `MEMBR` gates plugin `PARTC`; control `SURFD` gates plugin `SURFD`. `control/LTRAN-001` is only the control-side SOT/mapping task, and `control/LTRAN-002` covers daemon compatibility reads/conformance evidence only; plugin `LTRAN` remains blocked until `control/LTRAN-003` proves disposable live-local support. A missing sibling capability found mid-epic blocks the active epic with evidence; it does not authorize switching into the sibling repo for an individual task while the current epic remains active.
+Cross-repo active work transfers only at repo-owned epic boundaries. Control `LTRAN` gates plugin `LTRAN`; control `MEMBR` gates plugin `PARTC`; control `SURFD` gates plugin `SURFD`. `control/LTRAN-001` is only the control-side SOT/mapping task, `control/LTRAN-002` covers daemon compatibility reads/conformance evidence, and `control/LTRAN-003` provides the disposable live-local support proof needed before plugin `LTRAN` can begin its own task contract. A missing sibling capability found mid-epic blocks the active epic with evidence; it does not authorize switching into the sibling repo for an individual task while the current epic remains active.
 
 ## Parallel development modes
 

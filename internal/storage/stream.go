@@ -437,6 +437,10 @@ func appendIdempotentEvent(sessionDir string, metadata *SessionMetadata, index *
 	return result, false, err
 }
 
+// commandEquivalent defines retry equivalence for idempotent command ids. It
+// intentionally compares semantic envelope fields and payload only; CreatedAt
+// is excluded because a retried command reconstructs the expected envelope at a
+// later wall-clock time but must still map back to the original event.
 func commandEquivalent(a, b EventEnvelope) bool {
 	if a.Type != b.Type || a.CommandID != b.CommandID || a.CausationEventID != b.CausationEventID || a.SessionID != b.SessionID || a.SessionType != b.SessionType || a.Phase != b.Phase || a.From != b.From {
 		return false

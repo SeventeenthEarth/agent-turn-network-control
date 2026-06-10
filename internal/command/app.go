@@ -37,13 +37,13 @@ const (
 	appKindDaemon appKind = "daemon"
 )
 
-// CommandSummary is a help-only command listing for the bootstrap scaffold.
+// CommandSummary is a help-only command listing.
 type CommandSummary struct {
 	Name        string
 	Description string
 }
 
-// NewCLI returns the canonical operator CLI scaffold.
+// NewCLI returns the canonical operator CLI.
 func NewCLI() App {
 	return NewCLIWithRuntime(registry.DefaultRuntime())
 }
@@ -62,6 +62,7 @@ func NewCLIWithRuntime(runtime registry.Runtime) App {
 			{Name: "registry", Description: "Validate or show the local registry authority."},
 			{Name: "storage", Description: "Verify or rebuild the local SQLite storage projection."},
 			{Name: "stream", Description: "Replay, follow, acknowledge, or inspect session event streams."},
+			{Name: "compat", Description: "Read daemon-backed plugin compatibility version, status, and diagnostics."},
 			{Name: "conformance", Description: "Show local protocol conformance fixtures."},
 			{Name: "delegate", Description: "Create delegation sessions and record delegation audit events."},
 			{Name: "council", Description: "Create council sessions and record council consensus events."},
@@ -78,7 +79,7 @@ func NewCLIWithRuntime(runtime registry.Runtime) App {
 	}
 }
 
-// NewDaemon returns the daemon binary scaffold.
+// NewDaemon returns the daemon binary command surface.
 func NewDaemon() App {
 	return App{
 		Name:        "kkachi-agent-networkd",
@@ -86,13 +87,13 @@ func NewDaemon() App {
 		Runtime:     registry.DefaultRuntime(),
 		Kind:        appKindDaemon,
 		Commands: []CommandSummary{
-			{Name: "run", Description: "Start the daemon foreground process once implemented."},
+			{Name: "run", Description: "Start the daemon foreground process."},
 			{Name: "version", Description: "Print protocol and binary version information."},
 		},
 	}
 }
 
-// Run executes the local-only command behavior. Unsupported future features
+// Run executes the local-only command behavior. Unsupported commands
 // fail closed with the shared structured error schema.
 func (a App) Run(args []string, stdout io.Writer, stderr io.Writer) int {
 	if a.Runtime.LookupEnv == nil {
@@ -121,6 +122,8 @@ func (a App) Run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return a.runStorage(args[1:], stdout, stderr)
 		case "stream":
 			return a.runStream(args[1:], stdout, stderr)
+		case "compat":
+			return a.runCompat(args[1:], stdout, stderr)
 		case "conformance":
 			return a.runConformance(args[1:], stdout, stderr)
 		case "delegate":
@@ -166,8 +169,28 @@ func (a App) Help() string {
 		fmt.Fprintf(&b, "  %-12s %s\n", cmd.Name, cmd.Description)
 	}
 	fmt.Fprintln(&b)
-	fmt.Fprintln(&b, "Status: DAEMN-001 local lifecycle and diagnostics; stream/session mutation commands fail closed until DAEMN-002+.")
+	fmt.Fprintln(&b, "Status: Local lifecycle, stream, and session controls use daemon-backed structured responses; live gateway/provider activation is not implied.")
 	return b.String()
+}
+
+func (a App) runCompat(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) == 0 || isHelp(args[0]) {
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s compat version --format json\n  %s compat status --format json\n  %s compat diagnostics --format json\n\nReads daemon-backed plugin compatibility responses without expanding concise operator status/health output.\n", a.Name, a.Name, a.Name)
+		return protocol.ExitOK
+	}
+	if len(args) != 3 || args[1] != "--format" || args[2] != "json" {
+		return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "compat requires <version|status|diagnostics> --format json", protocol.ExitUsage, nil))
+	}
+	switch args[0] {
+	case "version":
+		return a.daemonRequest(stdout, stderr, protocol.FeatureVersionRead)
+	case "status":
+		return a.daemonRequest(stdout, stderr, protocol.FeatureStatusRead)
+	case "diagnostics":
+		return a.daemonRequest(stdout, stderr, protocol.FeatureDiagnosticsRead)
+	default:
+		return writeProtocolError(stderr, protocol.UnsupportedFeature("compat "+args[0]))
+	}
 }
 
 func (a App) runDaemon(args []string, stdout io.Writer, stderr io.Writer) int {
