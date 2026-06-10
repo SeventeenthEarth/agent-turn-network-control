@@ -176,6 +176,28 @@ Rules:
 - Replay, transcript, export, status, and projection rebuild remain side-effect free: they must not create Kanban comments, write Vault notes, or transform configured targets into `posted` evidence.
 - Transcript/export/status must expose `linked_authority_result.status` and evidence. If status is missing, or if `posted` lacks concrete evidence, linked authority return completion is unproven. If status is `failed` or `pending_followup`, the council decision may be finalized but Kanban/Vault return remains incomplete.
 
+### Visible surface rendering evidence
+
+Visible surface rendering is a read/projection concern over durable events. Discord threads, gateway messages, Kanban comments, Vault notes, transcript rows, and export rows are not lifecycle sources. The authoritative rendering order is the stream cursor sequence, not message timestamps or external message order.
+
+Minimum rendering/projection inputs:
+
+- `session_created.payload.surface`: identifies the visible room and delivery owner. For `discord_thread`, `thread_id` is required. These fields are evidence/configuration pointers only.
+- `session_created.payload.linked_authority`: identifies required return targets, not completed returns.
+- `speaker_selected`: grants the floor for a turn. Visible renderers must not infer floor ownership from Discord author/order.
+- `speech`: carries participant-visible speech content. A renderable member speech turn requires both the `speech` event and a matching floor grant for the same turn.
+- `moderator_intervention`, `draft_conclusion`, vote events, `council_finalized`, and `council_unresolved`: render typed moderator/consensus state as presentation over durable events, never as external free-form state.
+- `council_finalized.payload.surface_evidence` and `payload.linked_authority_result`: expose delivery/return status and evidence pointers for final result delivery.
+
+Delivery/evidence statuses are interpreted uniformly across status, transcript, export, and projection rebuild:
+
+- `posted`: a concrete immutable pointer exists for the performed visible or linked-authority return.
+- `failed`: the attempt failed and records a reason plus follow-up handling evidence.
+- `pending_followup`: the durable decision may exist, but visible/linked return remains incomplete and points to a follow-up or pending-review handoff.
+- missing status or `posted` without evidence: unproven delivery.
+
+Replay, transcript, export, status, and projection rebuild must remain side-effect free. They may rebuild and expose surface/return evidence from existing durable events; they must not call Discord APIs, create Kanban comments, write Vault notes, synthesize message ids, infer delivery from configured thread/card/note targets, or convert failed/pending/missing evidence into `posted`.
+
 ### Registry readiness
 
 The daemon is not ready to accept session-creating commands until registry validation succeeds. Registry validation includes both file safety (per `12-security.md`) and schema validation. If registry validation fails before a session is bound, the failure is written to `operational.log` and the daemon reports not ready.

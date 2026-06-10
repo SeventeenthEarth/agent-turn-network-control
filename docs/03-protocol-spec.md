@@ -191,6 +191,33 @@ Council variant has `to` listing every council member:
 
 `surface` and `linked_authority` are optional. When `surface.kind` is `discord_thread`, `thread_id` is required and Discord identifiers are evidence pointers, not ordering or state authority. `linked_authority.kanban_card_id` means the final council result must be returned to the named Kanban card or a clearly linked follow-up/review card. `linked_authority.vault_decision_note` is a decision-record target, not proof that the note already exists. Optional `turn_mode` is the session-level intended/default floor policy (`relevance`, `targeted`, `random`, `moderator_direct`, or `role_order`). It is not per-turn audit evidence; each actual floor grant records its own `speaker_selected.payload.selection_mode`.
 
+### Surface rendering evidence contract
+
+Visible rooms such as Discord threads are projections of durable KAN events. They help humans follow a council, but they are not lifecycle state authority. A renderer, transcript command, export command, or plugin-visible helper must build its view from cursor-ordered `channel.jsonl` events and may attach external message ids only as evidence pointers.
+
+Minimum event inputs for the visible surface contract:
+
+| Visible surface need | Durable input | Required fields / rules |
+| --- | --- | --- |
+| Surface identity | `session_created.payload.surface` | `kind`; for `discord_thread`, `thread_id` is required. `platform`, `guild_id`, `channel_id`, `origin_message_id`, `started_by`, and `delivery_owner` are evidence/configuration pointers only. |
+| Linked return target | `session_created.payload.linked_authority` | `kanban_card_id` and/or `vault_decision_note` select where the final result must be returned; they do not prove the return has happened. |
+| Floor grant | `speaker_selected` | `turn`, selected member in `to`, and `payload.selection_mode`; renderers must not infer the active speaker from Discord message order. |
+| Participant speech | `speech` | `from`, `to`, `payload.turn`, `payload.speech`, optional `payload.evidence`, optional `payload.responds_to_event_id`; only successful append makes the speech renderable. |
+| Moderator surface note | `moderator_intervention` and other typed council events | Renderable only as typed events; free-form Discord replies are evidence/presentation, not implicit state. |
+| Final visible result | `council_finalized` | `payload.final_summary`, `payload.consensus`, optional `payload.surface_evidence`, and required `payload.linked_authority_result` when linked authority was configured. |
+| Unresolved visible result | `council_unresolved` | Records the durable unresolved outcome; a visible unresolved notice must point back to this event rather than inventing a final decision. |
+
+Cursor order is authoritative for rendering order. `created_at`, external surface timestamps, Discord message ids, and Discord message order are display/evidence data only. A renderer may surface `surface_evidence` or delivery-message ids after the corresponding durable event exists, but it must not create, reorder, or mark lifecycle progress from the external surface alone.
+
+Delivery evidence status belongs to durable event payloads and projections:
+
+- `posted`: concrete immutable evidence exists, such as a Discord message id, Kanban comment id, Vault note path, or equivalent pointer recorded in the applicable event payload/projection.
+- `failed`: an attempted visible or linked-authority return failed; the failure reason and follow-up handling evidence are required.
+- `pending_followup`: finalization/unresolve may be recorded, but the visible/linked return remains incomplete and must have a follow-up card, pending-review handoff, or equivalent pointer.
+- missing status or missing evidence: unproven, not successful delivery.
+
+The daemon, replay, transcript, export, and projection rebuild must stay side-effect free for external surfaces: they may expose status/evidence fields, but they must not call Discord APIs, create Kanban comments, write Vault notes, or transform configured targets into `posted` evidence.
+
 ### session_cancelled
 
 Origin class: `participant_cli`.
@@ -1396,6 +1423,8 @@ Canonical command: `kkachi-agent-network council speak`.
 }
 ```
 
+For visible rendering, `speech` is the only participant-originated council utterance event that may be rendered as a member speech turn. The active speaker is proven by the preceding cursor-ordered `speaker_selected` event for the same `payload.turn`; renderers must flag or fail closed on a missing/mismatched floor grant instead of treating an external message author as authority. `payload.evidence` is supporting material, not a delivery receipt. A surface message id may be recorded separately only after the durable `speech` event exists.
+
 ### moderator_intervention
 
 Origin class: `participant_cli`.
@@ -1515,7 +1544,9 @@ Canonical command: `kkachi-agent-network council finalize`.
 - `failed`: the return attempt failed; `failure_reason` and follow-up handling evidence are required.
 - `pending_followup`: a clearly linked follow-up/review card or pending-review handoff remains; `followup_card_id` or equivalent evidence is required.
 
-The daemon/replay must not create Kanban comments or Vault notes directly. Absence of posted evidence, or status `failed`/`pending_followup`, means the origin authority path remains blocked/pending review or must be represented by a linked follow-up; final reports must not claim linked authority return is complete.
+`surface_evidence` records visible-room delivery evidence for the final result. It is optional because a council may finalize before a moderator/Gray workflow posts the final summary to the visible room. When present, a `final_message_id` or equivalent pointer is evidence that the final summary was posted; it is not the source of the final decision.
+
+The daemon/replay must not create Kanban comments, Vault notes, or visible-room messages directly. Absence of posted evidence, or status `failed`/`pending_followup`, means the origin authority path remains blocked/pending review or must be represented by a linked follow-up; final reports must not claim linked authority return or visible delivery is complete.
 
 ### council_unresolved
 

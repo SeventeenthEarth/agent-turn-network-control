@@ -190,8 +190,19 @@ Exit: control defines and verifies the event-to-visible-surface rendering/eviden
 
 | Task ID | Task Title | Task Status | Task Description |
 |---|---|---|---|
-| SURFD-001 | Define surface rendering evidence contract | planned | Define the daemon event fields, transcript/projection inputs, delivery evidence status, and failure/pending-follow-up semantics needed for visible speech/final-result rendering. |
+| SURFD-001 | Define surface rendering evidence contract | completed/docs-only | Defines the daemon event fields, transcript/projection inputs, delivery evidence status, and failure/pending-follow-up semantics needed for visible speech/final-result rendering. Blue accepted the docs-only contract after KAN Red/Orange/Gray review; runtime projection proof remains `control/SURFD-002`. |
 | SURFD-002 | Prove delivery evidence projection | planned | Prove local projection/transcript/export or equivalent fixtures expose speech, finalization, unresolved/cancelled, and delivery-evidence pointer states for plugin-visible rendering tests. |
+
+`control/SURFD-001` resolves the minimum rendering contract as a docs-only SOT gate:
+
+- `channel.jsonl` cursor order is the rendering authority; visible room order, timestamps, and message ids are evidence/display data only.
+- `session_created.payload.surface` identifies the visible room; `session_created.payload.linked_authority` identifies required return targets but does not prove return completion.
+- `speaker_selected` proves the floor grant; `speech` carries renderable participant utterance content; renderers must fail closed on missing/mismatched floor-grant evidence instead of trusting external message authorship.
+- `council_finalized` / `council_unresolved` are the durable final/unresolved outcomes; visible final messages are evidence pointers, not lifecycle authority.
+- Delivery/return statuses are `posted`, `failed`, `pending_followup`, or missing/unproven; `failed`, `pending_followup`, and missing evidence must not be reported as completed visible delivery.
+- Replay, transcript, export, status, and projection rebuild expose evidence fields but remain side-effect free: no Discord API calls, Kanban comments, Vault writes, synthesized message ids, or inferred `posted` evidence.
+
+Review evidence: Red `t_c0eff6d8`, Orange `t_d6beef4e`, Gray `t_a39ec23b`, Blue synthesis `t_37d1f0b9`. This acceptance is docs-only and does not approve live/default Discord delivery, gateway/auth/token/provider/profile mutation, live daemon activation, plugin SURFD implementation readiness, or production readiness.
 
 ## Control implementation requirements
 
@@ -250,7 +261,7 @@ Task-specific checks must include, as applicable:
 1. Resolved by `control/LTRAN-002`: dedicated `status.read` and `diagnostics.read` commands are required because operator-facing `status`/`health` remain concise and do not carry the full compatibility contract.
 2. Resolved by `control/MEMBR-001`: the first participant pilot uses main-agent mediated bounded runner invocation as a disposable local proof before long-lived member runtimes.
 3. Resolved by `control/MEMBR-001`: runner/session evidence must bind selected profile/member identity, registry snapshot, command/session/request ids, preserved runner invocation id, wrapper/backend/session handle or redacted equivalent, timestamps/status, redacted evidence pointers, and the typed success or durable failure event.
-4. Which event/projection fields are the minimum rendering contract for plugin-visible surface delivery?
+4. Resolved by `control/SURFD-001`: the minimum rendering contract is cursor-ordered durable events plus explicit surface/linked-authority evidence pointers; visible room artifacts are evidence/display data only, and delivery completion requires `posted` evidence.
 5. Which local pilot is sufficient before any later production activation discussion?
 
 Until these decisions are resolved, implementation may proceed only on tasks that do not depend on the unresolved decision, or the task contract must record the selected default before coding.

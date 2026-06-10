@@ -231,6 +231,7 @@ When a council has `surface.kind: discord_thread`, the moderator must preserve t
 - `channel.jsonl` is the canonical event SOT.
 - Typed KAN events validated by the daemon are the only state transitions; they may arrive through Hermes plugin tools or the canonical CLI fallback.
 - Free-form Discord replies are evidence or user-facing presentation, not implicit state.
+- Visible speech/final-result rendering follows `03-protocol-spec.md#surface-rendering-evidence-contract`: render from cursor-ordered durable events first, then attach Discord/Kanban/Vault ids only as delivery evidence pointers.
 
 The recommended visible flow is:
 
@@ -253,6 +254,14 @@ Linked authority return policy:
 - `failed` requires a failure reason and keeps the origin card blocked/pending review until a follow-up resolves the return.
 - `pending_followup` requires a linked follow-up/review card or equivalent handoff evidence.
 - The daemon/replay must never create Kanban comments or Vault notes; only the moderator/Gray workflow performs those external writes.
+
+Visible delivery policy:
+
+- A moderator may post human-readable session announcements, floor grants, speech turns, interventions, and final/unresolved results to the thread, but each visible item must correspond to a durable event cursor or be clearly labeled as non-state presentation.
+- A member's free-form Discord reply is not a `speech` event. If it should become participant speech, the moderator/member runtime must record `council speak` (or the equivalent typed plugin command) and then surface the resulting event.
+- Final visible delivery is proven only by `council_finalized.payload.surface_evidence` or an equivalent projection/export evidence pointer. A visible final message without the durable `council_finalized` event is not a finalized council.
+- If visible posting fails after finalization, record `failed` with a reason and follow-up handling; if posting is deferred, record `pending_followup`. User reports may say the council finalized only when the durable event exists, and may say visible delivery completed only when posted evidence exists.
+- Transcript/export/status rendering must preserve `posted`, `failed`, `pending_followup`, and missing/unproven delivery distinctly. Do not collapse `failed` or `pending_followup` into success.
 
 Divergence controls:
 
