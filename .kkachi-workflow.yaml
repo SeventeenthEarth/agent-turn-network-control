@@ -1,85 +1,99 @@
 version: "workflow-graph/v1"
-graph_id: "graph-kkachi-project-kkachi-agent-network-control-d7badb20504b"
+graph_id: "graph-kkachi-project-kkachi-agent-network-control-surfd001-20260614"
 metadata:
   project: "kkachi-agent-network-control"
-  created_by: "khs"
+  created_by: "macho"
   managed_by: "kah"
-  source_template: "kan-control-kas+glm-octo-precommit"
-  last_applied_event_id: "evt-000002"
+  source_template: "kan-control-development-spine-surfd001-20260614"
+  last_applied_event_id: "evt-001304"
 phases:
   - id: "intake"
     title: "Intake"
     owner_layer: "khs"
     required: true
   - id: "sot"
-    title: "Sot"
+    title: "SOT Basis"
     owner_layer: "khs"
     required: true
   - id: "roadmap"
-    title: "Roadmap"
+    title: "Roadmap Task Selection"
     owner_layer: "khs"
     required: true
+  - id: "task-classification"
+    title: "Task Classification"
+    owner_layer: "khs"
+    required: true
+    evidence: ["intake-classification.md", "acceptance-criteria.md"]
   - id: "plan"
     title: "Plan"
     owner_layer: "khs"
     required: true
+    evidence: ["plan.md", "checklist.md", "acceptance-criteria.md"]
+  - id: "vet"
+    title: "Blue Vet and Official Red Plan Review"
+    owner_layer: "khs"
+    required: true
+    evidence: ["reviews/blue-plan-vet.md", "reviews/red-plan-review.md"]
   - id: "ask"
-    title: "Ask"
+    title: "Ask / Implementation Authorization"
     owner_layer: "khs"
     required: true
+    evidence: ["approvals/ask.md", "approval-readback.json"]
   - id: "implement"
-    title: "Implement"
+    title: "Implement / Docs Contract Patch"
     owner_layer: "khs"
     required: true
+    evidence: ["impl-log.md", "diff.patch"]
+  - id: "enhance-test"
+    title: "Enhance Test"
+    owner_layer: "khs"
+    required: true
+    evidence: ["test-enhancement.md", "test-log.md"]
+  - id: "ai-slop-cleaner"
+    title: "AI Slop Cleaner"
+    owner_layer: "khs"
+    required: true
+    evidence: ["ai-slop-cleaner.md", "verification-after-ai-slop-cleaner.md"]
   - id: "optimize"
     title: "Optimize"
     owner_layer: "khs"
     required: true
-  - id: "request-feedback-1"
-    title: "Initial External Feedback / Role Review Request"
-    owner_layer: "khs"
-    required: true
-    evidence: ["feedback-request.md", "role-review-cards.json"]
-  - id: "handle-feedback-1"
-    title: "Handle Initial Feedback"
-    owner_layer: "khs"
-    required: true
-    evidence: ["handle-feedback-1.md"]
-  - id: "review"
-    title: "First Blue Red Orange Gray Review"
-    owner_layer: "khs"
-    required: true
-    evidence: ["review.md", "redteam/"]
-  - id: "verify"
-    title: "Verification After First Review Fixes"
-    owner_layer: "khs"
-    required: true
-    evidence: ["verification.md", "test-log.md"]
-  - id: "docs"
-    title: "Docs and Roadmap Update"
+    evidence: ["optimization.md", "verification-after-optimize.md"]
+  - id: "docs-update"
+    title: "Update Docs"
     owner_layer: "khs"
     required: true
     evidence: ["docs-update.md", "roadmap-update.md"]
-  - id: "request-feedback-2"
-    title: "Official GLM Octo Review Request"
+  - id: "verify"
+    title: "Blue Verification"
     owner_layer: "khs"
     required: true
-    evidence: ["glm-octo-prompt.txt", "glm-octo-start-readback.json", "glm-octo-active-readback.json"]
-  - id: "handle-feedback-2"
-    title: "Handle Official GLM Octo Feedback"
+    evidence: ["verification.md", "gate-reports/verification.json"]
+  - id: "color-review"
+    title: "Official Blue Red Orange Gray Color Review"
     owner_layer: "khs"
     required: true
-    evidence: ["glm-octo-feedback.md", "handle-feedback-2.md", "verification-after-octo.md"]
-  - id: "request-feedback-3"
-    title: "Post-Octo Blue Red Orange Gray Re-Review Request"
+    evidence: ["review.md", "role-review-cards.json", "redteam/"]
+  - id: "color-adjust"
+    title: "Color Review Adjustment Loop"
     owner_layer: "khs"
     required: true
-    evidence: ["post-octo-blue-review.md", "role-review-post-octo-cards.json"]
-  - id: "handle-feedback-3"
-    title: "Pre-Commit Template Report and Remaining Risk Closure"
+    evidence: ["handle-feedback-1.md", "verification-after-color-adjust.md"]
+  - id: "octo-review"
+    title: "One-Time Official GLM Octo Review"
     owner_layer: "khs"
     required: true
-    evidence: ["final-report.md", "gate-reports/final.json"]
+    evidence: ["glm-octo-prompt.txt", "glm-octo-feedback.md"]
+  - id: "octo-adjudication"
+    title: "Blue and Color Reviewer Octo Adjudication"
+    owner_layer: "khs"
+    required: true
+    evidence: ["octo-adjudication.md", "post-octo-review-cards.json"]
+  - id: "post-octo-adjust"
+    title: "Post-Octo Valid Finding Adjustment"
+    owner_layer: "khs"
+    required: true
+    evidence: ["handle-feedback-2.md", "verification-after-octo.md"]
   - id: "final"
     title: "Final Gate / Commit Approval Report"
     owner_layer: "khs"
@@ -91,38 +105,46 @@ edges:
   - from: "sot"
     to: "roadmap"
   - from: "roadmap"
+    to: "task-classification"
+  - from: "task-classification"
     to: "plan"
   - from: "plan"
+    to: "vet"
+  - from: "vet"
     to: "ask"
   - from: "ask"
     to: "implement"
   - from: "implement"
+    to: "enhance-test"
+  - from: "enhance-test"
+    to: "ai-slop-cleaner"
+  - from: "ai-slop-cleaner"
     to: "optimize"
   - from: "optimize"
-    to: "request-feedback-1"
-  - from: "request-feedback-1"
-    to: "handle-feedback-1"
-  - from: "handle-feedback-1"
-    to: "review"
-  - from: "review"
+    to: "docs-update"
+  - from: "docs-update"
     to: "verify"
   - from: "verify"
-    to: "docs"
-  - from: "docs"
-    to: "request-feedback-2"
-  - from: "request-feedback-2"
-    to: "handle-feedback-2"
-  - from: "handle-feedback-2"
-    to: "request-feedback-3"
-  - from: "request-feedback-3"
-    to: "handle-feedback-3"
-  - from: "handle-feedback-3"
+    to: "color-review"
+  - from: "color-review"
+    to: "color-adjust"
+  - from: "color-adjust"
+    to: "octo-review"
+  - from: "octo-review"
+    to: "octo-adjudication"
+  - from: "octo-adjudication"
+    to: "post-octo-adjust"
+  - from: "post-octo-adjust"
     to: "final"
 gates:
-  - id: "glm-octo-required"
-    requires: ["request-feedback-2", "handle-feedback-2"]
-  - id: "post-octo-review-required"
-    requires: ["request-feedback-3", "handle-feedback-3"]
+  - id: "blue-red-plan-vet-required"
+    requires: ["plan", "vet"]
+  - id: "development-spine-required"
+    requires: ["implement", "enhance-test", "ai-slop-cleaner", "optimize", "docs-update", "verify"]
+  - id: "color-review-convergence-required"
+    requires: ["color-review", "color-adjust"]
+  - id: "glm-octo-one-time-required"
+    requires: ["octo-review", "octo-adjudication", "post-octo-adjust"]
   - id: "codegraph-refresh-required"
     requires: ["intake", "final"]
     final_required: true
@@ -145,7 +167,7 @@ gates:
         path: "final-report.md"
         tokens: [".kkachi/", ".codegraph/", ".omx/", ".omc/", ".claude-octopus/"]
   - id: "precommit-template-required"
-    requires: ["handle-feedback-3", "final"]
+    requires: ["final"]
 proposals:
   policy: "proposal-first"
 feedback_intake:

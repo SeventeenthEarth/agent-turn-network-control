@@ -26,6 +26,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | LTRAN | Live transport control compatibility | daemon/CLI compatibility reads and live-local support |
 | MEMBR | Member runtime profile invocation | real participant profile/wrapper invocation proof |
 | SURFD | Surface delivery evidence contract | event-to-visible rendering and evidence projection |
+| ENSOT | Event/outcome visible-closeout SOT | terminal council outcome and moderator visible-closeout semantics |
 
 ## Epic dependency graph
 
@@ -43,6 +44,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | LTRAN | RELIA | live-local control compatibility starts after Release v1 local acceptance |
 | MEMBR | LTRAN | real participant invocation needs live-local stream/control compatibility |
 | SURFD | MEMBR, TRANS | visible rendering needs participant response evidence plus transcript/export surfaces |
+| ENSOT | SURFD | plugin visible closeout UX needs a locked terminal outcome / visible evidence contract |
 
 ## Implementation phase grouping
 
@@ -60,6 +62,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | Phase 9 | LTRAN | live-local daemon/CLI compatibility for plugin transport | disposable control live-local evidence and compatibility checks pass |
 | Phase 10 | MEMBR | real participant profile/wrapper invocation path | selected participant invocation evidence passes without role substitution |
 | Phase 11 | SURFD | surface delivery evidence contract | projection/transcript/export or fixture evidence supports visible rendering |
+| Phase 12 | ENSOT | terminal outcome / visible closeout event semantics | docs SOT accepted after Red/Orange/Gray review and Blue synthesis |
 
 ## BOOTS — Bootstrap
 
@@ -127,3 +130,4 @@ Active task transfer between control and plugin happens only at an epic boundary
 | MEMBR-002 | Prove selected participant invocation and durable success/failure event recording. Isolated fake-wrapper implementation evidence is Blue-accepted as candidate proof; real-profile/live invocation remains unproven and approval-gated. | `internal/daemon/`, `internal/memberruntime/`, `internal/runner/`, CLI/runtime tests, docs | fake/isolated wrapper tests accepted as candidate proof; real-profile evidence only when explicitly authorized; no role substitution |
 | SURFD-001 | Define event-to-visible-surface rendering/evidence contract. | `docs/03-protocol-spec.md`, `docs/07-moderator-policy.md`, `docs/13-operational-contracts.md`, `docs/24-live-transport-control-sot.md` | docs guardrails, protocol consistency checks |
 | SURFD-002 | Prove projection/transcript/export or fixture evidence for visible rendering tests. | `internal/transcript/`, `internal/storage/`, `testdata/conformance/`, docs | transcript/export/projection tests, delivery evidence fixture checks, `make test` |
+| ENSOT-001 | Lock council terminal outcome visible-closeout SOT for plugin `VISUX` implementation. Drafts and votes are visible process milestones only; terminal daemon events are durable outcomes only; human-readable moderator closeout requires posted delivery/projection evidence and fails closed when missing, failed, pending, or mismatched. | `docs/03-protocol-spec.md`, `docs/07-moderator-policy.md`, `docs/13-operational-contracts.md`, `docs/24-live-transport-control-sot.md` | docs guardrails, protocol consistency checks, KAN Red/Orange/Gray review, Blue synthesis |

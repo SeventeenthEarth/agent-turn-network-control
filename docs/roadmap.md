@@ -87,4 +87,10 @@ Epic IDs are five-letter uppercase English slugs. Task IDs are derived from the 
 | SURFD-001 | Define surface rendering evidence contract | completed/docs-only | Defines the daemon event fields, transcript/projection inputs, delivery evidence status, and failure/pending-follow-up semantics needed for visible speech/final-result rendering; Blue accepted the docs-only contract after KAN Red/Orange/Gray review. Runtime projection proof remains `control/SURFD-002`. |
 | SURFD-002 | Prove delivery evidence projection | completed/local proof | Local transcript/export proof exposes speech renderability, finalization, unresolved/cancelled outcomes, and fail-closed `posted`/`failed`/`pending_followup`/missing delivery-evidence states for plugin-visible rendering tests; Blue accepted after KAN Red/Orange/Gray review. |
 
+## ENSOT — Event/outcome visible-closeout SOT
+
+| Task ID | Task Title | Task Status | Task Description |
+| --- | --- | --- | --- |
+| ENSOT-001 | Council terminal outcome visible-surface SOT | completed/docs-only | Docs-only SOT gate for plugin `VISUX`: `draft_conclusion` and `consensus_vote*` are visible process milestones only, `council_finalized` / `council_unresolved` are durable terminal outcomes, and human-readable moderator closeout requires posted surface/projection evidence that points back to the terminal event. Accepted after KAN Red/Orange/Gray review and Blue synthesis; no plugin implementation, live Discord delivery, production activation, or commit approval is claimed. |
+
 Every roadmap item must map to the Makefile target taxonomy in `18-testing-strategy.md` and to the phase dependencies in `09-implementation-epics.md`. Active task transfer between this control repo and the plugin repo must happen only at an epic boundary; do not leave a control epic midstream to execute plugin tasks, and do not interrupt a plugin epic with control tasks except by blocking the active epic and completing the required sibling epic first. When a task ID is cited outside its repo-local roadmap, qualify it as `control/<task-id>` or `plugin/<task-id>`.

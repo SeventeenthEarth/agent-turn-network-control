@@ -263,6 +263,14 @@ Visible delivery policy:
 - If visible posting fails after finalization, record `failed` with a reason and follow-up handling; if posting is deferred, record `pending_followup`. User reports may say the council finalized only when the durable event exists, and may say visible delivery completed only when posted evidence exists.
 - Transcript/export/status rendering must preserve `posted`, `failed`, `pending_followup`, and missing/unproven delivery distinctly. Do not collapse `failed` or `pending_followup` into success.
 
+Moderator closeout sequence:
+
+1. `draft_conclusion` may be surfaced as a draft for participant review, but it is not a terminal result and must not be phrased as final closeout.
+2. `consensus_vote_requested` and `consensus_vote` may be surfaced as voting progress over the named `draft_version`, but they do not by themselves prove final closeout.
+3. `council_finalized` or `council_unresolved` is the durable terminal outcome. Terminal daemon outcome and human-readable visible closeout are separate acceptance facts.
+4. A visible moderator closeout is accepted only when the terminal outcome has posted surface evidence or an equivalent transcript/export/projection pointer that references the terminal event. Missing, mismatched, failed, or pending evidence is fail-closed for visible UX success, even when the durable council outcome is terminal.
+5. The plugin-side visible helper may render and deliver the closeout, but it must report evidence back against the control-owned event contract; it must not invent finality from Discord/helper output alone.
+
 Divergence controls:
 
 - One council has one locked decision question.

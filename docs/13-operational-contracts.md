@@ -186,7 +186,8 @@ Minimum rendering/projection inputs:
 - `session_created.payload.linked_authority`: identifies required return targets, not completed returns.
 - `speaker_selected`: grants the floor for a turn. Visible renderers must not infer floor ownership from Discord author/order.
 - `speech`: carries participant-visible speech content. A renderable member speech turn requires both the `speech` event and a matching floor grant for the same turn.
-- `moderator_intervention`, `draft_conclusion`, vote events, `council_finalized`, and `council_unresolved`: render typed moderator/consensus state as presentation over durable events, never as external free-form state.
+- `moderator_intervention`, `draft_conclusion`, and vote events: render typed moderator/consensus state as non-terminal presentation over durable events, never as external free-form state. A draft or vote is not a final closeout.
+- `council_finalized`, `council_unresolved`, and other terminal outcome events: render the durable outcome only after the terminal event exists, and treat visible closeout completion as a separate delivery/projection evidence fact.
 - `council_finalized.payload.surface_evidence` and `payload.linked_authority_result`: expose delivery/return status and evidence pointers for final result delivery.
 
 Delivery/evidence statuses are interpreted uniformly across status, transcript, export, and projection rebuild:
@@ -195,6 +196,8 @@ Delivery/evidence statuses are interpreted uniformly across status, transcript, 
 - `failed`: the attempt failed and records a reason plus follow-up handling evidence.
 - `pending_followup`: the durable decision may exist, but visible/linked return remains incomplete and points to a follow-up or pending-review handoff.
 - missing status or `posted` without evidence: unproven delivery.
+
+Terminal outcome projection must preserve the split between daemon outcome and visible UX success. A valid terminal event moves the durable session to terminal status, but transcript/export/status/plugin projections must not mark the moderator closeout as visibly delivered unless they can point to posted surface evidence for that terminal event. If the terminal event is present and delivery evidence is missing, failed, pending, or points to a different draft/version/event, projection must fail closed as visible closeout incomplete.
 
 Replay, transcript, export, status, and projection rebuild must remain side-effect free. They may rebuild and expose surface/return evidence from existing durable events; they must not call Discord APIs, create Kanban comments, write Vault notes, synthesize message ids, infer delivery from configured thread/card/note targets, or convert failed/pending/missing evidence into `posted`.
 

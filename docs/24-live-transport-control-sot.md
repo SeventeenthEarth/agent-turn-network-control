@@ -4,7 +4,7 @@
 
 This document is the control-side Source of Truth for planned post-Release local live transport work across `kkachi-agent-networkd`, the `kkachi-agent-network` CLI, and the companion `kkachi-agent-network-plugin`.
 
-The plugin-side companion SOT is `../../kkachi-agent-network-plugin/docs/10-live-transport-sot.md`. This control SOT owns daemon, CLI, protocol, conformance, member-runtime, and event-to-visible-surface delivery-evidence boundaries. The plugin SOT owns Python plugin transport, Hermes tool behavior, bundled skill/operator guidance, and plugin-side visible helper behavior.
+The plugin-side companion SOT is `../../kkachi-agent-network-plugin/docs/10-live-transport-sot.md`. This control SOT owns daemon, CLI, protocol, conformance, member-runtime, and event-to-visible-surface delivery-evidence boundaries. The plugin SOT owns Python plugin transport, Hermes tool behavior, bundled skill/operator guidance, and plugin-side visible helper behavior. For plugin visible-UX work such as `plugin/VISUX-001`, the control-owned event/outcome SOT is `docs/03-protocol-spec.md` plus `docs/07-moderator-policy.md` and `docs/13-operational-contracts.md`; this document records the cross-repo handoff boundary.
 
 This document does **not** authorize production activation, live Discord delivery, gateway/auth/token changes, active Hermes profile mutation, KAB bridge readiness, or replacing real participant profiles with role prompts. It defines repo ownership, epic/task distribution, required gates, and non-scope boundaries for post-Release-v1 live-local work.
 
@@ -61,7 +61,8 @@ Recommended execution order:
 | 3 | control | `MEMBR` | real participant profile/wrapper invocation path | plugin `PARTC` may start |
 | 4 | plugin | `PARTC` | participant plugin stream/write path and selected response proof | control `SURFD` may start |
 | 5 | control | `SURFD` | event-to-visible rendering/evidence contract | plugin `SURFD` may start |
-| 6 | plugin | `SURFD` | visible helper/rendering boundary and evidence pointers | later release/live pilot decision |
+| 6 | control | `ENSOT` | terminal outcome and moderator visible-closeout event semantics | plugin `VISUX` may start only after accepted review of the closeout SOT |
+| 7 | plugin | `SURFD` / `VISUX` | visible helper/rendering boundary, moderator closeout UX, and evidence pointers | later release/live pilot decision |
 
 When a task ID is referenced outside its repo-local roadmap or SOT table, use repo-qualified notation such as `control/LTRAN-001` or `plugin/LTRAN-001` to avoid ambiguity.
 
@@ -214,6 +215,22 @@ Review evidence: Red `t_c0eff6d8`, Orange `t_d6beef4e`, Gray `t_a39ec23b`, Blue 
 - This remains local proof only; it does not perform external delivery, mutate gateway/auth/token/provider/profile state, start live daemons, or approve plugin SURFD readiness.
 
 Review evidence: initial Red `t_592ce309`, Orange request-change `t_89ec92f3`, Gray request-change `t_b6872961`, Blue request-change `t_ab9fa678`; remediation re-reviews Red `t_5fd8db68`, Orange `t_b970af89`, Gray request-change `t_3e602238`, Red `t_e0a198b5`, Gray request-change `t_5471dea7`, Red `t_d6e6102d`, Gray approve `t_f5a57911`; final Blue synthesis `t_aaafacae`.
+
+### ENSOT: Event/outcome visible-closeout SOT
+
+Exit: control identifies the canonical daemon event semantics and evidence split that plugin visible-UX work must implement when presenting council terminal closeout to an operator.
+
+| Task ID | Task Title | Task Status | Task Description |
+|---|---|---|---|
+| ENSOT-001 | Council terminal outcome visible-surface SOT | completed/docs-only | Docs-only SOT gate clarifying that `draft_conclusion` and `consensus_vote*` are non-terminal visible process milestones, `council_finalized` / `council_unresolved` are durable terminal outcomes, and human-readable moderator closeout is accepted only with posted surface/projection evidence that points back to the terminal event. Accepted after KAN Red/Orange/Gray review and Blue synthesis; this does not claim plugin implementation, live Discord delivery, production activation, or commit approval. |
+
+`control/ENSOT-001` handoff requirements for `plugin/VISUX-001`:
+
+- Plugin visible UX must render `draft_conclusion` as a draft/proposal and `consensus_vote_requested` / `consensus_vote` as voting progress, not as a final closeout.
+- Plugin visible UX may render final/unresolved closeout only from `council_finalized` or `council_unresolved` terminal events, preserving cursor order and the exact terminal event pointer.
+- Plugin visible UX must not treat a terminal daemon event alone as proof that a human-readable moderator closeout was delivered. It needs posted surface evidence or an equivalent transcript/export/projection pointer.
+- Missing, failed, pending, or mismatched closeout evidence must fail closed as visible closeout incomplete, even when the durable council outcome is terminal.
+- Plugin implementation remains responsible for rendering/delivery behavior and Discord/helper mechanics; control owns the event semantics, evidence contract, and fail-closed acceptance boundary.
 
 ## Control implementation requirements
 

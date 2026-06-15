@@ -204,6 +204,8 @@ Minimum event inputs for the visible surface contract:
 | Floor grant | `speaker_selected` | `turn`, selected member in `to`, and `payload.selection_mode`; renderers must not infer the active speaker from Discord message order. |
 | Participant speech | `speech` | `from`, `to`, `payload.turn`, `payload.speech`, optional `payload.evidence`, optional `payload.responds_to_event_id`; only successful append makes the speech renderable. |
 | Moderator surface note | `moderator_intervention` and other typed council events | Renderable only as typed events; free-form Discord replies are evidence/presentation, not implicit state. |
+| Draft closeout proposal | `draft_conclusion` | Renderable as a moderator draft/proposal only. It is not terminal, not a final result, and not proof that a human-readable closeout was delivered. |
+| Vote closeout state | `consensus_vote_requested` and `consensus_vote` | Renderable as voting state over a specific `draft_version`. Votes do not prove final closeout until a terminal outcome event is appended and projected. |
 | Final visible result | `council_finalized` | `payload.final_summary`, `payload.consensus`, optional `payload.surface_evidence`, and required `payload.linked_authority_result` when linked authority was configured. |
 | Unresolved visible result | `council_unresolved` | Records the durable unresolved outcome; a visible unresolved notice must point back to this event rather than inventing a final decision. |
 
@@ -215,6 +217,8 @@ Delivery evidence status belongs to durable event payloads and projections:
 - `failed`: an attempted visible or linked-authority return failed; the failure reason and follow-up handling evidence are required.
 - `pending_followup`: finalization/unresolve may be recorded, but the visible/linked return remains incomplete and must have a follow-up card, pending-review handoff, or equivalent pointer.
 - missing status or missing evidence: unproven, not successful delivery.
+
+Terminal outcome acceptance is split in two. A terminal council event such as `council_finalized`, `council_unresolved`, or `session_cancelled` proves the durable daemon outcome when it is validly appended. It does **not** prove that a moderator produced a human-readable visible closeout in Discord, Kanban, Vault, transcript, export, or a plugin helper. Visible closeout success requires posted delivery/projection evidence that points back to the terminal event; missing, mismatched, failed, or pending evidence fails closed and must be reported as visible closeout incomplete.
 
 The daemon, replay, transcript, export, and projection rebuild must stay side-effect free for external surfaces: they may expose status/evidence fields, but they must not call Discord APIs, create Kanban comments, write Vault notes, or transform configured targets into `posted` evidence.
 
@@ -1544,7 +1548,7 @@ Canonical command: `kkachi-agent-network council finalize`.
 - `failed`: the return attempt failed; `failure_reason` and follow-up handling evidence are required.
 - `pending_followup`: a clearly linked follow-up/review card or pending-review handoff remains; `followup_card_id` or equivalent evidence is required.
 
-`surface_evidence` records visible-room delivery evidence for the final result. It is optional because a council may finalize before a moderator/Gray workflow posts the final summary to the visible room. When present, a `final_message_id` or equivalent pointer is evidence that the final summary was posted; it is not the source of the final decision.
+`surface_evidence` records visible-room delivery evidence for the final result. It is optional because a council may finalize before a moderator/Gray workflow posts the final summary to the visible room. When present, a `final_message_id` or equivalent pointer is evidence that the final summary was posted; it is not the source of the final decision. If a visible moderator closeout is required, `council_finalized` without posted `surface_evidence` or an equivalent projection/export pointer is durable finalization only, not visible UX success.
 
 The daemon/replay must not create Kanban comments, Vault notes, or visible-room messages directly. Absence of posted evidence, or status `failed`/`pending_followup`, means the origin authority path remains blocked/pending review or must be represented by a linked follow-up; final reports must not claim linked authority return or visible delivery is complete.
 
