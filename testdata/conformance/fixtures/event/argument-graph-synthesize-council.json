@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_argument_graph_synthesize_council",
+  "command_id": "cmd_council_speak_argument_graph_synthesize",
+  "correlation_id": "sess_conformance_council",
+  "session_id": "sess_conformance_council",
+  "session_type": "council",
+  "phase": "discussion",
+  "type": "speech",
+  "from": "agent-2",
+  "to": [
+    "agent-1",
+    "agent-mod"
+  ],
+  "created_at": "2026-06-15T15:03:00Z",
+  "payload": {
+    "turn": 4,
+    "speech": "The decision frame is to publish plugin-consumable static fixtures now and leave enforcement and scoring to the next control task.",
+    "claims": [
+      {
+        "claim_id": "T04.C1",
+        "summary": "Publish static fixtures now and defer enforcement and scoring.",
+        "kind": "decision_frame"
+      }
+    ],
+    "stance_links": [
+      {
+        "target_event_id": "evt_argument_graph_support_prior_council",
+        "target_claim_id": "T02.C1",
+        "stance": "synthesize",
+        "rationale": "Combines fixture-first sequencing with the implementation boundary."
+      },
+      {
+        "target_event_id": "evt_argument_graph_multi_link_council",
+        "target_claim_id": "T03.C1",
+        "stance": "synthesize",
+        "rationale": "Combines the runtime-validation risk with the fixture handoff path."
+      }
+    ],
+    "contribution_type": "synthesize",
+    "evidence": []
+  },
+  "causation_event_id": "evt_speaker_selected_cmd_council_grant_conformance",
+  "turn": 4
+}

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_argument_graph_opening_new_axis_council",
+  "command_id": "cmd_council_speak_argument_graph_opening",
+  "correlation_id": "sess_conformance_council",
+  "session_id": "sess_conformance_council",
+  "session_type": "council",
+  "phase": "discussion",
+  "type": "speech",
+  "from": "agent-1",
+  "to": [
+    "agent-2",
+    "agent-mod"
+  ],
+  "created_at": "2026-06-15T15:00:00Z",
+  "payload": {
+    "turn": 1,
+    "speech": "The first quality gate should be whether every pilot-visible claim can be traced to durable event evidence.",
+    "claims": [
+      {
+        "claim_id": "T01.C1",
+        "summary": "Pilot-visible claims need durable event traceability.",
+        "kind": "requirement"
+      }
+    ],
+    "contribution_type": "new_axis",
+    "new_axis_reason": "Opening speech establishes the traceability axis for the locked decision question.",
+    "evidence": []
+  },
+  "causation_event_id": "evt_speaker_selected_cmd_council_grant_conformance",
+  "turn": 1
+}

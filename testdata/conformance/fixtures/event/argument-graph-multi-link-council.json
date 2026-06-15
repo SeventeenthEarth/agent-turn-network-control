@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_argument_graph_multi_link_council",
+  "command_id": "cmd_council_speak_argument_graph_multi_link",
+  "correlation_id": "sess_conformance_council",
+  "session_id": "sess_conformance_council",
+  "session_type": "council",
+  "phase": "discussion",
+  "type": "speech",
+  "from": "agent-1",
+  "to": [
+    "agent-2",
+    "agent-mod"
+  ],
+  "created_at": "2026-06-15T15:02:00Z",
+  "payload": {
+    "turn": 3,
+    "speech": "I support static fixtures as the handoff, but challenge treating fixture publication as proof that runtime validation exists.",
+    "claims": [
+      {
+        "claim_id": "T03.C1",
+        "summary": "Fixture publication is not runtime validation evidence.",
+        "kind": "risk"
+      }
+    ],
+    "stance_links": [
+      {
+        "target_event_id": "evt_argument_graph_support_prior_council",
+        "target_claim_id": "T02.C1",
+        "stance": "support",
+        "rationale": "The fixture-first sequence is the right implementation order."
+      },
+      {
+        "target_event_id": "evt_argument_graph_opening_new_axis_council",
+        "target_claim_id": "T01.C1",
+        "stance": "challenge",
+        "rationale": "Traceability still needs later daemon enforcement before any runtime-readiness claim."
+      }
+    ],
+    "contribution_type": "challenge",
+    "evidence": []
+  },
+  "causation_event_id": "evt_speaker_selected_cmd_council_grant_conformance",
+  "turn": 3
+}

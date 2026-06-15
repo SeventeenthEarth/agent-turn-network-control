@@ -2,7 +2,7 @@
 
 This directory contains core-owned protocol fixtures consumed by `kkachi-agent-network-plugin`.
 
-Current status: DAEMN-002 plus DELEG-002 and COUNC-001 static/local conformance sets. The files here define the shared protocol examples for command envelopes, event envelopes, structured errors, stream frames, version/features, delivery evidence, delegation/review command handoff, and council lifecycle handoff.
+Current status: DAEMN-002 plus DELEG-002, COUNC-001, and ARGUE-002 static/local conformance sets. The files here define the shared protocol examples for command envelopes, event envelopes, structured errors, stream frames, version/features, delivery evidence, delegation/review command handoff, council lifecycle handoff, and council argument-graph handoff.
 
 - Manifest: `manifest.json`
 - Protocol version: `kan-protocol-v1alpha0`
@@ -11,6 +11,7 @@ Current status: DAEMN-002 plus DELEG-002 and COUNC-001 static/local conformance 
 - Canonical stream command fixture: `stream.replay`
 - Canonical DELEG-002 non-review action fixture: `delegate.accept`
 - Canonical COUNC-001 feature group: `council.lifecycle`
+- Canonical ARGUE-002 linked stance enum: `support`, `challenge`, `refine`, `extend`, `synthesize`, `question`, `risk_addition`, `decision_frame`
 
 These fixtures are static only. They do not start a daemon and do not contact Hermes, Discord, KAB, auth, token, gateway, localhost, or other live services. The plugin may copy fixtures for pinned tests, but the control manifest is the compatibility source of truth.
 
@@ -64,6 +65,24 @@ The manifest intentionally includes request/response fixtures for the full publi
 | Vote request and vote | `fixtures/command/council-request-vote-request.json`, `fixtures/command/council-request-vote-response.json`, `fixtures/command/council-vote-request.json`, `fixtures/command/council-vote-response.json`, `fixtures/event/consensus-vote-requested-council.json`, `fixtures/event/consensus-vote-council.json` | `council.request_vote` opens a consensus round for the current draft; `council.vote` records member votes with reason payloads. |
 | Terminal outcomes | `fixtures/command/council-finalize-request.json`, `fixtures/command/council-finalize-response.json`, `fixtures/command/council-unresolved-request.json`, `fixtures/command/council-unresolved-response.json`, `fixtures/event/council-finalized.json`, `fixtures/event/council-unresolved.json` | `council.finalize` and `council.unresolved` are terminal append command fixtures for completed and unresolved councils. |
 | Permission/guard errors | `fixtures/error/council-missing-attendance-agenda.json`, `fixtures/error/council-invalid-principal.json` | Council failures use normal structured command errors: `ok: false`, `error.code: validation_error`, `error.category: validation`, safe `message`, and safe `details`. |
+
+## ARGUE-002 fixture matrix
+
+ARGUE-002 publishes plugin-consumable static examples for council argument-graph payload shape. These positive fixtures are graph-shape snippets, not complete lifecycle replay sequences; they intentionally reuse the conformance council envelope to show payload compatibility without proving full turn replay. They are additive to COUNC-001 lifecycle fixtures and do not prove daemon validation, moderator scoring, transcript rendering, export rendering, plugin implementation, or live discussion quality.
+
+`new_axis` is represented as `speech.payload.contribution_type: "new_axis"` plus `new_axis_reason`; it is not a linked stance value. Linked `stance_links[].stance` and hand-raise `target_links[].stance` use the stable linked-stance enum: `support`, `challenge`, `refine`, `extend`, `synthesize`, `question`, `risk_addition`, `decision_frame`.
+
+| Behavior | Fixture paths | Public contract |
+| --- | --- | --- |
+| Opening new axis | `fixtures/event/argument-graph-opening-new-axis-council.json` | A first speech may publish `claims[]`, `contribution_type: "new_axis"`, and `new_axis_reason` without `stance_links[]`. |
+| Prior support | `fixtures/event/argument-graph-support-prior-council.json` | A later speech may support an earlier claim with `stance_links[]` containing `target_event_id`, `target_claim_id`, `stance`, and `rationale`. |
+| Multi-link challenge/support | `fixtures/event/argument-graph-multi-link-council.json`, `fixtures/command/council-speak-argument-graph-request.json` | One speech may support one prior claim and challenge another, including a non-immediately previous target. |
+| Synthesis | `fixtures/event/argument-graph-synthesize-council.json` | `contribution_type: "synthesize"` is represented with at least two linked prior claim targets. |
+| Legacy compatibility | `fixtures/event/argument-graph-dual-field-speech-council.json` | `responds_to_event_id` may appear beside `stance_links[]`; ARGUE-aware consumers treat `stance_links[]` as relation authority. |
+| Legacy-only compatibility | `fixtures/event/argument-graph-legacy-only-speech-council.json` | A speech may expose legacy `responds_to_event_id` without `stance_links[]` so older clients can preserve compatibility without inventing ARGUE semantics. |
+| Risk and decision frame stances | `fixtures/event/argument-graph-risk-decision-frame-council.json` | Linked stance and contribution vocabulary includes `risk_addition` and `decision_frame` alongside support/challenge/refine/extend/synthesize/question. |
+| Hand-raise intent links | `fixtures/event/argument-graph-hand-raise-target-links-council.json`, `fixtures/command/council-hand-raise-argument-graph-request.json` | Hand raises use `target_links[]` objects instead of parallel target arrays for intended event/claim/stance pairing. |
+| Static negative examples | `fixtures/error/argument-graph-invalid-stance.json`, `fixtures/error/argument-graph-future-reference.json`, `fixtures/error/argument-graph-cross-session-reference.json`, `fixtures/error/argument-graph-unknown-target-claim.json`, `fixtures/error/argument-graph-new-axis-missing-reason.json`, `fixtures/error/argument-graph-synthesize-single-target.json`, `fixtures/error/argument-graph-quality-required-missing-claims.json`, `fixtures/error/argument-graph-runtime-noise-speech.json`, `fixtures/error/argument-graph-quality-required-orphan-speech.json` | Negative examples are valid structured command responses for parser/fail-closed tests. They are static protocol examples only; ARGUE-003 owns runtime validation and scoring behavior. |
 
 ## Retry and malformed-response policy
 

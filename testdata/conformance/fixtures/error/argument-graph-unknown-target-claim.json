@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "request_id": "req_argument_graph_unknown_target_claim_static_example",
+  "ok": false,
+  "error": {
+    "code": "validation_error",
+    "category": "validation",
+    "message": "static ARGUE-002 example: target_claim_id must exist on the referenced speech claim list",
+    "details": {
+      "category": "argument_graph_static_protocol_example",
+      "path": "payload.stance_links[0].target_claim_id",
+      "reason": "unknown_target_claim",
+      "runtime_enforcement": false
+    }
+  }
+}

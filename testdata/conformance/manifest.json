@@ -115,6 +115,25 @@
     "fixtures/event/consensus-vote-council.json",
     "fixtures/event/council-finalized.json",
     "fixtures/event/council-unresolved.json",
+    "fixtures/event/argument-graph-opening-new-axis-council.json",
+    "fixtures/event/argument-graph-support-prior-council.json",
+    "fixtures/event/argument-graph-multi-link-council.json",
+    "fixtures/event/argument-graph-synthesize-council.json",
+    "fixtures/event/argument-graph-dual-field-speech-council.json",
+    "fixtures/event/argument-graph-legacy-only-speech-council.json",
+    "fixtures/event/argument-graph-risk-decision-frame-council.json",
+    "fixtures/event/argument-graph-hand-raise-target-links-council.json",
+    "fixtures/command/council-speak-argument-graph-request.json",
+    "fixtures/command/council-hand-raise-argument-graph-request.json",
+    "fixtures/error/argument-graph-invalid-stance.json",
+    "fixtures/error/argument-graph-future-reference.json",
+    "fixtures/error/argument-graph-cross-session-reference.json",
+    "fixtures/error/argument-graph-unknown-target-claim.json",
+    "fixtures/error/argument-graph-new-axis-missing-reason.json",
+    "fixtures/error/argument-graph-synthesize-single-target.json",
+    "fixtures/error/argument-graph-quality-required-missing-claims.json",
+    "fixtures/error/argument-graph-runtime-noise-speech.json",
+    "fixtures/error/argument-graph-quality-required-orphan-speech.json",
     "fixtures/error/council-missing-attendance-agenda.json",
     "fixtures/error/council-invalid-principal.json",
     "fixtures/error/unsupported-feature.json",
@@ -152,5 +171,5 @@
     "transcript.render",
     "export.bundle"
   ],
-  "notes": "Static DAEMN-002, local/fake RUNRT-001, DELEG-002 delegation/review, and COUNC-001 council lifecycle conformance artifacts only; they do not start a daemon or contact Hermes, Discord, KAB, auth, token, gateway, or other live services."
+  "notes": "Static DAEMN-002, local/fake RUNRT-001, DELEG-002 delegation/review, COUNC-001 council lifecycle, and ARGUE-002 argument-graph conformance artifacts only; they do not start a daemon, prove runtime validation/scoring, or contact Hermes, Discord, KAB, auth, token, gateway, or other live services."
 }

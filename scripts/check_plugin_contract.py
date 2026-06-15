@@ -136,6 +136,28 @@ REQUIRED_COUNCIL_LIFECYCLE_FIXTURES = [
     "fixtures/error/council-invalid-principal.json",
 ]
 
+REQUIRED_COUNCIL_ARGUMENT_GRAPH_FIXTURES = [
+    "fixtures/event/argument-graph-opening-new-axis-council.json",
+    "fixtures/event/argument-graph-support-prior-council.json",
+    "fixtures/event/argument-graph-multi-link-council.json",
+    "fixtures/event/argument-graph-synthesize-council.json",
+    "fixtures/event/argument-graph-dual-field-speech-council.json",
+    "fixtures/event/argument-graph-legacy-only-speech-council.json",
+    "fixtures/event/argument-graph-risk-decision-frame-council.json",
+    "fixtures/event/argument-graph-hand-raise-target-links-council.json",
+    "fixtures/command/council-speak-argument-graph-request.json",
+    "fixtures/command/council-hand-raise-argument-graph-request.json",
+    "fixtures/error/argument-graph-invalid-stance.json",
+    "fixtures/error/argument-graph-future-reference.json",
+    "fixtures/error/argument-graph-cross-session-reference.json",
+    "fixtures/error/argument-graph-unknown-target-claim.json",
+    "fixtures/error/argument-graph-new-axis-missing-reason.json",
+    "fixtures/error/argument-graph-synthesize-single-target.json",
+    "fixtures/error/argument-graph-quality-required-missing-claims.json",
+    "fixtures/error/argument-graph-runtime-noise-speech.json",
+    "fixtures/error/argument-graph-quality-required-orphan-speech.json",
+]
+
 REQUIRED_FIXTURES = [
     "fixtures/command/version-read-request.json",
     "fixtures/command/status-read-request.json",
@@ -160,6 +182,7 @@ REQUIRED_FIXTURES = [
     *REQUIRED_DELIVERY_FIXTURES[4:],
     *REQUIRED_DELEGATION_REVIEW_FIXTURES,
     *REQUIRED_COUNCIL_LIFECYCLE_FIXTURES,
+    *REQUIRED_COUNCIL_ARGUMENT_GRAPH_FIXTURES,
     "fixtures/error/unsupported-feature.json",
     "fixtures/error/active-session-lock.json",
     REQUIRED_CANCEL_FIXTURES[3],
@@ -266,6 +289,12 @@ if missing_council_lifecycle:
     raise SystemExit(
         "core manifest missing COUNC-001 council lifecycle fixtures: "
         + ", ".join(missing_council_lifecycle)
+    )
+missing_council_argument_graph = sorted(set(REQUIRED_COUNCIL_ARGUMENT_GRAPH_FIXTURES) - set(fixtures))
+if missing_council_argument_graph:
+    raise SystemExit(
+        "core manifest missing ARGUE-002 council argument-graph fixtures: "
+        + ", ".join(missing_council_argument_graph)
     )
 
 for schema in schemas:

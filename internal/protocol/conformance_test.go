@@ -137,6 +137,28 @@ var requiredCouncilLifecycleFixtures = []string{
 	"fixtures/error/council-invalid-principal.json",
 }
 
+var requiredCouncilArgumentGraphFixtures = []string{
+	"fixtures/event/argument-graph-opening-new-axis-council.json",
+	"fixtures/event/argument-graph-support-prior-council.json",
+	"fixtures/event/argument-graph-multi-link-council.json",
+	"fixtures/event/argument-graph-synthesize-council.json",
+	"fixtures/event/argument-graph-dual-field-speech-council.json",
+	"fixtures/event/argument-graph-legacy-only-speech-council.json",
+	"fixtures/event/argument-graph-risk-decision-frame-council.json",
+	"fixtures/event/argument-graph-hand-raise-target-links-council.json",
+	"fixtures/command/council-speak-argument-graph-request.json",
+	"fixtures/command/council-hand-raise-argument-graph-request.json",
+	"fixtures/error/argument-graph-invalid-stance.json",
+	"fixtures/error/argument-graph-future-reference.json",
+	"fixtures/error/argument-graph-cross-session-reference.json",
+	"fixtures/error/argument-graph-unknown-target-claim.json",
+	"fixtures/error/argument-graph-new-axis-missing-reason.json",
+	"fixtures/error/argument-graph-synthesize-single-target.json",
+	"fixtures/error/argument-graph-quality-required-missing-claims.json",
+	"fixtures/error/argument-graph-runtime-noise-speech.json",
+	"fixtures/error/argument-graph-quality-required-orphan-speech.json",
+}
+
 type conformanceManifest struct {
 	ManifestVersion       int      `json:"manifest_version"`
 	ProtocolVersion       string   `json:"protocol_version"`
@@ -159,6 +181,7 @@ func TestUnitConformanceManifestListsCanonicalDAEMN002Artifacts(t *testing.T) {
 	assertContainsAll(t, "fixtures", manifest.Fixtures, requiredConformanceFixtures)
 	assertContainsAll(t, "DELEG-002 fixtures", manifest.Fixtures, requiredDelegationReviewFixtures)
 	assertContainsAll(t, "COUNC-001 fixtures", manifest.Fixtures, requiredCouncilLifecycleFixtures)
+	assertContainsAll(t, "ARGUE-002 fixtures", manifest.Fixtures, requiredCouncilArgumentGraphFixtures)
 	if len(manifest.Fixtures) == 0 {
 		t.Fatalf("manifest fixtures must not be empty")
 	}
@@ -642,6 +665,156 @@ func TestUnitConformanceCouncilLifecycleFixtureMatrix(t *testing.T) {
 	}
 }
 
+func TestUnitConformanceCouncilArgumentGraphFixtureMatrix(t *testing.T) {
+	speechFixtures := []string{
+		"fixtures/event/argument-graph-opening-new-axis-council.json",
+		"fixtures/event/argument-graph-support-prior-council.json",
+		"fixtures/event/argument-graph-multi-link-council.json",
+		"fixtures/event/argument-graph-synthesize-council.json",
+		"fixtures/event/argument-graph-dual-field-speech-council.json",
+		"fixtures/event/argument-graph-risk-decision-frame-council.json",
+	}
+	linkedStances := []string{"support", "challenge", "refine", "extend", "synthesize", "question", "risk_addition", "decision_frame"}
+	contributionTypes := append(append([]string{}, linkedStances...), "new_axis")
+	speechEvents := map[string]eventEnvelopeFixture{}
+	targetClaims := map[string]map[string]bool{}
+	for _, fixture := range speechFixtures {
+		event := readJSONFixture[eventEnvelopeFixture](t, fixture)
+		if event.Type != "speech" || event.SessionType != "council" || event.Phase != "discussion" {
+			t.Fatalf("%s has wrong ARGUE speech envelope: %+v", fixture, event)
+		}
+		requireTurn(t, fixture, event.Payload)
+		speechEvents[event.EventID] = event
+		claims := requireObjectArray(t, fixture, event.Payload, "claims")
+		if len(claims) == 0 {
+			t.Fatalf("%s must expose at least one claim", fixture)
+		}
+		targetClaims[event.EventID] = map[string]bool{}
+		for _, claim := range claims {
+			claimID := requireStringField(t, fixture, claim, "claim_id")
+			requireStringField(t, fixture, claim, "summary")
+			if kind, ok := claim["kind"].(string); ok {
+				requireOneOf(t, fixture, "claim kind", kind, []string{"observation", "requirement", "risk", "decision_frame", "evidence", "open_question", "proposal"})
+			}
+			targetClaims[event.EventID][claimID] = true
+		}
+	}
+
+	for _, fixture := range speechFixtures {
+		event := readJSONFixture[eventEnvelopeFixture](t, fixture)
+		contributionType := requireStringField(t, fixture, event.Payload, "contribution_type")
+		requireOneOf(t, fixture, "contribution_type", contributionType, contributionTypes)
+		if contributionType == "new_axis" {
+			requireStringField(t, fixture, event.Payload, "new_axis_reason")
+			continue
+		}
+		links := requireObjectArray(t, fixture, event.Payload, "stance_links")
+		if contributionType == "synthesize" && len(links) < 2 {
+			t.Fatalf("%s synthesize fixture must expose at least two stance links", fixture)
+		}
+		for _, link := range links {
+			targetEventID := requireStringField(t, fixture, link, "target_event_id")
+			targetClaimID := requireStringField(t, fixture, link, "target_claim_id")
+			stance := requireStringField(t, fixture, link, "stance")
+			requireOneOf(t, fixture, "stance", stance, linkedStances)
+			requireStringField(t, fixture, link, "rationale")
+			targetEvent, ok := speechEvents[targetEventID]
+			if !ok {
+				t.Fatalf("%s targets unknown event %s", fixture, targetEventID)
+			}
+			if targetEvent.SessionID != event.SessionID {
+				t.Fatalf("%s targets cross-session event %s", fixture, targetEventID)
+			}
+			if targetEvent.EventID == event.EventID {
+				t.Fatalf("%s must not self-link to %s", fixture, targetEventID)
+			}
+			if requireTurn(t, fixture, targetEvent.Payload) >= requireTurn(t, fixture, event.Payload) {
+				t.Fatalf("%s must link only to prior events, target=%s", fixture, targetEventID)
+			}
+			if targetClaims[targetEventID] == nil || !targetClaims[targetEventID][targetClaimID] {
+				t.Fatalf("%s targets unknown claim %s/%s", fixture, targetEventID, targetClaimID)
+			}
+		}
+	}
+
+	dualField := readJSONFixture[eventEnvelopeFixture](t, "fixtures/event/argument-graph-dual-field-speech-council.json")
+	respondsTo := requireStringField(t, "dual-field speech", dualField.Payload, "responds_to_event_id")
+	if !stanceLinksContainTarget(t, "dual-field speech", dualField.Payload, respondsTo) {
+		t.Fatalf("dual-field speech responds_to_event_id must match one stance_links target")
+	}
+
+	legacyOnly := readJSONFixture[eventEnvelopeFixture](t, "fixtures/event/argument-graph-legacy-only-speech-council.json")
+	if legacyOnly.Type != "speech" || legacyOnly.SessionType != "council" || legacyOnly.Phase != "discussion" {
+		t.Fatalf("legacy-only ARGUE speech fixture has wrong envelope: %+v", legacyOnly)
+	}
+	legacyTarget := requireStringField(t, "legacy-only speech", legacyOnly.Payload, "responds_to_event_id")
+	if _, ok := speechEvents[legacyTarget]; !ok {
+		t.Fatalf("legacy-only speech targets unknown event %s", legacyTarget)
+	}
+	assertPayloadKeyAbsent(t, "legacy-only speech", legacyOnly.Payload, "stance_links")
+
+	handRaise := readJSONFixture[eventEnvelopeFixture](t, "fixtures/event/argument-graph-hand-raise-target-links-council.json")
+	if handRaise.Type != "hand_raise" || handRaise.SessionType != "council" || handRaise.Phase != "discussion" {
+		t.Fatalf("ARGUE hand_raise fixture has wrong envelope: %+v", handRaise)
+	}
+	targetLinks := requireObjectArray(t, "ARGUE hand_raise", handRaise.Payload, "target_links")
+	if len(targetLinks) == 0 {
+		t.Fatalf("ARGUE hand_raise target_links must not be empty")
+	}
+	assertPayloadKeyAbsent(t, "ARGUE hand_raise", handRaise.Payload, "target_event_ids")
+	assertPayloadKeyAbsent(t, "ARGUE hand_raise", handRaise.Payload, "target_claim_ids")
+	for _, link := range targetLinks {
+		targetEventID := requireStringField(t, "ARGUE hand_raise", link, "target_event_id")
+		targetClaimID := requireStringField(t, "ARGUE hand_raise", link, "target_claim_id")
+		stance := requireStringField(t, "ARGUE hand_raise", link, "stance")
+		requireOneOf(t, "ARGUE hand_raise", "stance", stance, linkedStances)
+		targetEvent, ok := speechEvents[targetEventID]
+		if !ok {
+			t.Fatalf("ARGUE hand_raise targets unknown event %s", targetEventID)
+		}
+		if targetEvent.SessionID != handRaise.SessionID {
+			t.Fatalf("ARGUE hand_raise targets cross-session event %s", targetEventID)
+		}
+		if requireTurn(t, "ARGUE hand_raise target", targetEvent.Payload) >= requireTurn(t, "ARGUE hand_raise", handRaise.Payload) {
+			t.Fatalf("ARGUE hand_raise must link only to prior events, target=%s", targetEventID)
+		}
+		if targetClaims[targetEventID] == nil || !targetClaims[targetEventID][targetClaimID] {
+			t.Fatalf("ARGUE hand_raise targets unknown claim %s/%s", targetEventID, targetClaimID)
+		}
+	}
+
+	for _, tc := range []struct {
+		path    string
+		command string
+		payload []string
+	}{
+		{
+			path:    "fixtures/command/council-speak-argument-graph-request.json",
+			command: "council.speak",
+			payload: []string{"turn", "speech", "claims", "stance_links", "contribution_type"},
+		},
+		{
+			path:    "fixtures/command/council-hand-raise-argument-graph-request.json",
+			command: "council.hand_raise",
+			payload: []string{"turn", "wants_to_speak", "intent", "target_links", "reason"},
+		},
+	} {
+		request := readJSONFixture[CommandRequest](t, tc.path)
+		if request.Command != tc.command {
+			t.Fatalf("%s command = %q, want %q", tc.path, request.Command, tc.command)
+		}
+		paramsPayload, ok := request.Params["payload"].(map[string]any)
+		if !ok {
+			t.Fatalf("%s missing payload object: %+v", tc.path, request.Params)
+		}
+		for _, key := range tc.payload {
+			if _, ok := paramsPayload[key]; !ok {
+				t.Fatalf("%s missing payload %q in %+v", tc.path, key, paramsPayload)
+			}
+		}
+	}
+}
+
 func TestUnitConformanceVersionFixtureMatchesRequiredGroups(t *testing.T) {
 	features := readJSONFixture[VersionFeatures](t, "fixtures/version/version-features.json")
 	if features.ProtocolVersion != ProtocolVersion {
@@ -655,6 +828,17 @@ func TestUnitConformanceVersionFixtureMatchesRequiredGroups(t *testing.T) {
 }
 
 func TestUnitConformanceStructuredErrorFixtures(t *testing.T) {
+	argumentGraphErrorFixtures := map[string]bool{
+		"fixtures/error/argument-graph-invalid-stance.json":                  true,
+		"fixtures/error/argument-graph-future-reference.json":                true,
+		"fixtures/error/argument-graph-cross-session-reference.json":         true,
+		"fixtures/error/argument-graph-unknown-target-claim.json":            true,
+		"fixtures/error/argument-graph-new-axis-missing-reason.json":         true,
+		"fixtures/error/argument-graph-synthesize-single-target.json":        true,
+		"fixtures/error/argument-graph-quality-required-missing-claims.json": true,
+		"fixtures/error/argument-graph-runtime-noise-speech.json":            true,
+		"fixtures/error/argument-graph-quality-required-orphan-speech.json":  true,
+	}
 	for _, fixture := range []string{
 		"fixtures/error/unsupported-feature.json",
 		"fixtures/error/active-session-lock.json",
@@ -669,6 +853,15 @@ func TestUnitConformanceStructuredErrorFixtures(t *testing.T) {
 		"fixtures/error/delegate-review-submit-invalid-verdict.json",
 		"fixtures/error/council-missing-attendance-agenda.json",
 		"fixtures/error/council-invalid-principal.json",
+		"fixtures/error/argument-graph-invalid-stance.json",
+		"fixtures/error/argument-graph-future-reference.json",
+		"fixtures/error/argument-graph-cross-session-reference.json",
+		"fixtures/error/argument-graph-unknown-target-claim.json",
+		"fixtures/error/argument-graph-new-axis-missing-reason.json",
+		"fixtures/error/argument-graph-synthesize-single-target.json",
+		"fixtures/error/argument-graph-quality-required-missing-claims.json",
+		"fixtures/error/argument-graph-runtime-noise-speech.json",
+		"fixtures/error/argument-graph-quality-required-orphan-speech.json",
 	} {
 		response := readJSONFixture[CommandResponse](t, fixture)
 		if response.OK {
@@ -679,6 +872,11 @@ func TestUnitConformanceStructuredErrorFixtures(t *testing.T) {
 		}
 		if response.Error.Code == ErrorValidation && response.Error.Category != "validation" {
 			t.Fatalf("%s validation error should use validation category: %+v", fixture, response.Error)
+		}
+		if argumentGraphErrorFixtures[fixture] {
+			if response.Error.Details["category"] != "argument_graph_static_protocol_example" || response.Error.Details["runtime_enforcement"] != false {
+				t.Fatalf("%s must retain ARGUE static-boundary metadata: %+v", fixture, response.Error.Details)
+			}
 		}
 		serialized := string(readConformanceBytes(t, fixture))
 		for _, forbidden := range []string{"DISCORD_TOKEN", "gateway", "auth token", "Bearer ", "KAB_SECRET", "localhost"} {
@@ -800,6 +998,68 @@ func assertExactStrings(t *testing.T, label string, got []string, want []string)
 			t.Fatalf("%s[%d] = %q, want %q; all=%#v", label, i, got[i], want[i], got)
 		}
 	}
+}
+
+func requireObjectArray(t *testing.T, label string, payload map[string]any, key string) []map[string]any {
+	t.Helper()
+	raw, ok := payload[key].([]any)
+	if !ok {
+		t.Fatalf("%s missing object array %q in %+v", label, key, payload)
+	}
+	out := make([]map[string]any, 0, len(raw))
+	for i, item := range raw {
+		object, ok := item.(map[string]any)
+		if !ok {
+			t.Fatalf("%s %q[%d] is not an object: %+v", label, key, i, item)
+		}
+		out = append(out, object)
+	}
+	return out
+}
+
+func requireStringField(t *testing.T, label string, payload map[string]any, key string) string {
+	t.Helper()
+	value, ok := payload[key].(string)
+	if !ok || strings.TrimSpace(value) == "" {
+		t.Fatalf("%s missing non-empty string %q in %+v", label, key, payload)
+	}
+	return value
+}
+
+func requireTurn(t *testing.T, label string, payload map[string]any) int {
+	t.Helper()
+	value, ok := payload["turn"].(float64)
+	if !ok || value < 1 || value != float64(int(value)) {
+		t.Fatalf("%s missing positive integer turn in %+v", label, payload)
+	}
+	return int(value)
+}
+
+func requireOneOf(t *testing.T, label, field, value string, allowed []string) {
+	t.Helper()
+	for _, candidate := range allowed {
+		if value == candidate {
+			return
+		}
+	}
+	t.Fatalf("%s %s = %q, want one of %#v", label, field, value, allowed)
+}
+
+func assertPayloadKeyAbsent(t *testing.T, label string, payload map[string]any, key string) {
+	t.Helper()
+	if _, ok := payload[key]; ok {
+		t.Fatalf("%s must not expose deprecated parallel-array key %q in %+v", label, key, payload)
+	}
+}
+
+func stanceLinksContainTarget(t *testing.T, label string, payload map[string]any, target string) bool {
+	t.Helper()
+	for _, link := range requireObjectArray(t, label, payload, "stance_links") {
+		if link["target_event_id"] == target {
+			return true
+		}
+	}
+	return false
 }
 
 func usesStreamTail(value string) bool {

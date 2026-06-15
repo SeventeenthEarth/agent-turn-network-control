@@ -1380,10 +1380,19 @@ Canonical command: `kkachi-agent-network council hand-raise`.
     "urgency": 4,
     "research_done": true,
     "evidence_summary": "Checked the relevant docs and found a constraint conflict.",
-    "reason": "This should be resolved before drafting the conclusion."
+    "reason": "This should be resolved before drafting the conclusion.",
+    "target_links": [
+      {
+        "target_event_id": "evt_01HV...",
+        "target_claim_id": "T02.C1",
+        "stance": "challenge"
+      }
+    ]
   }
 }
 ```
+
+ARGUE-002 adds optional `target_links[]` for argument-graph-aware hand raises. Each target link pairs `target_event_id`, `target_claim_id`, and intended `stance` in one object. The stable linked-stance enum for ARGUE-002 fixtures is `support`, `challenge`, `refine`, `extend`, `synthesize`, `question`, `risk_addition`, and `decision_frame`. `target_event_ids[]` and `target_claim_ids[]` parallel arrays are not the ARGUE handoff shape.
 
 ### speaker_selected
 
@@ -1422,12 +1431,37 @@ Canonical command: `kkachi-agent-network council speak`.
     "turn": 5,
     "speech": "...",
     "evidence": ["path/or/url"],
-    "responds_to_event_id": "evt_01HV..."
+    "responds_to_event_id": "evt_01HV...",
+    "claims": [
+      {
+        "claim_id": "T05.C1",
+        "summary": "Static fixtures should precede runtime enforcement.",
+        "kind": "proposal"
+      }
+    ],
+    "stance_links": [
+      {
+        "target_event_id": "evt_01HV...",
+        "target_claim_id": "T02.C1",
+        "stance": "support",
+        "rationale": "The prior claim establishes the same fixture-first sequence."
+      }
+    ],
+    "contribution_type": "support"
   }
 }
 ```
 
 For visible rendering, `speech` is the only participant-originated council utterance event that may be rendered as a member speech turn. The active speaker is proven by the preceding cursor-ordered `speaker_selected` event for the same `payload.turn`; renderers must flag or fail closed on a missing/mismatched floor grant instead of treating an external message author as authority. `payload.evidence` is supporting material, not a delivery receipt. A surface message id may be recorded separately only after the durable `speech` event exists.
+
+ARGUE-002 adds optional argument-graph fields to `speech.payload` without changing the schema version:
+
+- `claims[]`: concise participant assertions with `claim_id`, `summary`, and optional `kind`.
+- `stance_links[]`: links from the current speech to earlier speech claims. Each link has `target_event_id`, `target_claim_id`, `stance`, and `rationale`. The ARGUE-002 stable linked-stance enum is `support`, `challenge`, `refine`, `extend`, `synthesize`, `question`, `risk_addition`, and `decision_frame`.
+- `contribution_type`: the primary contribution role for the speech. It may be one of the linked stance values or `new_axis`.
+- `new_axis_reason`: required by quality-required policy when `contribution_type` is `new_axis`.
+
+`new_axis` is not a linked stance because it has no prior target. Existing `responds_to_event_id` is a coarse legacy display hint; when `stance_links[]` is present, ARGUE-aware consumers use `stance_links[]` as the relation authority. ARGUE-002 publishes static conformance fixtures only. Runtime validation, moderator scoring, quality diagnostics, and transcript/export rendering remain future ARGUE-003 and ARGUE-004 responsibilities.
 
 ### moderator_intervention
 

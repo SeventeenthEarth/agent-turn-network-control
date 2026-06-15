@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_argument_graph_hand_raise_target_links_council",
+  "command_id": "cmd_council_hand_raise_argument_graph",
+  "correlation_id": "sess_conformance_council",
+  "session_id": "sess_conformance_council",
+  "session_type": "council",
+  "phase": "discussion",
+  "type": "hand_raise",
+  "from": "agent-2",
+  "to": [
+    "agent-mod"
+  ],
+  "created_at": "2026-06-15T15:05:00Z",
+  "payload": {
+    "turn": 6,
+    "wants_to_speak": true,
+    "intent": "question",
+    "target_links": [
+      {
+        "target_event_id": "evt_argument_graph_dual_field_speech_council",
+        "target_claim_id": "T05.C1",
+        "stance": "question"
+      }
+    ],
+    "relevance": 5,
+    "urgency": 3,
+    "evidence_summary": "The compatibility boundary needs one more clarification before plugin schema work.",
+    "reason": "Ask whether plugin consumers should treat responds_to_event_id as display-only when stance links exist."
+  },
+  "causation_event_id": "evt_hand_raise_requested_cmd_council_poll_conformance",
+  "turn": 6
+}

@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_argument_graph_dual_field_speech_council",
+  "command_id": "cmd_council_speak_argument_graph_dual_field",
+  "correlation_id": "sess_conformance_council",
+  "session_id": "sess_conformance_council",
+  "session_type": "council",
+  "phase": "discussion",
+  "type": "speech",
+  "from": "agent-1",
+  "to": [
+    "agent-2",
+    "agent-mod"
+  ],
+  "created_at": "2026-06-15T15:04:00Z",
+  "payload": {
+    "turn": 5,
+    "speech": "I refine the static handoff frame: legacy readers may follow the coarse response pointer, but ARGUE readers should preserve the claim link.",
+    "responds_to_event_id": "evt_argument_graph_synthesize_council",
+    "claims": [
+      {
+        "claim_id": "T05.C1",
+        "summary": "Legacy response pointers are display hints beside ARGUE links.",
+        "kind": "observation"
+      }
+    ],
+    "stance_links": [
+      {
+        "target_event_id": "evt_argument_graph_synthesize_council",
+        "target_claim_id": "T04.C1",
+        "stance": "refine",
+        "rationale": "The coarse pointer remains compatible, while the claim link is the graph relation authority."
+      }
+    ],
+    "contribution_type": "refine",
+    "evidence": []
+  },
+  "causation_event_id": "evt_speaker_selected_cmd_council_grant_conformance",
+  "turn": 5
+}

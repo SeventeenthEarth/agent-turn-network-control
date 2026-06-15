@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_argument_graph_risk_decision_frame_council",
+  "command_id": "cmd_council_speak_argument_graph_risk_decision_frame",
+  "correlation_id": "sess_conformance_council",
+  "session_id": "sess_conformance_council",
+  "session_type": "council",
+  "phase": "discussion",
+  "type": "speech",
+  "from": "agent-1",
+  "to": [
+    "agent-2",
+    "agent-mod"
+  ],
+  "created_at": "2026-06-15T15:07:00Z",
+  "payload": {
+    "turn": 7,
+    "speech": "I add the risk that plugins could overstate fixture evidence, and frame acceptance around preserving static boundaries.",
+    "claims": [
+      {
+        "claim_id": "T07.C1",
+        "summary": "Plugin consumers must not overstate static fixture evidence.",
+        "kind": "risk"
+      },
+      {
+        "claim_id": "T07.C2",
+        "summary": "Acceptance should require static-boundary preservation.",
+        "kind": "decision_frame"
+      }
+    ],
+    "stance_links": [
+      {
+        "target_event_id": "evt_argument_graph_multi_link_council",
+        "target_claim_id": "T03.C1",
+        "stance": "risk_addition",
+        "rationale": "The earlier runtime-validation risk also applies to plugin fixture consumers."
+      },
+      {
+        "target_event_id": "evt_argument_graph_synthesize_council",
+        "target_claim_id": "T04.C1",
+        "stance": "decision_frame",
+        "rationale": "The fixture-first synthesis becomes an acceptance criterion for the static handoff."
+      }
+    ],
+    "contribution_type": "decision_frame",
+    "evidence": []
+  },
+  "causation_event_id": "evt_speaker_selected_cmd_council_grant_conformance",
+  "turn": 7
+}

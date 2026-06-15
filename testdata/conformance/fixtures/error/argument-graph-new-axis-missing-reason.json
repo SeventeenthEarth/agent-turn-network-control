@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "request_id": "req_argument_graph_new_axis_missing_reason_static_example",
+  "ok": false,
+  "error": {
+    "code": "validation_error",
+    "category": "validation",
+    "message": "static ARGUE-002 example: contribution_type new_axis requires new_axis_reason",
+    "details": {
+      "category": "argument_graph_static_protocol_example",
+      "path": "payload.new_axis_reason",
+      "reason": "missing_new_axis_reason",
+      "runtime_enforcement": false
+    }
+  }
+}
