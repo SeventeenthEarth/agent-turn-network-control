@@ -1,6 +1,6 @@
 # Council Argument Graph SOT
 
-Status: Blue-authored SOT draft for `ARGUE` implementation planning. This document is the first durable SOT for KAN council discussion-quality work. It is not an implementation-complete claim and does not enable live/default/production runtime behavior by itself.
+Status: Accepted/completed docs-only SOT for `control/ARGUE-001`. Official KAN review passed with Red card `t_4a2e735f`, Orange card `t_9f4b2b9c`, and Gray card `t_b196d630`; this closeout records Blue synthesis as satisfied for ARGUE-001. This document is the first durable SOT for KAN council discussion-quality work. It is not an implementation-complete claim, does not start or authorize `control/ARGUE-002`, and does not enable live/default/production runtime behavior by itself.
 
 Date: 2026-06-15
 Owner: 마초 / `macho` for the bounded KAN control/plugin lanes
@@ -406,6 +406,8 @@ control/ARGUE-001  Council argument graph SOT and roadmap/index links
 ```
 
 `ARGUE-LIVE-001` must not run until the control and plugin sides both pass their local gates and actual participant profile activation is separately verified.
+
+`control/ARGUE-002` remains planned and not started until a separate explicit authorization opens protocol/fixture work. ARGUE-001 acceptance does not authorize protocol implementation, fixture publication, daemon/CLI changes, plugin adapter work, or live activation.
 
 ## 12. Acceptance criteria for discussion-quality pilot
 

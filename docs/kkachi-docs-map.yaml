@@ -5,6 +5,7 @@ sot_docs:
   - "docs/03-protocol-spec.md"
   - "docs/02-architecture.md"
   - "docs/24-live-transport-control-sot.md"
+  - "docs/25-council-argument-graph-sot.md"
 adr_dir: "docs"
 todo_dir: "docs"
 spec_dir: "docs"

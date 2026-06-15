@@ -50,6 +50,7 @@ The Python Hermes plugin has its own repository and documentation at `../../kkac
 23. `22-deleg-002-conformance-fixture-matrix.md` — DELEG-002 fixture publication task brief for delegation/review plugin handoff
 24. `23-release-v1-acceptance.md` — local Release v1 acceptance scope, gates, evidence, and non-live-readiness boundaries
 25. `24-live-transport-control-sot.md` — control-side live transport SOT for `LTRAN` / `MEMBR` / `SURFD`, companion to the plugin live transport SOT
+26. `25-council-argument-graph-sot.md` — control-side council argument graph SOT for `ARGUE`, discussion-quality protocol/fixture planning, and plugin handoff boundaries
 
 `11-distribution-and-skill.md` is deprecated by the repo split and replaced by `11-distribution-and-plugin.md`.
 
@@ -84,7 +85,8 @@ The control repo Makefile owns Go checks, control docs guardrails, and RELIA-001
 12. `22-deleg-002-conformance-fixture-matrix.md` when planning or implementing DELEG-002 / plugin DELRV-2 unblock work
 13. `23-release-v1-acceptance.md` when validating Release v1 local readiness
 14. `24-live-transport-control-sot.md` when planning post-Release `LTRAN`, `MEMBR`, `SURFD`, or `ENSOT` live-local / visible-closeout work
-15. plugin docs in `../../kkachi-agent-network-plugin/docs/`
+15. `25-council-argument-graph-sot.md` when planning `ARGUE` discussion-quality argument graph work; `control/ARGUE-001` is accepted docs-only, and `control/ARGUE-002` remains planned until separately authorized
+16. plugin docs in `../../kkachi-agent-network-plugin/docs/`
 
 ## Current implementation state
 
@@ -92,6 +94,6 @@ This repository has the BOOTS-001 scaffold plus DAEMN-002 local control surfaces
 
 DELEG-002 publishes the control-owned plugin-consumable delegation/review fixture matrix for success, duplicate/idempotency, permission/error, retryable failure policy, and malformed-response handling. Plugin delegation/review failure coverage must consume these control fixtures and must not invent control-owned command or error shapes.
 
-RELIA-001 release acceptance is complete for local Release v1 readiness. `LTRAN-001` records the control-side live transport SOT/mapping only. `LTRAN-002` is complete for daemon compatibility reads and conformance-backed capability evidence. `LTRAN-003` is complete for disposable data-home CLI/daemon live-local proof: daemon-backed `compat` reads, stream replay/follow/ack/status, `delegate.submit` idempotency, structured command-id conflicts, color review, GLM Octo, and cross-repo checks passed without plugin mutation or production activation. `MEMBR-001` is complete, `MEMBR-002` is candidate/isolated proof, `SURFD` has docs/local proof acceptance, and `ENSOT-001` is accepted as a docs-only SOT gate for plugin `VISUX` visible closeout semantics after KAN Red/Orange/Gray review and Blue synthesis. These epics do not claim production activation until their own exits are verified.
+RELIA-001 release acceptance is complete for local Release v1 readiness. `LTRAN-001` records the control-side live transport SOT/mapping only. `LTRAN-002` is complete for daemon compatibility reads and conformance-backed capability evidence. `LTRAN-003` is complete for disposable data-home CLI/daemon live-local proof: daemon-backed `compat` reads, stream replay/follow/ack/status, `delegate.submit` idempotency, structured command-id conflicts, color review, GLM Octo, and cross-repo checks passed without plugin mutation or production activation. `MEMBR-001` is complete, `MEMBR-002` is candidate/isolated proof, `SURFD` has docs/local proof acceptance, and `ENSOT-001` is accepted as a docs-only SOT gate for plugin `VISUX` visible closeout semantics after KAN Red/Orange/Gray review and Blue synthesis. `ARGUE-001` is accepted/completed docs-only for council discussion-quality SOT closeout after Red `t_4a2e735f`, Orange `t_9f4b2b9c`, Gray `t_b196d630`, and Blue synthesis; `ARGUE-002` protocol/fixture work remains planned until separately authorized. These epics do not claim production activation until their own exits are verified.
 
 `live_readiness` remains `false`: live Hermes/Discord/KAB/gateway/auth/token integrations, production plugin-load evidence, and external E2E are not contacted by default test targets.

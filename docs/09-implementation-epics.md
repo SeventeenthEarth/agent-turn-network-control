@@ -27,6 +27,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | MEMBR | Member runtime profile invocation | real participant profile/wrapper invocation proof |
 | SURFD | Surface delivery evidence contract | event-to-visible rendering and evidence projection |
 | ENSOT | Event/outcome visible-closeout SOT | terminal council outcome and moderator visible-closeout semantics |
+| ARGUE | Council argument graph and discussion quality | control protocol/fixtures/validation/projection for claim-relation evidence |
 
 ## Epic dependency graph
 
@@ -45,6 +46,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | MEMBR | LTRAN | real participant invocation needs live-local stream/control compatibility |
 | SURFD | MEMBR, TRANS | visible rendering needs participant response evidence plus transcript/export surfaces |
 | ENSOT | SURFD | plugin visible closeout UX needs a locked terminal outcome / visible evidence contract |
+| ARGUE | ENSOT, COUNC, TRANS | discussion-quality relation evidence depends on council speech events, terminal visible-closeout semantics, and transcript/export surfaces |
 
 ## Implementation phase grouping
 
@@ -63,6 +65,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | Phase 10 | MEMBR | real participant profile/wrapper invocation path | selected participant invocation evidence passes without role substitution |
 | Phase 11 | SURFD | surface delivery evidence contract | projection/transcript/export or fixture evidence supports visible rendering |
 | Phase 12 | ENSOT | terminal outcome / visible closeout event semantics | docs SOT accepted after Red/Orange/Gray review and Blue synthesis |
+| Phase 13 | ARGUE | council argument graph and discussion-quality evidence | ARGUE-001 accepted after Red/Orange/Gray review and Blue synthesis; ARGUE-002 protocol/fixture implementation requires separate explicit authorization |
 
 ## BOOTS — Bootstrap
 
@@ -131,3 +134,10 @@ Active task transfer between control and plugin happens only at an epic boundary
 | SURFD-001 | Define event-to-visible-surface rendering/evidence contract. | `docs/03-protocol-spec.md`, `docs/07-moderator-policy.md`, `docs/13-operational-contracts.md`, `docs/24-live-transport-control-sot.md` | docs guardrails, protocol consistency checks |
 | SURFD-002 | Prove projection/transcript/export or fixture evidence for visible rendering tests. | `internal/transcript/`, `internal/storage/`, `testdata/conformance/`, docs | transcript/export/projection tests, delivery evidence fixture checks, `make test` |
 | ENSOT-001 | Lock council terminal outcome visible-closeout SOT for plugin `VISUX` implementation. Drafts and votes are visible process milestones only; terminal daemon events are durable outcomes only; human-readable moderator closeout requires posted delivery/projection evidence and fails closed when missing, failed, pending, or mismatched. | `docs/03-protocol-spec.md`, `docs/07-moderator-policy.md`, `docs/13-operational-contracts.md`, `docs/24-live-transport-control-sot.md` | docs guardrails, protocol consistency checks, KAN Red/Orange/Gray review, Blue synthesis |
+| ARGUE-001 | Close out the council argument graph SOT, docs index, docs map, implementation epic, and roadmap links. Accepted/completed docs-only after official KAN Red `t_4a2e735f`, Orange `t_9f4b2b9c`, Gray `t_b196d630`, and Blue synthesis. | `docs/25-council-argument-graph-sot.md`, `docs/README.md`, `docs/roadmap.md`, `docs/09-implementation-epics.md`, `docs/kkachi-docs-map.yaml` | `make docs-guardrails`, `make check-plugin-contract`, KAN Red/Orange/Gray review, Blue synthesis |
+| ARGUE-002 | Define additive protocol shape and publish control-owned conformance fixtures for claim/relation evidence. Planned only; separate explicit authorization is required before starting this task, and ARGUE-001 acceptance alone does not authorize it. | `docs/03-protocol-spec.md`, `testdata/conformance/`, protocol validation tests | docs guardrails, conformance fixture validation, `make check-plugin-contract`; plugin consumes fixtures in its own repo |
+| ARGUE-003 | Implement daemon/CLI validation and moderator scoring hooks for quality-required and quality-warn modes. | `internal/daemon/`, `internal/protocol/`, `internal/moderator/`, CLI tests | focused validation/scoring tests, `make test` |
+| ARGUE-004 | Preserve relation evidence in transcript/export/projection surfaces. | `internal/transcript/`, `internal/storage/`, projection/export tests | golden transcript/export/projection tests, `make test` |
+| ARGUE-005 | Prove the control integration gate before plugin handoff or live-local pilot planning. | integration tests, conformance checks, docs evidence | control integration verification, `make check-plugin-contract`, `make test`; no live activation |
+
+Plugin-side ARGUE adapter, rendering, participant response generation, and packaged operator guidance are companion consumer work in `../../kkachi-agent-network-plugin/`. They are referenced here only as handoff/consumer notes and are not control-roadmap tasks.
