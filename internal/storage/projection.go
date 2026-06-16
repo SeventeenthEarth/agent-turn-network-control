@@ -284,6 +284,7 @@ type projectionState struct {
 	agendaLocks            map[string]*agendaLockProjection
 	votes                  map[string]*voteProjection
 	linkedAuthorityResults map[string]*linkedAuthorityProjection
+	argumentGraphs         map[string]*argumentGraphProjectionRow
 	commands               map[string]*commandProjection
 	artifacts              map[string]*artifactProjection
 	sessionCount           int
@@ -314,6 +315,7 @@ func newProjectionState() *projectionState {
 		agendaLocks:            map[string]*agendaLockProjection{},
 		votes:                  map[string]*voteProjection{},
 		linkedAuthorityResults: map[string]*linkedAuthorityProjection{},
+		argumentGraphs:         map[string]*argumentGraphProjectionRow{},
 		commands:               map[string]*commandProjection{},
 		artifacts:              map[string]*artifactProjection{},
 		eventIDs:               map[string]struct{}{},

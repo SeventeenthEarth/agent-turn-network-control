@@ -122,6 +122,7 @@ func BuildExportBundle(sessionDir string, metadata *SessionMetadata, opts Export
 		"registry_snapshot":           metadata.RegistrySnapshot,
 		"includes_operator_evidence":  true,
 		"surface_delivery_projection": visibleSurfaceProjectionRows(index.Events),
+		"argument_graph_projection":   argumentGraphProjectionRows(index.Events),
 		"files": []string{
 			"transcript.md",
 			"transcript.jsonl",
@@ -182,6 +183,7 @@ func renderTranscriptMarkdown(metadata *SessionMetadata, events []EventEnvelope)
 	fmt.Fprintf(&b, "- usd_estimate_total: `%.6f`\n", metadata.Cost.USDEstimateTotal)
 	fmt.Fprintf(&b, "- missing_cost_runner_calls_total: `%d`\n\n", metadata.Cost.MissingCostRunnerCallsTotal)
 	renderVisibleSurfaceProjectionSummary(&b, events)
+	renderArgumentGraphProjectionSummary(&b, events)
 	fmt.Fprintln(&b, "## Events")
 	for i, event := range events {
 		fmt.Fprintf(&b, "\n### %03d `%s`\n\n", i, event.EventID)

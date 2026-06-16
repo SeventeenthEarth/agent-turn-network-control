@@ -220,6 +220,25 @@ var projectionSchema = []string{
 		created_at TEXT NOT NULL,
 		PRIMARY KEY (session_id, consensus_round, draft_version, member)
 	)`,
+	`CREATE TABLE council_argument_graph_projection (
+		session_id TEXT NOT NULL,
+		event_id TEXT NOT NULL,
+		event_ordinal INTEGER NOT NULL,
+		turn INTEGER NOT NULL,
+		speaker TEXT NOT NULL,
+		speech TEXT NOT NULL,
+		contribution_type TEXT,
+		new_axis_reason TEXT,
+		status TEXT NOT NULL,
+		diagnostic TEXT,
+		claims_json TEXT NOT NULL,
+		stance_links_json TEXT NOT NULL,
+		evidence_json TEXT NOT NULL,
+		quality_diagnostics_json TEXT NOT NULL,
+		relation_audit_json TEXT NOT NULL,
+		PRIMARY KEY (session_id, event_id)
+	)`,
+	`CREATE INDEX council_argument_graph_projection_by_session_turn ON council_argument_graph_projection(session_id, turn, event_ordinal)`,
 	`CREATE TABLE linked_authority_results (
 		session_id TEXT PRIMARY KEY,
 		terminal_event_id TEXT NOT NULL,
@@ -257,31 +276,32 @@ var projectionSchema = []string{
 }
 
 var projectionColumns = map[string][]string{
-	"sessions":                      {"id", "session_type", "title", "moderator", "status", "phase", "prior_phase", "resume_phase", "blocked_by_event_id", "current_turn", "consensus_round", "last_speaker", "tokens_in_total", "tokens_out_total", "usd_estimate_total", "runner_calls_total", "missing_cost_runner_calls_total", "user_escalations_total", "pending_escalation_batches_total", "pending_batched_candidates_total", "waiting_user_escalation_event_id", "waiting_user_batch_id", "surface_json", "linked_authority_json", "linked_authority_result_json", "created_at", "updated_at", "closed_at"},
-	"session_participants":          {"session_id", "member", "display_name", "role", "wrapper", "session_ref", "stream_cursor", "runtime_status", "last_heartbeat_at", "participant_status", "speaking_count", "last_spoke_turn"},
-	"events":                        {"event_id", "schema_version", "command_id", "causation_event_id", "correlation_id", "session_id", "session_type", "turn", "phase", "type", "sender", "recipient_json", "runner_json", "cost_tokens_in", "cost_tokens_out", "cost_usd", "cost_source", "created_at", "payload_json"},
-	"runner_invocations":            {"invocation_id", "session_id", "member", "adapter_kind", "source_command_id", "started_event_id", "terminal_event_id", "attempt", "is_retry", "status", "cost_tokens_in", "cost_tokens_out", "cost_usd", "cost_source", "cost_missing", "duration_sec", "started_at", "completed_at"},
-	"escalation_batches":            {"batch_id", "session_id", "status", "first_event_id", "latest_event_id", "user_escalation_event_id", "batch_window_sec", "batch_deadline_at", "prior_phase", "resume_phase", "pending_count", "created_at", "updated_at", "flushed_at", "cancelled_at"},
-	"escalation_batch_items":        {"batch_id", "session_id", "source_event_id", "added_event_id", "source_member", "question_hash", "urgency", "created_at"},
-	"event_recipients":              {"event_id", "session_id", "recipient", "ordinal"},
-	"stream_cursors":                {"session_id", "member", "cursor", "event_id", "acknowledged_at"},
-	"stream_subscribers":            {"session_id", "member", "subscriber_id", "connected_at", "last_heartbeat_at", "last_cursor", "status"},
-	"delegation_reviews":            {"session_id", "review_round", "reviewer", "verdict", "findings_json", "created_at"},
-	"council_hand_raises":           {"session_id", "turn", "member", "wants_to_speak", "intent", "relevance", "urgency", "reason", "evidence_summary", "eligible", "ineligibility_reason", "created_at"},
-	"council_attendance_projection": {"session_id", "member", "required", "attendance_requested_event_id", "member_attended_event_id", "attendance_status", "attendance_summary", "surface_evidence_json", "requested_at", "attended_at"},
-	"council_agenda_locks":          {"session_id", "agenda_locked_event_id", "locked_by", "decision_question", "constraints_json", "surface_evidence_json", "locked_at"},
-	"council_votes":                 {"session_id", "consensus_round", "draft_version", "member", "vote", "reason", "required_change", "created_at"},
-	"linked_authority_results":      {"session_id", "terminal_event_id", "status", "kanban_card_id", "kanban_comment_id", "vault_decision_note", "followup_card_id", "failure_reason", "evidence_json", "recorded_at"},
-	"commands_seen":                 {"command_id", "session_id", "first_event_id", "result_summary", "created_at"},
-	"artifacts":                     {"session_id", "artifact_id", "source_path", "stored_path", "size_bytes", "sha256", "mime", "ingested_at"},
-	"projection_metadata":           {"key", "value"},
+	"sessions":                          {"id", "session_type", "title", "moderator", "status", "phase", "prior_phase", "resume_phase", "blocked_by_event_id", "current_turn", "consensus_round", "last_speaker", "tokens_in_total", "tokens_out_total", "usd_estimate_total", "runner_calls_total", "missing_cost_runner_calls_total", "user_escalations_total", "pending_escalation_batches_total", "pending_batched_candidates_total", "waiting_user_escalation_event_id", "waiting_user_batch_id", "surface_json", "linked_authority_json", "linked_authority_result_json", "created_at", "updated_at", "closed_at"},
+	"session_participants":              {"session_id", "member", "display_name", "role", "wrapper", "session_ref", "stream_cursor", "runtime_status", "last_heartbeat_at", "participant_status", "speaking_count", "last_spoke_turn"},
+	"events":                            {"event_id", "schema_version", "command_id", "causation_event_id", "correlation_id", "session_id", "session_type", "turn", "phase", "type", "sender", "recipient_json", "runner_json", "cost_tokens_in", "cost_tokens_out", "cost_usd", "cost_source", "created_at", "payload_json"},
+	"runner_invocations":                {"invocation_id", "session_id", "member", "adapter_kind", "source_command_id", "started_event_id", "terminal_event_id", "attempt", "is_retry", "status", "cost_tokens_in", "cost_tokens_out", "cost_usd", "cost_source", "cost_missing", "duration_sec", "started_at", "completed_at"},
+	"escalation_batches":                {"batch_id", "session_id", "status", "first_event_id", "latest_event_id", "user_escalation_event_id", "batch_window_sec", "batch_deadline_at", "prior_phase", "resume_phase", "pending_count", "created_at", "updated_at", "flushed_at", "cancelled_at"},
+	"escalation_batch_items":            {"batch_id", "session_id", "source_event_id", "added_event_id", "source_member", "question_hash", "urgency", "created_at"},
+	"event_recipients":                  {"event_id", "session_id", "recipient", "ordinal"},
+	"stream_cursors":                    {"session_id", "member", "cursor", "event_id", "acknowledged_at"},
+	"stream_subscribers":                {"session_id", "member", "subscriber_id", "connected_at", "last_heartbeat_at", "last_cursor", "status"},
+	"delegation_reviews":                {"session_id", "review_round", "reviewer", "verdict", "findings_json", "created_at"},
+	"council_hand_raises":               {"session_id", "turn", "member", "wants_to_speak", "intent", "relevance", "urgency", "reason", "evidence_summary", "eligible", "ineligibility_reason", "created_at"},
+	"council_attendance_projection":     {"session_id", "member", "required", "attendance_requested_event_id", "member_attended_event_id", "attendance_status", "attendance_summary", "surface_evidence_json", "requested_at", "attended_at"},
+	"council_agenda_locks":              {"session_id", "agenda_locked_event_id", "locked_by", "decision_question", "constraints_json", "surface_evidence_json", "locked_at"},
+	"council_votes":                     {"session_id", "consensus_round", "draft_version", "member", "vote", "reason", "required_change", "created_at"},
+	"council_argument_graph_projection": {"session_id", "event_id", "event_ordinal", "turn", "speaker", "speech", "contribution_type", "new_axis_reason", "status", "diagnostic", "claims_json", "stance_links_json", "evidence_json", "quality_diagnostics_json", "relation_audit_json"},
+	"linked_authority_results":          {"session_id", "terminal_event_id", "status", "kanban_card_id", "kanban_comment_id", "vault_decision_note", "followup_card_id", "failure_reason", "evidence_json", "recorded_at"},
+	"commands_seen":                     {"command_id", "session_id", "first_event_id", "result_summary", "created_at"},
+	"artifacts":                         {"session_id", "artifact_id", "source_path", "stored_path", "size_bytes", "sha256", "mime", "ingested_at"},
+	"projection_metadata":               {"key", "value"},
 }
 
 var projectionTableOrder = []string{
 	"sessions", "session_participants", "events", "runner_invocations", "escalation_batches", "escalation_batch_items",
 	"event_recipients", "stream_cursors", "stream_subscribers", "delegation_reviews", "council_hand_raises",
 	"council_attendance_projection", "council_agenda_locks", "council_votes", "linked_authority_results",
-	"commands_seen", "artifacts", "projection_metadata",
+	"council_argument_graph_projection", "commands_seen", "artifacts", "projection_metadata",
 }
 
 func configureRebuildDB(db *sql.DB) error {
@@ -433,6 +453,15 @@ func insertProjectionRows(tx *sql.Tx, state *projectionState) error {
 	for _, row := range sortedValues(state.votes) {
 		if _, err := tx.Exec(`INSERT INTO council_votes VALUES (?,?,?,?,?,?,?,?)`, row.sessionID, row.consensusRound, row.draftVersion, row.member, row.vote, nullString(row.reason), nullString(row.requiredChange), row.createdAt); err != nil {
 			return wrapProjectionError(ProjectionErrorStorage, "insert council_votes", err)
+		}
+	}
+	for _, row := range sortedValues(state.argumentGraphs) {
+		_, err := tx.Exec(`INSERT INTO council_argument_graph_projection VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			row.SessionID, row.EventID, row.EventOrdinal, row.Turn, row.Speaker, row.Speech, nullString(row.ContributionType),
+			nullString(row.NewAxisReason), row.Status, nullString(row.Diagnostic), row.ClaimsJSON, row.StanceLinksJSON,
+			row.EvidenceJSON, row.QualityDiagnosticsJSON, row.RelationAuditJSON)
+		if err != nil {
+			return wrapProjectionError(ProjectionErrorStorage, "insert council_argument_graph_projection", err)
 		}
 	}
 	for _, row := range sortedValues(state.linkedAuthorityResults) {

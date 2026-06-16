@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -99,6 +100,118 @@ func TestIntegrationProjectionReplaysEventSpecificTables(t *testing.T) {
 	}
 	if got := scalarText(t, db, `SELECT status FROM linked_authority_results WHERE session_id = 'sess_projection'`); got != "posted" {
 		t.Fatalf("expected linked authority status posted, got %q", got)
+	}
+}
+
+func TestIntegrationARGUE004ProjectionPersistsArgumentGraphRowsAndDiagnostics(t *testing.T) {
+	dataHome, loaded := loadedCouncilRegistry(t)
+	metadata, _, _, err := CreateCouncil(dataHome, loaded, CouncilStartSpec{
+		Session: SessionSpec{
+			ID:        "sess_argue004_projection",
+			Title:     "ARGUE-004 projection",
+			Moderator: "agent-mod",
+			TurnMode:  "role_order",
+			EventID:   "evt_argue004_created",
+			CommandID: "cmd_argue004_created",
+		},
+		Members: []string{"agent-1", "agent-2"},
+		Now:     fixedRuntime().Now(),
+	}, fixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateCouncil: %v", err)
+	}
+	sessionDir, err := SessionDir(dataHome, metadata.ID)
+	if err != nil {
+		t.Fatalf("SessionDir: %v", err)
+	}
+	appendArgumentGraphTranscriptEvents(t, sessionDir, metadata)
+	appendTranscriptEvent(t, sessionDir, metadata, argumentGraphSpeechEvent(metadata, "evt_argue_malformed", "agent-1", 5, map[string]any{
+		"speech":              "Malformed legacy payload preserved for projection diagnostics.",
+		"claims":              "not-an-array",
+		"stance_links":        map[string]any{"target_event_id": "evt_argue_open"},
+		"contribution_type":   17,
+		"evidence":            "not-an-array",
+		"quality_diagnostics": "not-an-array",
+	}))
+	appendTranscriptEvent(t, sessionDir, metadata, argumentGraphSpeechEvent(metadata, "evt_argue_malformed_elements", "agent-2", 6, map[string]any{
+		"speech":              "Malformed array elements must not project relation JSON.",
+		"claims":              []any{"bad"},
+		"stance_links":        []any{"bad"},
+		"evidence":            []any{"doc://evidence/scalar-safe", map[string]any{"uri": "doc://evidence/object-safe", "label": "object evidence"}},
+		"quality_diagnostics": []any{"bad"},
+	}))
+	appendTranscriptEvent(t, sessionDir, metadata, argumentGraphSpeechEvent(metadata, "evt_argue_partial_malformed_objects", "agent-1", 7, map[string]any{
+		"speech": "Partially malformed object arrays must fail closed.",
+		"claims": []any{
+			map[string]any{"claim_id": "T7.C1", "summary": "Valid claim entry."},
+			map[string]any{"kind": "risk"},
+		},
+		"stance_links": []any{
+			map[string]any{"target_event_id": "evt_argue_open", "stance": "support"},
+			map[string]any{"rationale": "Missing projection-compatible target or stance key."},
+		},
+		"quality_diagnostics": []any{
+			map[string]any{"code": "valid_diagnostic"},
+			map[string]any{"missing_targets": []any{"T0.C1"}},
+		},
+	}))
+	appendTranscriptEvent(t, sessionDir, metadata, argumentGraphSpeechEvent(metadata, "evt_argue_missing", "agent-2", 8, map[string]any{
+		"speech": "Legacy speech without ARGUE fields.",
+	}))
+
+	report, err := RebuildProjection(dataHome, ProjectionOptions{Runtime: fixedRuntime()})
+	if err != nil {
+		t.Fatalf("RebuildProjection failed: %v", err)
+	}
+	db := openProjectionDB(t, report.DBPath)
+	defer func() { _ = db.Close() }()
+	if got := rowCount(t, db, "council_argument_graph_projection"); got != 8 {
+		t.Fatalf("expected 8 argument graph rows, got %d", got)
+	}
+	if got := scalarText(t, db, `SELECT contribution_type FROM council_argument_graph_projection WHERE event_id = 'evt_argue_synthesize'`); got != "synthesize" {
+		t.Fatalf("expected synthesize contribution, got %q", got)
+	}
+	if got := scalarText(t, db, `SELECT status FROM council_argument_graph_projection WHERE event_id = 'evt_argue_synthesize'`); got != "projected" {
+		t.Fatalf("expected projected synthesize row, got %q", got)
+	}
+	if got := scalarText(t, db, `SELECT stance_links_json FROM council_argument_graph_projection WHERE event_id = 'evt_argue_challenge'`); !strings.Contains(got, `"stance":"challenge"`) || !strings.Contains(got, `"stance":"refine"`) {
+		t.Fatalf("expected challenge/refine stance links, got %s", got)
+	}
+	if got := scalarText(t, db, `SELECT quality_diagnostics_json FROM council_argument_graph_projection WHERE event_id = 'evt_argue_challenge'`); !strings.Contains(got, "omitted_graph_need_targets") {
+		t.Fatalf("expected quality diagnostics, got %s", got)
+	}
+	if got := scalarText(t, db, `SELECT relation_audit_json FROM council_argument_graph_projection WHERE event_id = 'evt_argue_challenge'`); !strings.Contains(got, "checked_targets") {
+		t.Fatalf("expected relation audit, got %s", got)
+	}
+	if got := scalarText(t, db, `SELECT diagnostic FROM council_argument_graph_projection WHERE event_id = 'evt_argue_malformed'`); !strings.Contains(got, "malformed_claims") || !strings.Contains(got, "malformed_stance_links") || !strings.Contains(got, "malformed_quality_diagnostics") {
+		t.Fatalf("expected malformed diagnostics, got %q", got)
+	}
+	if got := scalarText(t, db, `SELECT status FROM council_argument_graph_projection WHERE event_id = 'evt_argue_malformed_elements'`); got != "diagnostic" {
+		t.Fatalf("expected malformed element row diagnostic status, got %q", got)
+	}
+	if got := scalarText(t, db, `SELECT diagnostic FROM council_argument_graph_projection WHERE event_id = 'evt_argue_malformed_elements'`); !strings.Contains(got, "malformed_claims") || !strings.Contains(got, "malformed_stance_links") || !strings.Contains(got, "malformed_quality_diagnostics") || strings.Contains(got, "malformed_evidence") {
+		t.Fatalf("expected malformed element relation diagnostics with safe evidence accepted, got %q", got)
+	}
+	if got := scalarText(t, db, `SELECT claims_json FROM council_argument_graph_projection WHERE event_id = 'evt_argue_malformed_elements'`); got != "null" {
+		t.Fatalf("malformed scalar claims must not be preserved in projection JSON, got %s", got)
+	}
+	if got := scalarText(t, db, `SELECT stance_links_json FROM council_argument_graph_projection WHERE event_id = 'evt_argue_malformed_elements'`); got != "null" {
+		t.Fatalf("malformed scalar stance links must not be preserved in projection JSON, got %s", got)
+	}
+	if got := scalarText(t, db, `SELECT quality_diagnostics_json FROM council_argument_graph_projection WHERE event_id = 'evt_argue_malformed_elements'`); got != "null" {
+		t.Fatalf("malformed scalar quality diagnostics must not be preserved in projection JSON, got %s", got)
+	}
+	if got := scalarText(t, db, `SELECT evidence_json FROM council_argument_graph_projection WHERE event_id = 'evt_argue_malformed_elements'`); !strings.Contains(got, `"doc://evidence/scalar-safe"`) || !strings.Contains(got, `"uri":"doc://evidence/object-safe"`) {
+		t.Fatalf("safe string/object evidence entries should be preserved, got %s", got)
+	}
+	if got := scalarText(t, db, `SELECT status FROM council_argument_graph_projection WHERE event_id = 'evt_argue_partial_malformed_objects'`); got != "diagnostic" {
+		t.Fatalf("expected partial malformed object row diagnostic status, got %q", got)
+	}
+	if got := scalarText(t, db, `SELECT diagnostic FROM council_argument_graph_projection WHERE event_id = 'evt_argue_partial_malformed_objects'`); !strings.Contains(got, "malformed_claims") || !strings.Contains(got, "malformed_stance_links") || !strings.Contains(got, "malformed_quality_diagnostics") {
+		t.Fatalf("expected partial malformed object diagnostics, got %q", got)
+	}
+	if got := scalarText(t, db, `SELECT diagnostic FROM council_argument_graph_projection WHERE event_id = 'evt_argue_missing'`); got != "missing_argument_graph_fields" {
+		t.Fatalf("expected missing diagnostic, got %q", got)
 	}
 }
 

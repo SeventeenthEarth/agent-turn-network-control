@@ -1461,7 +1461,7 @@ ARGUE-002 adds optional argument-graph fields to `speech.payload` without changi
 - `contribution_type`: the primary contribution role for the speech. It may be one of the linked stance values or `new_axis`.
 - `new_axis_reason`: required by quality-required policy when `contribution_type` is `new_axis`.
 
-`new_axis` is not a linked stance because it has no prior target. Existing `responds_to_event_id` is a coarse legacy display hint; when `stance_links[]` is present, ARGUE-aware consumers use `stance_links[]` as the relation authority. ARGUE-002 publishes static conformance fixtures only. A local `control/ARGUE-003` implementation slice now covers append-time validation, quality-required rejection, quality-warn diagnostics, and moderator scoring hooks while it remains under KAH review; transcript/export rendering remains a future ARGUE-004 responsibility.
+`new_axis` is not a linked stance because it has no prior target. Existing `responds_to_event_id` is a coarse legacy display hint; when `stance_links[]` is present, ARGUE-aware consumers use `stance_links[]` as the relation authority. ARGUE-002 publishes static conformance fixtures only. `control/ARGUE-003` covers append-time validation, quality-required rejection, quality-warn diagnostics, and moderator scoring hooks. `control/ARGUE-004` adds side-effect-free transcript/export/SQLite projection preservation for ARGUE relation evidence from cursor-ordered `speech` events.
 
 ### moderator_intervention
 

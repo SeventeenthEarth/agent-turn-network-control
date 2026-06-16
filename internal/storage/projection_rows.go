@@ -242,6 +242,7 @@ func (s *projectionState) applyEvent(metadata *SessionMetadata, offset int, even
 	s.applyRunnerEvent(session, event, cost)
 	s.applyEscalationEvent(session, event)
 	s.applyCouncilEvent(session, event)
+	s.applyArgumentGraphProjection(offset, event)
 	s.applyStreamEvent(event)
 	s.applyReviewEvent(event)
 	s.applyArtifacts(event)
@@ -570,6 +571,14 @@ func (s *projectionState) applyCouncilEvent(session *sessionProjection, event Ev
 			}
 		}
 	}
+}
+
+func (s *projectionState) applyArgumentGraphProjection(offset int, event EventEnvelope) {
+	if event.Type != "speech" {
+		return
+	}
+	row := argumentGraphProjectionRowFromEvent(offset, event)
+	s.argumentGraphs[event.SessionID+"\x00"+event.EventID] = &row
 }
 
 func stringSetFromPayload(payload map[string]any, key string) map[string]bool {

@@ -182,7 +182,7 @@ For a Discord-thread-bound council, storage and projection are mandatory for the
 
 `runner_calls_total` is projected from `runner_invocation_started` events. `missing_cost_runner_calls_total` is projected from terminal runner events whose `cost` is null. Token and USD totals are projected only from terminal runner events with parsed cost. See `13-operational-contracts.md` §3.
 
-Replay handlers populate event-specific tables from durable events only: runner invocation lifecycle, escalation batching and batched user escalation, council attendance/agenda/hand-raise/vote/linked-authority results, stream cursor/subscriber events, review verdict/submission events, command-id summaries, event recipients, and artifact references from artifact-bearing work/review events.
+Replay handlers populate event-specific tables from durable events only: runner invocation lifecycle, escalation batching and batched user escalation, council attendance/agenda/hand-raise/vote/linked-authority results, council argument-graph relation evidence from `speech` payloads, stream cursor/subscriber events, review verdict/submission events, command-id summaries, event recipients, and artifact references from artifact-bearing work/review events.
 
 Unknown forward-compatibility keys (limits introduced after Release v1) must not error on a Release v1 reader. See the forward-compatibility rule in `13-operational-contracts.md`.
 
@@ -502,6 +502,7 @@ Renderer rules:
 - Markdown transcript rendering reads `session.yaml`, `registry_snapshot.yaml` metadata, and `channel.jsonl` only. It renders stable event order, `from`/`to` semantic recipients, surface metadata, linked-authority metadata and `linked_authority_result` payloads, council attendance/agenda evidence, delegation/review evidence, blockers, terminal/cancelled phase evidence, and runner/cost summary values when present.
 - JSONL transcript rendering is a deterministic re-emission of persisted event envelopes from `channel.jsonl`; it does not add status fields or plugin-only fields.
 - Export bundles are local directories containing `transcript.md`, `transcript.jsonl`, `brief.md`, `session.json`, `channel.jsonl`, `registry_snapshot.yaml`, and `bundle_manifest.json`.
+- `bundle_manifest.json` includes additive `surface_delivery_projection` and `argument_graph_projection` arrays. `argument_graph_projection` is built only from cursor-ordered `speech` events and preserves `claims[]`, `stance_links[]`, `contribution_type`, `new_axis_reason`, `evidence[]`, `quality_diagnostics`, and relation audit data where present. Missing or malformed ARGUE relation shapes are marked diagnostic; renderers must not infer links from `responds_to_event_id`, author, timestamps, Discord order, visible-surface order, or floor-grant ordering.
 - Default export output is `<session_dir>/exports/<session_id>-bundle`. Explicit output paths must not contain NUL or dot-dot segments and must resolve to regular non-symlink files/directories. Existing regular generated files are overwritten deterministically.
 - Transcript/export/status/tail are side-effect free for session state: they do not append events, rebuild projections, invoke runners, deliver escalations, or write any linked-authority external system.
 
@@ -648,6 +649,44 @@ CREATE TABLE council_votes (
   PRIMARY KEY (session_id, consensus_round, draft_version, member)
 );
 ```
+
+### council_argument_graph_projection
+
+```sql
+CREATE TABLE council_argument_graph_projection (
+  session_id TEXT NOT NULL,
+  event_id TEXT NOT NULL,
+  event_ordinal INTEGER NOT NULL,
+  turn INTEGER NOT NULL,
+  speaker TEXT NOT NULL,
+  speech TEXT NOT NULL,
+  contribution_type TEXT,
+  new_axis_reason TEXT,
+  status TEXT NOT NULL,
+  diagnostic TEXT,
+  claims_json TEXT NOT NULL,
+  stance_links_json TEXT NOT NULL,
+  evidence_json TEXT NOT NULL,
+  quality_diagnostics_json TEXT NOT NULL,
+  relation_audit_json TEXT NOT NULL,
+  PRIMARY KEY (session_id, event_id)
+);
+
+CREATE INDEX council_argument_graph_projection_by_session_turn
+  ON council_argument_graph_projection(session_id, turn, event_ordinal);
+```
+
+Projection rules:
+
+- Replay adds one row for each cursor-ordered `speech` event.
+- `status = projected` means the ARGUE relation fields present on the payload had projection-compatible shapes and were copied into deterministic JSON columns.
+- `status = diagnostic` means relation fields were missing or malformed for projection. This is replay/export evidence only and must not weaken append-time ARGUE-003 validation.
+- `claims_json` is populated only when every `claims[]` entry is an object with a non-empty string `id`, `claim_id`, `text`, `summary`, or `content`; malformed arrays remain `null` and add `malformed_claims`.
+- `stance_links_json` is populated only when every `stance_links[]` entry is an object with a non-empty string `target_event_id`, `target_claim_id`, `claim_id`, `target`, or `stance`; malformed arrays remain `null` and add `malformed_stance_links`.
+- `quality_diagnostics_json` is populated only when every `quality_diagnostics[]` entry is an object with a non-empty string `code`, `diagnostic`, `message`, `severity`, `field`, or `detail`; scalar or unrecognized entries remain `null` and add `malformed_quality_diagnostics`.
+- `evidence_json` preserves `evidence[]` entries that are strings or objects. Other evidence element types remain `null` and add `malformed_evidence`.
+- `speech` is copied exactly from `payload.speech` for query/export convenience. Human transcript rendering may summarize relation evidence, but it must not rewrite, normalize, or enrich `payload.speech`.
+- Missing relation fields, legacy `responds_to_event_id`, author, timestamps, Discord order, visible-surface order, and floor-grant ordering must not be used to fabricate `stance_links[]`, `contribution_type`, or claim targets.
 
 ### linked_authority_results
 

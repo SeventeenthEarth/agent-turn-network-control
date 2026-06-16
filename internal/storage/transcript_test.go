@@ -206,6 +206,85 @@ func TestUnitSURFD002ExportManifestDeclaresVisibleEvidenceProjection(t *testing.
 	}
 }
 
+func TestUnitARGUE004TranscriptRendersArgumentGraphSummaryWithoutRewritingSpeech(t *testing.T) {
+	sessionDir := createBareSessionDir(t)
+	metadata := testMetadata()
+	metadata.SessionType = SessionTypeCouncil
+	metadata.Title = "ARGUE-004 transcript projection"
+	metadata.State.Phase = "discussion"
+	metadata.Status = StatusOpen
+	metadata.Participants = []string{"agent-mod", "agent-1", "agent-2"}
+	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
+		t.Fatalf("WriteSessionYAMLAtomic: %v", err)
+	}
+	appendArgumentGraphTranscriptEvents(t, sessionDir, metadata)
+
+	out, err := RenderTranscript(sessionDir, metadata, TranscriptMarkdownFormat)
+	if err != nil {
+		t.Fatalf("RenderTranscript md: %v", err)
+	}
+	text := string(out)
+	for _, want := range []string{
+		"Argument Graph Projection Summary",
+		"evt_argue_open", "new_axis", "opening decision axis",
+		"claim `T1.C1`: Traceability gates pilot acceptance.",
+		"evt_argue_support", "support", "link `support` -> `evt_argue_open/T1.C1`",
+		"evt_argue_challenge", "challenge", "link `challenge` -> `evt_argue_open/T1.C1`", "link `refine` -> `evt_argue_support/T2.C1`",
+		"evt_argue_synthesize", "synthesize", "doc://evidence/synthesis",
+		"quality_diagnostics", "omitted_graph_need_targets",
+		"relation_audit", "checked_targets",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("ARGUE-004 transcript missing %q:\n%s", want, text)
+		}
+	}
+	if !strings.Contains(text, `"speech": "Original support speech text."`) {
+		t.Fatalf("raw payload speech must remain unchanged in event JSON block:\n%s", text)
+	}
+	if strings.Contains(text, "Original support speech text. [") {
+		t.Fatalf("transcript must not enrich payload.speech:\n%s", text)
+	}
+}
+
+func TestUnitARGUE004ExportManifestDeclaresArgumentGraphProjection(t *testing.T) {
+	sessionDir := createBareSessionDir(t)
+	metadata := testMetadata()
+	metadata.SessionType = SessionTypeCouncil
+	metadata.Title = "ARGUE-004 export projection"
+	metadata.State.Phase = "discussion"
+	metadata.Status = StatusOpen
+	metadata.Participants = []string{"agent-mod", "agent-1", "agent-2"}
+	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
+		t.Fatalf("WriteSessionYAMLAtomic: %v", err)
+	}
+	appendArgumentGraphTranscriptEvents(t, sessionDir, metadata)
+	if err := os.WriteFile(filepath.Join(sessionDir, registry.SnapshotFileName), []byte("schema_version: 1\n"), 0o600); err != nil {
+		t.Fatalf("write snapshot: %v", err)
+	}
+
+	result, err := BuildExportBundle(sessionDir, metadata, ExportBundleOptions{})
+	if err != nil {
+		t.Fatalf("BuildExportBundle: %v", err)
+	}
+	manifestBytes, err := os.ReadFile(filepath.Join(result.BundleDir, "bundle_manifest.json"))
+	if err != nil {
+		t.Fatalf("read bundle_manifest.json: %v", err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		t.Fatalf("unmarshal bundle_manifest.json: %v\n%s", err, string(manifestBytes))
+	}
+	rows, ok := manifest["argument_graph_projection"].([]any)
+	if !ok || len(rows) != 4 {
+		t.Fatalf("argument_graph_projection rows missing: %#v\n%s", manifest["argument_graph_projection"], string(manifestBytes))
+	}
+	for _, want := range []string{"claims_json", "stance_links_json", "contribution_type", "new_axis_reason", "evidence_json", "quality_diagnostics_json", "relation_audit_json"} {
+		if !strings.Contains(string(manifestBytes), want) {
+			t.Fatalf("bundle manifest missing %q:\n%s", want, string(manifestBytes))
+		}
+	}
+}
+
 func TestUnitSURFD002TranscriptRequiresPriorFloorGrantForSpeech(t *testing.T) {
 	sessionDir := createBareSessionDir(t)
 	metadata := testMetadata()
@@ -448,6 +527,71 @@ func TestUnitExportBundleRequiresRegistrySnapshot(t *testing.T) {
 
 	if _, err := BuildExportBundle(sessionDir, metadata, ExportBundleOptions{}); err == nil {
 		t.Fatalf("missing registry snapshot must fail")
+	}
+}
+
+func appendArgumentGraphTranscriptEvents(t *testing.T, sessionDir string, metadata *SessionMetadata) {
+	t.Helper()
+	for _, event := range []EventEnvelope{
+		councilTranscriptEvent(metadata, "evt_select_1", "discussion", "speaker_selected", map[string]any{"turn": float64(1), "selection_mode": "role_order"}),
+		argumentGraphSpeechEvent(metadata, "evt_argue_open", "agent-1", 1, map[string]any{
+			"speech":            "Original opening speech text.",
+			"claims":            []any{map[string]any{"claim_id": "T1.C1", "summary": "Traceability gates pilot acceptance.", "kind": "requirement"}},
+			"contribution_type": "new_axis",
+			"new_axis_reason":   "opening decision axis",
+			"evidence":          []any{"doc://evidence/opening"},
+		}),
+		councilTranscriptEvent(metadata, "evt_select_2", "discussion", "speaker_selected", map[string]any{"turn": float64(2), "selection_mode": "role_order"}),
+		argumentGraphSpeechEvent(metadata, "evt_argue_support", "agent-2", 2, map[string]any{
+			"speech":            "Original support speech text.",
+			"claims":            []any{map[string]any{"claim_id": "T2.C1", "summary": "Export must keep relation fields.", "kind": "requirement"}},
+			"stance_links":      []any{map[string]any{"target_event_id": "evt_argue_open", "target_claim_id": "T1.C1", "stance": "support", "rationale": "The target sets the same acceptance axis."}},
+			"contribution_type": "support",
+			"evidence":          []any{"doc://evidence/support"},
+		}),
+		councilTranscriptEvent(metadata, "evt_select_3", "discussion", "speaker_selected", map[string]any{"turn": float64(3), "selection_mode": "role_order"}),
+		argumentGraphSpeechEvent(metadata, "evt_argue_challenge", "agent-1", 3, map[string]any{
+			"speech": "Original challenge and refine speech text.",
+			"claims": []any{map[string]any{"claim_id": "T3.C1", "summary": "Diagnostics must not become acceptance.", "kind": "risk"}},
+			"stance_links": []any{
+				map[string]any{"target_event_id": "evt_argue_open", "target_claim_id": "T1.C1", "stance": "challenge", "rationale": "Traceability alone is not enough without diagnostics."},
+				map[string]any{"target_event_id": "evt_argue_support", "target_claim_id": "T2.C1", "stance": "refine", "rationale": "The export requirement needs malformed-row behavior."},
+			},
+			"contribution_type":   "challenge",
+			"quality_diagnostics": []any{map[string]any{"code": "omitted_graph_need_targets", "severity": "warning", "missing_targets": []any{"T0.C1"}}},
+			"relation_audit":      map[string]any{"checked_targets": []any{"evt_argue_open/T1.C1", "evt_argue_support/T2.C1"}},
+		}),
+		councilTranscriptEvent(metadata, "evt_select_4", "discussion", "speaker_selected", map[string]any{"turn": float64(4), "selection_mode": "role_order"}),
+		argumentGraphSpeechEvent(metadata, "evt_argue_synthesize", "agent-2", 4, map[string]any{
+			"speech": "Original synthesize speech text.",
+			"claims": []any{map[string]any{"claim_id": "T4.C1", "summary": "Keep raw payload and additive projection.", "kind": "decision_frame"}},
+			"stance_links": []any{
+				map[string]any{"target_event_id": "evt_argue_open", "target_claim_id": "T1.C1", "stance": "synthesize", "rationale": "Combines traceability."},
+				map[string]any{"target_event_id": "evt_argue_support", "target_claim_id": "T2.C1", "stance": "synthesize", "rationale": "Combines export preservation."},
+			},
+			"contribution_type": "synthesize",
+			"evidence":          []any{"doc://evidence/synthesis"},
+		}),
+	} {
+		appendTranscriptEvent(t, sessionDir, metadata, event)
+	}
+}
+
+func argumentGraphSpeechEvent(metadata *SessionMetadata, id, speaker string, turn int, payload map[string]any) EventEnvelope {
+	payload["turn"] = float64(turn)
+	return EventEnvelope{
+		SchemaVersion: protocol.SchemaVersion,
+		EventID:       id,
+		CommandID:     "cmd_" + id,
+		CorrelationID: metadata.ID,
+		SessionID:     metadata.ID,
+		SessionType:   metadata.SessionType,
+		Phase:         "discussion",
+		Type:          "speech",
+		From:          speaker,
+		To:            []string{"agent-mod", "agent-1", "agent-2"},
+		CreatedAt:     fixedTranscriptTime().Add(time.Duration(turn) * time.Minute),
+		Payload:       payload,
 	}
 }
 
