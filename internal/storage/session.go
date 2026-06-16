@@ -148,6 +148,11 @@ func validateSessionSpec(loaded *registry.LoadedRegistry, spec SessionSpec) erro
 	if spec.TurnMode != "" && !validTurnMode(spec.TurnMode) {
 		add(CategoryMetadataInvalid, "turn_mode", "unsupported turn_mode")
 	}
+	if spec.SessionType == SessionTypeCouncil {
+		if err := validateDiscussionQualityLimits(spec.Limits); err != nil {
+			issues = append(issues, Issues(err)...)
+		}
+	}
 	if len(issues) > 0 {
 		return NewValidationErrors(issues)
 	}

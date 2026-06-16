@@ -168,6 +168,223 @@ func TestUnitCouncilLinkedAuthorityFinalizeRequiresEvidence(t *testing.T) {
 	}
 }
 
+func TestUnitCouncilArgumentGraphRejectsMalformedPresentFields(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		action  string
+		payload map[string]any
+	}{
+		{name: "claims not array", action: "speak", payload: map[string]any{"claims": "bad"}},
+		{name: "claims not objects", action: "speak", payload: map[string]any{"claims": []any{"bad"}}},
+		{name: "duplicate claim id", action: "speak", payload: map[string]any{"claims": []any{
+			map[string]any{"claim_id": "T1.C1", "summary": "one"},
+			map[string]any{"claim_id": "T1.C1", "summary": "two"},
+		}}},
+		{name: "stance links not array", action: "speak", payload: map[string]any{"stance_links": "bad"}},
+		{name: "bad stance", action: "speak", payload: map[string]any{"stance_links": []any{map[string]any{"target_event_id": "evt_speech_cmd_argue_target_speech", "target_claim_id": "T1.C1", "stance": "agree"}}}},
+		{name: "missing target event", action: "speak", payload: map[string]any{"stance_links": []any{map[string]any{"target_event_id": "evt_missing", "target_claim_id": "T1.C1", "stance": "support"}}}},
+		{name: "non speech target", action: "speak", payload: map[string]any{"stance_links": []any{map[string]any{"target_event_id": "evt_argue_target_poll", "stance": "support"}}}},
+		{name: "unknown target claim", action: "speak", payload: map[string]any{"stance_links": []any{map[string]any{"target_event_id": "evt_speech_cmd_argue_target_speech", "target_claim_id": "T1.C404", "stance": "support"}}}},
+		{name: "bad contribution", action: "speak", payload: map[string]any{"contribution_type": "essay"}},
+		{name: "synthesize one target", action: "speak", payload: map[string]any{"contribution_type": "synthesize", "stance_links": []any{map[string]any{"target_event_id": "evt_speech_cmd_argue_target_speech", "target_claim_id": "T1.C1", "stance": "synthesize"}}}},
+		{name: "new axis no reason", action: "speak", payload: map[string]any{"contribution_type": "new_axis"}},
+		{name: "target links not array", action: "hand-raise", payload: map[string]any{"target_links": "bad"}},
+		{name: "target links bad target claim", action: "hand-raise", payload: map[string]any{"target_links": []any{map[string]any{"target_event_id": "evt_speech_cmd_argue_target_speech", "target_claim_id": "T1.C404", "stance": "challenge"}}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sessionDir, metadata := argumentGraphCouncilForTest(t, "sess_argue_malformed_"+strings.ReplaceAll(tc.name, " ", "_"), Limits{})
+			appendArgumentGraphTargetForTest(t, sessionDir, metadata)
+			if tc.action == "hand-raise" {
+				payload := clonePayload(tc.payload)
+				payload["turn"] = 2
+				if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-2", CommandID: "cmd_" + strings.ReplaceAll(tc.name, " ", "_"), Payload: payload, Now: fixedRuntime().Now().Add(20 * time.Second)}); err == nil {
+					t.Fatalf("%s must fail closed", tc.name)
+				} else {
+					assertStorageIssue(t, err, CategoryInvalidEnvelope)
+				}
+				return
+			}
+			appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_grant_" + strings.ReplaceAll(tc.name, " ", "_"), Payload: map[string]any{"turn": 2, "member": "agent-2", "selection_mode": "moderator_direct"}, Now: fixedRuntime().Now().Add(21 * time.Second)})
+			payload := clonePayload(tc.payload)
+			payload["turn"] = 2
+			payload["speech"] = "candidate speech"
+			if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "speak", Actor: "agent-2", CommandID: "cmd_speak_" + strings.ReplaceAll(tc.name, " ", "_"), Payload: payload, Now: fixedRuntime().Now().Add(22 * time.Second)}); err == nil {
+				t.Fatalf("%s must fail closed", tc.name)
+			} else {
+				assertStorageIssue(t, err, CategoryInvalidEnvelope)
+			}
+		})
+	}
+}
+
+func TestUnitCouncilArgumentGraphQualityRequiredRejectsDefects(t *testing.T) {
+	qualityRequired := Limits{Council: CouncilLimits{DiscussionQuality: &DiscussionQualityLimits{
+		Mode:                           "quality_required",
+		OpeningUnlinkedTurns:           1,
+		RequireClaims:                  true,
+		RequireStanceLinksAfterOpening: true,
+		AllowNewAxisWithReason:         true,
+		MaxConsecutiveNewAxis:          1,
+	}}}
+	for _, tc := range []struct {
+		name          string
+		payload       map[string]any
+		targetedGrant bool
+	}{
+		{name: "orphan after opening", payload: map[string]any{"claims": []any{map[string]any{"claim_id": "T2.C1", "summary": "orphan"}}}},
+		{name: "missing claims and stance links", payload: map[string]any{}},
+		{name: "runtime noise", payload: map[string]any{"speech": "WARNING: max iteration reached", "claims": []any{map[string]any{"claim_id": "T2.C1", "summary": "noise"}}, "stance_links": []any{map[string]any{"target_event_id": "evt_speech_cmd_argue_target_speech", "target_claim_id": "T1.C1", "stance": "support", "rationale": "connects"}}}},
+		{name: "graph need omitted", targetedGrant: true, payload: map[string]any{"claims": []any{map[string]any{"claim_id": "T2.C1", "summary": "partial"}}, "stance_links": []any{map[string]any{"target_event_id": "evt_speech_cmd_argue_target_speech", "target_claim_id": "T1.C1", "stance": "synthesize", "rationale": "only one target"}}, "contribution_type": "support"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sessionDir, metadata := argumentGraphCouncilForTest(t, "sess_argue_required_"+strings.ReplaceAll(tc.name, " ", "_"), qualityRequired)
+			appendArgumentGraphTargetForTest(t, sessionDir, metadata)
+			grantPayload := map[string]any{"turn": 2, "member": "agent-2", "selection_mode": "moderator_direct"}
+			if tc.targetedGrant {
+				grantPayload["graph_need"] = map[string]any{"type": "synthesis", "target_links": []any{
+					map[string]any{"target_event_id": "evt_speech_cmd_argue_target_speech", "target_claim_id": "T1.C1"},
+					map[string]any{"target_event_id": "evt_argue_second_target_speech", "target_claim_id": "T1.C2"},
+				}}
+				appendRawEventForTest(t, sessionDir, metadata, "evt_argue_second_target_speech", "cmd_argue_second_target_speech", "speech", "discussion", "agent-2", []string{"agent-mod", "agent-1"}, map[string]any{"turn": 1, "speech": "Second target", "claims": []any{map[string]any{"claim_id": "T1.C2", "summary": "second"}}}, 12*time.Second)
+			}
+			appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_required_grant_" + strings.ReplaceAll(tc.name, " ", "_"), Payload: grantPayload, Now: fixedRuntime().Now().Add(21 * time.Second)})
+			payload := clonePayload(tc.payload)
+			payload["turn"] = 2
+			if _, ok := payload["speech"]; !ok {
+				payload["speech"] = "candidate speech"
+			}
+			if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "speak", Actor: "agent-2", CommandID: "cmd_required_speak_" + strings.ReplaceAll(tc.name, " ", "_"), Payload: payload, Now: fixedRuntime().Now().Add(22 * time.Second)}); err == nil {
+				t.Fatalf("%s must fail closed", tc.name)
+			} else {
+				assertStorageIssue(t, err, CategoryInvalidEnvelope)
+			}
+		})
+	}
+	t.Run("repeated new axis", func(t *testing.T) {
+		sessionDir, metadata := argumentGraphCouncilForTest(t, "sess_argue_required_repeated_new_axis", qualityRequired)
+		appendArgumentGraphTargetForTest(t, sessionDir, metadata)
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_required_new_axis_grant", Payload: map[string]any{"turn": 2, "member": "agent-2", "selection_mode": "moderator_direct"}, Now: fixedRuntime().Now().Add(21 * time.Second)})
+		if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "speak", Actor: "agent-2", CommandID: "cmd_required_new_axis_speak", Payload: map[string]any{"turn": 2, "speech": "another new axis", "claims": []any{map[string]any{"claim_id": "T2.C1", "summary": "new"}}, "contribution_type": "new_axis", "new_axis_reason": "another axis"}, Now: fixedRuntime().Now().Add(22 * time.Second)}); err == nil {
+			t.Fatalf("repeated new_axis must fail closed")
+		} else {
+			assertStorageIssue(t, err, CategoryInvalidEnvelope)
+		}
+	})
+	t.Run("targeted moderator reason permits repeated new axis", func(t *testing.T) {
+		sessionDir, metadata := argumentGraphCouncilForTest(t, "sess_argue_required_repeated_new_axis_allowed", qualityRequired)
+		appendArgumentGraphTargetForTest(t, sessionDir, metadata)
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_required_new_axis_targeted_grant", Payload: map[string]any{"turn": 2, "member": "agent-2", "selection_mode": "moderator_direct", "reason": "new axis requested to cover missing decision dimension"}, Now: fixedRuntime().Now().Add(21 * time.Second)})
+		result := appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "speak", Actor: "agent-2", CommandID: "cmd_required_new_axis_targeted_speak", Payload: map[string]any{"turn": 2, "speech": "another justified axis", "claims": []any{map[string]any{"claim_id": "T2.C1", "summary": "new"}}, "contribution_type": "new_axis", "new_axis_reason": "moderator requested the missing decision dimension"}, Now: fixedRuntime().Now().Add(22 * time.Second)})
+		event := eventByIDForTest(t, sessionDir, metadata, result.EventID)
+		if event.Payload["contribution_type"] != "new_axis" {
+			t.Fatalf("targeted repeated new_axis speech not recorded: %#v", event.Payload)
+		}
+	})
+}
+
+func TestUnitCouncilArgumentGraphDiscussionQualityModeResolutionFailsClosed(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		limits Limits
+	}{
+		{
+			name:   "present missing mode",
+			limits: Limits{Council: CouncilLimits{DiscussionQuality: &DiscussionQualityLimits{}}},
+		},
+		{
+			name:   "unsupported mode",
+			limits: Limits{Council: CouncilLimits{DiscussionQuality: &DiscussionQualityLimits{Mode: "best_effort"}}},
+		},
+		{
+			name:   "negative opening window",
+			limits: Limits{Council: CouncilLimits{DiscussionQuality: &DiscussionQualityLimits{Mode: "quality_required", OpeningUnlinkedTurns: -1}}},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dataHome, loaded := loadedCouncilRegistry(t)
+			_, _, _, err := CreateCouncil(dataHome, loaded, CouncilStartSpec{
+				Session: SessionSpec{
+					ID:        "sess_argue_limits_" + strings.ReplaceAll(tc.name, " ", "_"),
+					Title:     "argue limits",
+					Moderator: "agent-mod",
+					EventID:   "evt_argue_limits_" + strings.ReplaceAll(tc.name, " ", "_"),
+					CommandID: "cmd_argue_limits_" + strings.ReplaceAll(tc.name, " ", "_"),
+					Limits:    tc.limits,
+				},
+				Members: []string{"agent-1"},
+				Now:     fixedRuntime().Now(),
+			}, fixedRuntime())
+			if err == nil {
+				t.Fatalf("malformed discussion_quality must fail closed")
+			}
+			assertStorageIssue(t, err, CategoryInvalidEnvelope)
+		})
+	}
+}
+
+func TestUnitCouncilArgumentGraphQualityWarnDiagnosticsDoNotMutateSpeechOrInferLinks(t *testing.T) {
+	limits := Limits{Council: CouncilLimits{DiscussionQuality: &DiscussionQualityLimits{Mode: "quality_warn", OpeningUnlinkedTurns: 1}}}
+	sessionDir, metadata := argumentGraphCouncilForTest(t, "sess_argue_warn", limits)
+	appendArgumentGraphTargetForTest(t, sessionDir, metadata)
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_warn_grant", Payload: map[string]any{"turn": 2, "member": "agent-2", "selection_mode": "moderator_direct"}, Now: fixedRuntime().Now().Add(21 * time.Second)})
+	originalSpeech := "An unlinked but accepted warning-mode speech."
+	result := appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "speak", Actor: "agent-2", CommandID: "cmd_warn_speak", Payload: map[string]any{"turn": 2, "speech": originalSpeech}, Now: fixedRuntime().Now().Add(22 * time.Second)})
+	event := eventByIDForTest(t, sessionDir, metadata, result.EventID)
+	if event.Payload["speech"] != originalSpeech {
+		t.Fatalf("quality_warn must not mutate speech: %#v", event.Payload)
+	}
+	if _, ok := event.Payload["stance_links"]; ok {
+		t.Fatalf("quality_warn must not infer durable stance_links: %#v", event.Payload)
+	}
+	diagnostics, ok := event.Payload["quality_diagnostics"].([]any)
+	if !ok || len(diagnostics) == 0 {
+		t.Fatalf("quality_warn diagnostics missing: %#v", event.Payload)
+	}
+}
+
+func TestUnitCouncilArgumentGraphAutoSelectionScopeAndNoConsecutiveSpeaker(t *testing.T) {
+	t.Run("quality aware no eligible fails closed", func(t *testing.T) {
+		limits := Limits{Council: CouncilLimits{DiscussionQuality: &DiscussionQualityLimits{Mode: "quality_warn"}}}
+		sessionDir, metadata := argumentGraphCouncilForTest(t, "sess_argue_auto_no_eligible_quality", limits)
+		if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_auto_quality_no_eligible", Payload: map[string]any{"turn": 1, "auto": true}, Now: fixedRuntime().Now().Add(10 * time.Second)}); err == nil {
+			t.Fatalf("quality-aware auto-selection without eligible hand_raise must fail closed")
+		} else {
+			assertStorageIssue(t, err, CategoryCommandConflict)
+		}
+	})
+	t.Run("compatibility no eligible preserves fallback", func(t *testing.T) {
+		sessionDir, metadata := argumentGraphCouncilForTest(t, "sess_argue_auto_no_eligible_compat", Limits{})
+		result := appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_auto_compat_no_eligible", Payload: map[string]any{"turn": 1, "auto": true}, Now: fixedRuntime().Now().Add(10 * time.Second)})
+		event := eventByIDForTest(t, sessionDir, metadata, result.EventID)
+		if event.Payload["member"] != "agent-1" {
+			t.Fatalf("compatibility auto fallback selected %#v", event.Payload)
+		}
+		if event.Payload["selection_mode"] != "relevance" {
+			t.Fatalf("compatibility auto fallback should retain the additive relevance mode marker: %#v", event.Payload)
+		}
+		if _, ok := event.Payload["selection_score"]; !ok {
+			t.Fatalf("compatibility auto fallback should record selection_score: %#v", event.Payload)
+		}
+	})
+	t.Run("quality-aware auto avoids immediately previous speaker when another eligible member exists", func(t *testing.T) {
+		limits := Limits{Council: CouncilLimits{DiscussionQuality: &DiscussionQualityLimits{Mode: "quality_warn"}}}
+		sessionDir, metadata := argumentGraphCouncilForTest(t, "sess_argue_auto_no_consecutive", limits)
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_auto_first_grant", Payload: map[string]any{"turn": 1, "member": "agent-1", "selection_mode": "moderator_direct"}, Now: fixedRuntime().Now().Add(10 * time.Second)})
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "speak", Actor: "agent-1", CommandID: "cmd_auto_first_speak", Payload: map[string]any{"turn": 1, "speech": "opening"}, Now: fixedRuntime().Now().Add(11 * time.Second)})
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "poll", Actor: "agent-mod", CommandID: "cmd_auto_poll_2", Payload: map[string]any{"turn": 2}, Now: fixedRuntime().Now().Add(12 * time.Second)})
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-2", CommandID: "cmd_auto_raise_2", Payload: map[string]any{"turn": 2, "intent": "support", "relevance": 1}, Now: fixedRuntime().Now().Add(13 * time.Second)})
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-1", CommandID: "cmd_auto_raise_1", Payload: map[string]any{"turn": 2, "intent": "risk", "relevance": 9}, Now: fixedRuntime().Now().Add(14 * time.Second)})
+		result := appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_auto_no_consecutive_grant", Payload: map[string]any{"turn": 2, "auto": true}, Now: fixedRuntime().Now().Add(15 * time.Second)})
+		event := eventByIDForTest(t, sessionDir, metadata, result.EventID)
+		if event.Payload["member"] != "agent-2" {
+			t.Fatalf("auto-selection must avoid immediately previous speaker when possible: %#v", event.Payload)
+		}
+		if event.Payload["selection_mode"] != "relevance" {
+			t.Fatalf("auto-selection should record relevance mode: %#v", event.Payload)
+		}
+	})
+}
+
 func TestUnitCouncilStatusFromLogSummarizesVerboseStatus(t *testing.T) {
 	dataHome, loaded := loadedCouncilRegistry(t)
 	metadata, _, _, err := CreateCouncil(dataHome, loaded, CouncilStartSpec{
@@ -433,6 +650,38 @@ func appendCouncilForTest(t *testing.T, sessionDir string, metadata *SessionMeta
 		t.Fatalf("RecordCouncilEvent(%s): %v", spec.Action, err)
 	}
 	return result
+}
+
+func argumentGraphCouncilForTest(t *testing.T, sessionID string, limits Limits) (string, *SessionMetadata) {
+	t.Helper()
+	dataHome, loaded := loadedCouncilRegistry(t)
+	metadata, _, _, err := CreateCouncil(dataHome, loaded, CouncilStartSpec{
+		Session: SessionSpec{
+			ID:        sessionID,
+			Title:     "argue",
+			Moderator: "agent-mod",
+			EventID:   "evt_" + sessionID + "_created",
+			CommandID: "cmd_" + sessionID + "_new",
+			Limits:    limits,
+		},
+		Members: []string{"agent-1", "agent-2"},
+		Now:     fixedRuntime().Now(),
+	}, fixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateCouncil: %v", err)
+	}
+	sessionDir, _ := SessionDir(dataHome, metadata.ID)
+	appendRawEventForTest(t, sessionDir, metadata, "evt_"+sessionID+"_prep", "cmd_"+sessionID+"_prep", "preparation_requested", "preparation", "agent-mod", []string{"agent-1", "agent-2"}, map[string]any{"timeout_sec": 1}, time.Second)
+	appendRawEventForTest(t, sessionDir, metadata, "evt_"+sessionID+"_poll_1", "cmd_"+sessionID+"_poll_1", "hand_raise_requested", "discussion", "agent-mod", []string{"agent-1", "agent-2"}, map[string]any{"turn": 1}, 2*time.Second)
+	return sessionDir, metadata
+}
+
+func appendArgumentGraphTargetForTest(t *testing.T, sessionDir string, metadata *SessionMetadata) {
+	t.Helper()
+	appendRawEventForTest(t, sessionDir, metadata, "evt_argue_target_poll", "cmd_argue_target_poll", "hand_raise_requested", "discussion", "agent-mod", []string{"agent-1", "agent-2"}, map[string]any{"turn": 1}, 9*time.Second)
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_argue_target_grant", Payload: map[string]any{"turn": 1, "member": "agent-1", "selection_mode": "moderator_direct"}, Now: fixedRuntime().Now().Add(10 * time.Second)})
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "speak", Actor: "agent-1", CommandID: "cmd_argue_target_speech", Payload: map[string]any{"turn": 1, "speech": "Opening claim.", "claims": []any{map[string]any{"claim_id": "T1.C1", "summary": "opening claim"}}, "contribution_type": "new_axis", "new_axis_reason": "opening axis"}, Now: fixedRuntime().Now().Add(11 * time.Second)})
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "poll", Actor: "agent-mod", CommandID: "cmd_argue_poll_2", Payload: map[string]any{"turn": 2}, Now: fixedRuntime().Now().Add(12 * time.Second)})
 }
 
 func loadedCouncilRegistry(t *testing.T) (string, *registry.LoadedRegistry) {

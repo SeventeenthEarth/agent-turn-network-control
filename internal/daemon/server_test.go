@@ -110,6 +110,56 @@ func TestUnitDaemonUnsupportedTransportCommandFailsClosedWithoutWrites(t *testin
 	}
 }
 
+func TestUnitDaemonSessionNewRejectsMalformedPresentLimits(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		command string
+		params  map[string]any
+	}{
+		{
+			name:    "council.new string limits",
+			command: "council.new",
+			params: map[string]any{
+				"session_id": "sess_bad_council_limits_string",
+				"moderator":  "agent-mod",
+				"members":    []any{"agent-1"},
+				"title":      "bad council limits",
+				"limits":     "quality_required",
+			},
+		},
+		{
+			name:    "delegate.new array limits",
+			command: "delegate.new",
+			params: map[string]any{
+				"session_id": "sess_bad_delegate_limits_array",
+				"moderator":  "agent-mod",
+				"assignee":   "agent-1",
+				"title":      "bad delegate limits",
+				"task":       "prove malformed limits fail closed",
+				"limits":     []any{"not an object"},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dataHome := daemonDataHome(t)
+			before := treeFingerprint(t, dataHome)
+			server := daemon.NewServer(dataHome, daemonFixedRuntime())
+			response := server.Handle(protocol.NewRequest("bad-limits", tc.command, tc.params))
+			after := treeFingerprint(t, dataHome)
+
+			if response.OK || response.Error == nil {
+				t.Fatalf("malformed present limits must fail closed: %+v", response)
+			}
+			if response.Error.Code == "" || !strings.Contains(response.Error.Message, "limits") {
+				t.Fatalf("limits validation error should name limits, got %+v", response.Error)
+			}
+			if before != after {
+				t.Fatalf("malformed limits request wrote files\nbefore=%s\nafter=%s", before, after)
+			}
+		})
+	}
+}
+
 func TestUnitDaemonDAEMN002VersionFeaturesAreImplemented(t *testing.T) {
 	server := daemon.NewServer("/tmp/unused", registry.DefaultRuntime())
 	response := server.Handle(protocol.NewRequest("features", protocol.FeatureVersionRead, nil))

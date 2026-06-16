@@ -242,7 +242,7 @@ Compatibility rule:
 Rules:
 
 - `target_links[]` is the preferred ARGUE shape because it keeps event/claim/stance pairing unambiguous. `target_event_ids[]` and `target_claim_ids[]`, if retained for compatibility, are deprecated display hints and must not be used as independent parallel arrays for validation.
-- `intent` may use either the existing moderator-scoring vocabulary (`risk`, `block`, `rebuttal`, `note`, etc.) or the ARGUE vocabulary. When ARGUE terms are used, map them as follows for existing scoring until `control/ARGUE-003` implements native scoring: `challenge` -> `rebuttal`, `risk_addition` -> `risk`, `question` -> `note`, `support`/`refine`/`extend`/`synthesize`/`decision_frame` -> `note` plus relevance/role scoring.
+- `intent` may use either the existing moderator-scoring vocabulary (`risk`, `block`, `rebuttal`, `note`, etc.) or the ARGUE vocabulary. The `control/ARGUE-003` local implementation uses ARGUE `target_links[]`, relevance, urgency, and intent as deterministic scoring inputs while preserving legacy intent compatibility during review.
 - Intended targets are advisory until the selected speech is appended.
 - The moderator may use intended targets to score unresolved gaps, conflicts, or synthesis opportunities.
 - A selected speaker's final `speech.payload.stance_links[]` may differ from the hand raise intent when the participant records a rationale or the discussion changed before the floor grant.

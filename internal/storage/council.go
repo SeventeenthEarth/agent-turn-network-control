@@ -340,6 +340,9 @@ func councilTransition(metadata *SessionMetadata, index *LogIndex, current Phase
 		if _, ok := payload["wants_to_speak"]; !ok {
 			payload["wants_to_speak"] = true
 		}
+		if err := validateArgumentGraphHandRaise(metadata, index, payload); err != nil {
+			return "", "", "", nil, nil, err
+		}
 		turnPtr = intPtr(turn)
 		return "hand_raise", "discussion", actor, []string{metadata.Moderator}, turnPtr, nil
 	case "grant":
@@ -351,7 +354,21 @@ func councilTransition(metadata *SessionMetadata, index *LogIndex, current Phase
 		}
 		member := firstNonEmptyString(payloadStringDefault(payload, "member", ""), payloadStringDefault(payload, "to", ""))
 		if member == "" && anyBool(payload, "auto") {
-			member = autoCouncilSpeaker(metadata, index)
+			selection, err := autoCouncilSpeaker(metadata, index)
+			if err != nil {
+				return "", "", "", nil, nil, err
+			}
+			member = selection.member
+			if strings.TrimSpace(payloadStringDefault(payload, "selection_mode", "")) == "" {
+				payload["selection_mode"] = "relevance"
+			}
+			if strings.TrimSpace(payloadStringDefault(payload, "reason", "")) == "" && selection.reason != "" {
+				payload["reason"] = selection.reason
+			}
+			payload["selection_score"] = selection.score
+			if len(selection.need) > 0 {
+				payload["graph_need"] = selection.need
+			}
 		}
 		if !councilMember(metadata, member) {
 			return "", "", "", nil, nil, NewValidationError(CategoryPrincipalInvalid, "member", "selected speaker must be a council member")
@@ -391,6 +408,9 @@ func councilTransition(metadata *SessionMetadata, index *LogIndex, current Phase
 		}
 		if strings.TrimSpace(payloadStringDefault(payload, "speech", "")) == "" {
 			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "speech", "speech is required")
+		}
+		if err := validateArgumentGraphSpeech(metadata, index, actor, turn, payload); err != nil {
+			return "", "", "", nil, nil, err
 		}
 		payload["turn"] = turn
 		turnPtr = intPtr(turn)
@@ -650,20 +670,6 @@ func currentCouncilTurn(index *LogIndex) int {
 	return max
 }
 func nextCouncilTurn(index *LogIndex) int { return currentCouncilTurn(index) + 1 }
-func autoCouncilSpeaker(metadata *SessionMetadata, index *LogIndex) string {
-	turn := currentCouncilTurn(index)
-	for i := len(index.Events) - 1; i >= 0; i-- {
-		e := index.Events[i]
-		if e.Type == "hand_raise" && anyInt(e.Payload, "turn") == turn && councilMember(metadata, e.From) {
-			return e.From
-		}
-	}
-	members := councilMembers(metadata)
-	if len(members) > 0 {
-		return members[0]
-	}
-	return ""
-}
 func speakerGranted(index *LogIndex, member string, turn int) bool {
 	for _, e := range index.Events {
 		if e.Type == "speaker_selected" && anyInt(e.Payload, "turn") == turn && (payloadStringDefault(e.Payload, "member", "") == member || (len(e.To) == 1 && e.To[0] == member)) {

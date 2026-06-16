@@ -64,7 +64,21 @@ type Limits struct {
 	StreamHeartbeatIntervalSec      int            `yaml:"stream_heartbeat_interval_sec,omitempty" json:"stream_heartbeat_interval_sec,omitempty"`
 	StreamStaleThresholdSec         int            `yaml:"stream_stale_threshold_sec,omitempty" json:"stream_stale_threshold_sec,omitempty"`
 	StreamRepollThresholdSec        int            `yaml:"stream_repoll_threshold_sec,omitempty" json:"stream_repoll_threshold_sec,omitempty"`
+	Council                         CouncilLimits  `yaml:"council,omitempty" json:"council,omitempty"`
 	Extra                           map[string]any `yaml:",inline,omitempty" json:"-"`
+}
+
+type CouncilLimits struct {
+	DiscussionQuality *DiscussionQualityLimits `yaml:"discussion_quality,omitempty" json:"discussion_quality,omitempty"`
+}
+
+type DiscussionQualityLimits struct {
+	Mode                           string `yaml:"mode,omitempty" json:"mode,omitempty"`
+	OpeningUnlinkedTurns           int    `yaml:"opening_unlinked_turns,omitempty" json:"opening_unlinked_turns,omitempty"`
+	RequireClaims                  bool   `yaml:"require_claims,omitempty" json:"require_claims,omitempty"`
+	RequireStanceLinksAfterOpening bool   `yaml:"require_stance_links_after_opening,omitempty" json:"require_stance_links_after_opening,omitempty"`
+	AllowNewAxisWithReason         bool   `yaml:"allow_new_axis_with_reason,omitempty" json:"allow_new_axis_with_reason,omitempty"`
+	MaxConsecutiveNewAxis          int    `yaml:"max_consecutive_new_axis,omitempty" json:"max_consecutive_new_axis,omitempty"`
 }
 
 type SessionState struct {

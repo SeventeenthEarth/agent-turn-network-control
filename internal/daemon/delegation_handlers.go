@@ -33,6 +33,10 @@ func (s *Server) handleDelegateNew(request protocol.CommandRequest) protocol.Com
 	if len(participants) == 0 {
 		participants = compactStrings(moderator, assignee)
 	}
+	limits, err := limitsParam(request)
+	if err != nil {
+		return protocol.ErrorResponse(request, daemonProtocolError(err))
+	}
 	metadata, results, dedup, err := storage.CreateDelegation(s.DataHome, loaded, storage.DelegationStartSpec{
 		Session: storage.SessionSpec{
 			ID:              sessionID,
@@ -43,7 +47,7 @@ func (s *Server) handleDelegateNew(request protocol.CommandRequest) protocol.Com
 			Surface:         surfaceParam(request),
 			LinkedAuthority: linkedAuthorityParam(request),
 			TurnMode:        stringParam(request, "turn_mode"),
-			Limits:          limitsParam(request),
+			Limits:          limits,
 			EventID:         eventID,
 			CommandID:       commandID,
 			CorrelationID:   stringParam(request, "correlation_id"),
@@ -288,17 +292,35 @@ func mapParam(request protocol.CommandRequest, key string) map[string]any {
 	return out
 }
 
-func limitsParam(request protocol.CommandRequest) storage.Limits {
+func limitsParam(request protocol.CommandRequest) (storage.Limits, error) {
 	var limits storage.Limits
-	value := mapParam(request, "limits")
+	if request.Params == nil {
+		return limits, nil
+	}
+	raw, exists := request.Params["limits"]
+	if !exists || raw == nil {
+		return limits, nil
+	}
+	value, ok := raw.(map[string]any)
+	if !ok {
+		var decoded map[string]any
+		data, err := json.Marshal(raw)
+		if err != nil || json.Unmarshal(data, &decoded) != nil {
+			return limits, storage.NewValidationError(storage.CategoryInvalidEnvelope, "limits", "limits must be an object matching supported typed schema")
+		}
+		value = decoded
+	}
 	if len(value) == 0 {
-		return limits
+		return limits, nil
 	}
 	data, err := json.Marshal(value)
 	if err == nil {
-		_ = json.Unmarshal(data, &limits)
+		err = json.Unmarshal(data, &limits)
 	}
-	return limits
+	if err != nil {
+		return limits, storage.NewValidationError(storage.CategoryInvalidEnvelope, "limits", "limits must match supported typed schema")
+	}
+	return limits, nil
 }
 
 func surfaceParam(request protocol.CommandRequest) *storage.Surface {

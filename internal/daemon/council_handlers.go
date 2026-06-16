@@ -26,6 +26,10 @@ func (s *Server) handleCouncilNew(request protocol.CommandRequest) protocol.Comm
 	if eventID == "" {
 		eventID = "evt_session_created_" + sessionID
 	}
+	limits, err := limitsParam(request)
+	if err != nil {
+		return protocol.ErrorResponse(request, daemonProtocolError(err))
+	}
 	metadata, results, dedup, err := storage.CreateCouncil(s.DataHome, loaded, storage.CouncilStartSpec{
 		Session: storage.SessionSpec{
 			ID:              sessionID,
@@ -35,7 +39,7 @@ func (s *Server) handleCouncilNew(request protocol.CommandRequest) protocol.Comm
 			Surface:         surfaceParam(request),
 			LinkedAuthority: linkedAuthorityParam(request),
 			TurnMode:        stringParam(request, "turn_mode"),
-			Limits:          limitsParam(request),
+			Limits:          limits,
 			EventID:         eventID,
 			CommandID:       commandID,
 			CorrelationID:   stringParam(request, "correlation_id"),
