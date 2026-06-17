@@ -12,6 +12,7 @@ import (
 
 	"kkachi-agent-network-control/internal/protocol"
 	"kkachi-agent-network-control/internal/registry"
+	"kkachi-agent-network-control/internal/runner"
 	"kkachi-agent-network-control/internal/storage"
 	"kkachi-agent-network-control/internal/transport"
 )
@@ -23,7 +24,11 @@ type Server struct {
 	// StreamFollowAfterReplay is a local test seam used to append durable
 	// channel.jsonl events after replay has been snapshotted and before the
 	// bounded follow poll starts. Production servers leave it nil.
-	StreamFollowAfterReplay func() error
+	StreamFollowAfterReplay   func() error
+	RunnerAdapter             runner.Adapter
+	DispatchLocks             *DispatchLocks
+	SelectedSpeakerTimeout    time.Duration
+	SelectedSpeakerMaxRetries int
 
 	mu       sync.RWMutex
 	ready    bool

@@ -103,6 +103,28 @@ func TestSelectedSpeakerDispatchRecordsDurableFailureBeforeAck(t *testing.T) {
 	}
 }
 
+func TestSelectedSpeakerDispatchRejectsMemberToMismatchBeforeAdapterLaunch(t *testing.T) {
+	dataHome, loaded, wrapper := dispatchDataHome(t)
+	metadata, _, err := storage.CreateSession(dataHome, loaded, storage.SessionSpec{ID: "sess_selected_speaker_mismatch", SessionType: storage.SessionTypeCouncil, Title: "MEMBR-002 mismatch", Moderator: "agent-mod", Participants: []string{"agent-mod", "agent-1"}, EventID: "evt_created_selected_speaker_mismatch", CommandID: "cmd_create_selected_speaker_mismatch"}, daemonFixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	sessionDir, _ := storage.SessionDir(dataHome, metadata.ID)
+	member := loaded.Registry.Members["agent-1"]
+	member.ResolvedWrapper = &registry.WrapperResolution{ResolvedPath: wrapper}
+	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: true}}}}
+	handler := daemon.SelectedSpeakerDispatchHandler{SessionDir: sessionDir, Metadata: metadata, Member: member, Adapter: adapter, Runtime: daemonFixedRuntime(), Locks: &daemon.DispatchLocks{}}
+	event := storage.EventEnvelope{SchemaVersion: protocol.SchemaVersion, EventID: "evt_speaker_selected_mismatch", CommandID: "cmd_council_grant_mismatch", CorrelationID: metadata.ID, SessionID: metadata.ID, SessionType: metadata.SessionType, Phase: storage.Phase("discussion"), Type: "speaker_selected", From: metadata.Moderator, To: []string{"agent-2"}, CreatedAt: time.Date(2026, 6, 10, 21, 30, 0, 0, time.UTC), Payload: map[string]any{"turn": 1, "member": "agent-1", "selection_mode": "manual"}}
+
+	err = handler.Handle(context.Background(), storage.StreamFrame{Event: event})
+	if err == nil {
+		t.Fatalf("member/to mismatch should fail closed")
+	}
+	if adapter.calls != 0 {
+		t.Fatalf("adapter launched despite selected member mismatch")
+	}
+}
+
 func appendSpeakerSelected(t *testing.T, sessionDir string, metadata *storage.SessionMetadata, eventID, commandID, member string) storage.EventEnvelope {
 	t.Helper()
 	event := storage.EventEnvelope{SchemaVersion: protocol.SchemaVersion, EventID: eventID, CommandID: commandID, CorrelationID: metadata.ID, SessionID: metadata.ID, SessionType: metadata.SessionType, Phase: storage.Phase("discussion"), Type: "speaker_selected", From: metadata.Moderator, To: []string{member}, CreatedAt: time.Date(2026, 6, 10, 21, 30, 0, 0, time.UTC), Payload: map[string]any{"turn": 1, "member": member, "selection_mode": "manual"}}

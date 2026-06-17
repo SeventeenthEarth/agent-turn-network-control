@@ -79,21 +79,34 @@ func CreateCouncil(dataHome string, loaded *registry.LoadedRegistry, spec Counci
 	return metadata, []AppendResult{first}, false, nil
 }
 
+func BuildCouncilEvent(sessionDir string, metadata *SessionMetadata, spec CouncilEventSpec) (EventEnvelope, error) {
+	event, _, err := buildCouncilEvent(sessionDir, metadata, spec)
+	return event, err
+}
+
 func RecordCouncilEvent(sessionDir string, metadata *SessionMetadata, spec CouncilEventSpec) (AppendResult, bool, error) {
+	event, index, err := buildCouncilEvent(sessionDir, metadata, spec)
+	if err != nil {
+		return AppendResult{}, false, err
+	}
+	return appendIdempotentEvent(sessionDir, metadata, index, event)
+}
+
+func buildCouncilEvent(sessionDir string, metadata *SessionMetadata, spec CouncilEventSpec) (EventEnvelope, *LogIndex, error) {
 	if metadata == nil {
-		return AppendResult{}, false, NewValidationError(CategoryMetadataInvalid, "session", "metadata is required")
+		return EventEnvelope{}, nil, NewValidationError(CategoryMetadataInvalid, "session", "metadata is required")
 	}
 	if metadata.SessionType != SessionTypeCouncil {
-		return AppendResult{}, false, NewValidationError(CategoryMetadataInvalid, "session_type", "council command requires council session")
+		return EventEnvelope{}, nil, NewValidationError(CategoryMetadataInvalid, "session_type", "council command requires council session")
 	}
 	index, err := ReadLogIndex(sessionDir, metadata)
 	if err != nil {
-		return AppendResult{}, false, err
+		return EventEnvelope{}, nil, err
 	}
 	current := latestPhase(metadata, index)
 	action := strings.TrimSpace(spec.Action)
 	if action == "" {
-		return AppendResult{}, false, NewValidationError(CategoryInvalidEnvelope, "action", "council action is required")
+		return EventEnvelope{}, nil, NewValidationError(CategoryInvalidEnvelope, "action", "council action is required")
 	}
 	now := spec.Now.UTC()
 	if now.IsZero() {
@@ -108,7 +121,7 @@ func RecordCouncilEvent(sessionDir string, metadata *SessionMetadata, spec Counc
 	}
 	eventType, phase, actor, to, turn, err := councilTransition(metadata, index, current, action, spec, payload)
 	if err != nil {
-		return AppendResult{}, false, err
+		return EventEnvelope{}, nil, err
 	}
 	event := EventEnvelope{
 		SchemaVersion:    protocol.SchemaVersion,
@@ -128,10 +141,10 @@ func RecordCouncilEvent(sessionDir string, metadata *SessionMetadata, spec Counc
 	}
 	if event.CausationEventID != "" {
 		if _, ok := eventByID(index, event.CausationEventID); !ok {
-			return AppendResult{}, false, NewValidationError(CategoryInvalidEnvelope, "causation_event_id", "causation event must reference this session")
+			return EventEnvelope{}, nil, NewValidationError(CategoryInvalidEnvelope, "causation_event_id", "causation event must reference this session")
 		}
 	}
-	return appendIdempotentEvent(sessionDir, metadata, index, event)
+	return event, index, nil
 }
 
 func CouncilStatusFromLog(sessionDir string, metadata *SessionMetadata) (map[string]any, error) {
@@ -352,7 +365,12 @@ func councilTransition(metadata *SessionMetadata, index *LogIndex, current Phase
 		if err := requireModerator(); err != nil {
 			return "", "", "", nil, nil, err
 		}
-		member := firstNonEmptyString(payloadStringDefault(payload, "member", ""), payloadStringDefault(payload, "to", ""))
+		payloadMember := strings.TrimSpace(payloadStringDefault(payload, "member", ""))
+		payloadTo := strings.TrimSpace(payloadStringDefault(payload, "to", ""))
+		if payloadMember != "" && payloadTo != "" && payloadMember != payloadTo {
+			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "member", "payload.member must match payload.to for speaker grant")
+		}
+		member := firstNonEmptyString(payloadMember, payloadTo)
 		if member == "" && anyBool(payload, "auto") {
 			selection, err := autoCouncilSpeaker(metadata, index)
 			if err != nil {

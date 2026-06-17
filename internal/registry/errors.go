@@ -20,6 +20,7 @@ const (
 	CategoryUnknownAdapterKind         = "registry_unknown_adapter_kind"
 	CategoryReservedPrincipalCollision = "registry_reserved_principal_collision"
 	CategorySnapshotWriteFailed        = "registry_snapshot_write_failed"
+	CategorySnapshotReadFailed         = "registry_snapshot_read_failed"
 	CategoryChangedDuringLoad          = "registry_changed_during_load"
 	CategoryWrapperUnresolvable        = "wrapper_unresolvable"
 	CategoryWrapperOutsideAllowlist    = "wrapper_outside_allowlist"

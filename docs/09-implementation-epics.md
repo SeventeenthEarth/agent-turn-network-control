@@ -165,4 +165,4 @@ RUNFIX does not assert that KAN live council discussion is ready. Until `plugin/
 | 9 | control | RUNFIX-009 | Provide integrated control smoke fixtures for runner invocation, canonical speech linkage, ARGUE quality diagnostics, and export/closeout evidence. | control smoke tests, transcript/export/projection evidence | control-only proof passes without live Discord/profile mutation |
 | 10 | plugin | RUNFIX-010 | Run approved live-local activation pilot and final operator package. | plugin activation/runbook/evidence | two-thread no-restart smoke or exact blocker; final readiness classification |
 
-RUNFIX implementation tasks (`RUNFIX-003` through `RUNFIX-010`) remain planned after accepted RUNFIX-001/RUNFIX-002 docs-only SOT locks and require separate 주군 authorization before implementation starts.
+RUNFIX implementation tasks after accepted RUNFIX-001/RUNFIX-002 docs-only SOT locks require separate 주군 authorization before implementation starts. `RUNFIX-003` is now completed as a local/control implementation proof only; `RUNFIX-004` through `RUNFIX-010` remain planned and still require separate authorization and evidence gates.

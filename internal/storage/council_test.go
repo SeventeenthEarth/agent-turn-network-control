@@ -75,6 +75,11 @@ func TestIntegrationCouncilLifecycleFailClosedGuardsAndProjection(t *testing.T) 
 		t.Fatalf("poll must derive turn 1, got turn=%v payload=%#v", pollEvent.Turn, pollEvent.Payload)
 	}
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-1", CommandID: "cmd_raise_1", Payload: map[string]any{"turn": 1, "intent": "risk", "relevance": 5, "urgency": 4, "reason": "important"}, Now: fixedRuntime().Now().Add(10 * time.Second)})
+	if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_grant_member_to_mismatch", Payload: map[string]any{"turn": 1, "member": "agent-1", "to": "agent-2", "selection_mode": "moderator_direct", "reason": "targeted answer"}, Now: fixedRuntime().Now().Add(11 * time.Second)}); err == nil {
+		t.Fatalf("grant payload.member/to mismatch must fail closed")
+	} else {
+		assertStorageIssue(t, err, CategoryInvalidEnvelope)
+	}
 	if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_invalid_selection_mode", Payload: map[string]any{"turn": 1, "member": "agent-1", "selection_mode": "invalid_mode", "reason": "targeted answer"}, Now: fixedRuntime().Now().Add(11 * time.Second)}); err == nil {
 		t.Fatalf("unsupported selection_mode must fail closed")
 	} else {

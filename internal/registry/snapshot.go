@@ -19,8 +19,9 @@ type SnapshotMetadata struct {
 }
 
 type snapshotFile struct {
-	Metadata SnapshotMetadata     `yaml:"snapshot_metadata"`
-	Members  map[string]rawMember `yaml:"members"`
+	Metadata             SnapshotMetadata     `yaml:"snapshot_metadata"`
+	WrapperPathAllowlist []string             `yaml:"wrapper_path_allowlist,omitempty"`
+	Members              map[string]rawMember `yaml:"members"`
 }
 
 func WriteSnapshotAtomic(sessionDir string, loaded *LoadedRegistry, runtime Runtime) error {
@@ -54,7 +55,8 @@ func WriteSnapshotAtomic(sessionDir string, loaded *LoadedRegistry, runtime Runt
 			LoadedByUID:   loaded.LoadedByUID,
 			SchemaVersion: loaded.Registry.EffectiveSchemaVersion(),
 		},
-		Members: membersForSnapshot(loaded.Registry),
+		WrapperPathAllowlist: append([]string(nil), loaded.Registry.WrapperPathAllowlist...),
+		Members:              membersForSnapshot(loaded.Registry),
 	}
 	encoder := yaml.NewEncoder(file)
 	encoder.SetIndent(2)
@@ -82,6 +84,57 @@ func WriteSnapshotAtomic(sessionDir string, loaded *LoadedRegistry, runtime Runt
 		return NewValidationError(CategorySnapshotWriteFailed, sessionDir, err.Error())
 	}
 	return nil
+}
+
+func LoadSnapshot(sessionDir string, runtime Runtime) (*LoadedRegistry, error) {
+	runtime = runtime.withDefaults()
+	path := filepath.Join(sessionDir, SnapshotFileName)
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, NewValidationError(CategorySnapshotReadFailed, path, err.Error())
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil, NewValidationError(CategorySnapshotReadFailed, path, "registry snapshot symlinks are forbidden")
+	}
+	if !info.Mode().IsRegular() {
+		return nil, NewValidationError(CategorySnapshotReadFailed, path, "registry snapshot is not regular")
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, NewValidationError(CategorySnapshotReadFailed, path, err.Error())
+	}
+	var doc snapshotFile
+	if err := yaml.Unmarshal(content, &doc); err != nil {
+		return nil, NewValidationError(CategorySnapshotReadFailed, path, err.Error())
+	}
+	reg, err := parseRegistryFromSnapshot(doc)
+	if err != nil {
+		return nil, err
+	}
+	loaded := &LoadedRegistry{
+		DataHome:      filepath.Clean(filepath.Join(sessionDir, "..", "..")),
+		SourcePath:    doc.Metadata.SourcePath,
+		SourceSHA256:  doc.Metadata.SourceSHA256,
+		LoadedByUID:   doc.Metadata.LoadedByUID,
+		Registry:      reg,
+		SourceContent: append([]byte(nil), content...),
+	}
+	if err := resolveEnabledWrappers(loaded, runtime); err != nil {
+		return nil, err
+	}
+	return loaded, nil
+}
+
+func parseRegistryFromSnapshot(doc snapshotFile) (Registry, error) {
+	reg, issues := validateRawRegistry(rawRegistry{
+		SchemaVersion:        doc.Metadata.SchemaVersion,
+		Members:              doc.Members,
+		WrapperPathAllowlist: append([]string(nil), doc.WrapperPathAllowlist...),
+	})
+	if len(issues) > 0 {
+		return Registry{}, NewValidationErrors(issues)
+	}
+	return reg, nil
 }
 
 func membersForSnapshot(registry Registry) map[string]rawMember {
@@ -132,7 +185,8 @@ func SnapshotYAMLForTest(loaded *LoadedRegistry, at time.Time) ([]byte, error) {
 			LoadedByUID:   loaded.LoadedByUID,
 			SchemaVersion: loaded.Registry.EffectiveSchemaVersion(),
 		},
-		Members: membersForSnapshot(loaded.Registry),
+		WrapperPathAllowlist: append([]string(nil), loaded.Registry.WrapperPathAllowlist...),
+		Members:              membersForSnapshot(loaded.Registry),
 	}
 	ids := make([]string, 0, len(doc.Members))
 	for id := range doc.Members {

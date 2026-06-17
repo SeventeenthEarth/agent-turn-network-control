@@ -26,13 +26,18 @@ type RunnerDispatchService struct {
 }
 
 type RunnerDispatchRequest struct {
-	CommandID        string
-	SourceCommandID  string
-	CausationEventID string
-	Prompt           string
-	MaxRetries       int
-	Timeout          time.Duration
-	Cancelled        func() bool
+	CommandID                string
+	SourceCommandID          string
+	CausationEventID         string
+	Prompt                   string
+	MaxRetries               int
+	Timeout                  time.Duration
+	Cancelled                func() bool
+	AllowedTerminalTypes     []string
+	DisallowedTerminalReason string
+	TerminalValidator        RunnerTerminalValidator
+	PayloadMissingReason     string
+	PayloadInvalidReason     string
 }
 
 type RunnerDispatchResult struct {
@@ -41,6 +46,8 @@ type RunnerDispatchResult struct {
 	TerminalEventType string
 	Attempts          int
 }
+
+type RunnerTerminalValidator func(storage.EventEnvelope) (storage.EventEnvelope, error)
 
 type DispatchLocks struct {
 	mu    sync.Mutex
@@ -118,11 +125,47 @@ func (s *RunnerDispatchService) Dispatch(ctx context.Context, req RunnerDispatch
 			if terminalType == "" {
 				terminalType = "assignee_update"
 			}
+			if !allowedTerminalType(terminalType, req.AllowedTerminalTypes) {
+				reason := strings.TrimSpace(req.DisallowedTerminalReason)
+				if reason == "" {
+					reason = "terminal_event_type_not_allowed"
+				}
+				payload := map[string]any{
+					"reason":               reason,
+					"discarded_event_type": terminalType,
+					"allowed_event_types":  append([]string(nil), req.AllowedTerminalTypes...),
+					"diagnostic_owner":     "control/RUNFIX-003",
+					"diagnostic_path":      "internal/daemon/selected_speaker.go",
+				}
+				result.Discarded = true
+				terminal, appendErr := s.appendTerminal(req, "runner_result_discarded", invocationID, sourceCommandID, attempt, result, payload)
+				out.TerminalEvent = terminal.EventID
+				out.TerminalEventType = terminal.Type
+				return out, appendErr
+			}
 			payload := result.Payload
-			if payload == nil {
+			if payload == nil && req.TerminalValidator == nil {
 				payload = map[string]any{"stdout": string(result.Stdout)}
 			}
-			terminal, appendErr := s.appendTerminal(req, terminalType, invocationID, sourceCommandID, attempt, result, payload)
+			terminal, appendErr := s.appendSuccessTerminal(req, terminalType, invocationID, sourceCommandID, attempt, result, payload)
+			if appendErr != nil && req.TerminalValidator != nil {
+				reason := strings.TrimSpace(req.PayloadInvalidReason)
+				if payload == nil {
+					reason = strings.TrimSpace(req.PayloadMissingReason)
+				}
+				if reason == "" {
+					reason = "terminal_payload_validation_failed"
+				}
+				diagnosticPayload := map[string]any{
+					"reason":               reason,
+					"discarded_event_type": terminalType,
+					"diagnostic_owner":     "control/RUNFIX-003",
+					"diagnostic_path":      "internal/daemon/selected_speaker.go",
+					"validation_error":     appendErr.Error(),
+				}
+				result.Discarded = true
+				terminal, appendErr = s.appendTerminal(req, "runner_result_discarded", invocationID, sourceCommandID, attempt, result, diagnosticPayload)
+			}
 			out.TerminalEvent = terminal.EventID
 			out.TerminalEventType = terminal.Type
 			return out, appendErr
@@ -140,6 +183,18 @@ func (s *RunnerDispatchService) Dispatch(ctx context.Context, req RunnerDispatch
 		}
 	}
 	return out, priorErr
+}
+
+func allowedTerminalType(terminalType string, allowed []string) bool {
+	if len(allowed) == 0 {
+		return true
+	}
+	for _, typ := range allowed {
+		if terminalType == typ {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *RunnerDispatchService) preflight() error {
@@ -211,6 +266,25 @@ func (s *RunnerDispatchService) appendRetry(req RunnerDispatchRequest, attempt i
 func (s *RunnerDispatchService) appendTerminal(req RunnerDispatchRequest, typ, invocationID, sourceCommandID string, attempt int, result runner.Result, payload map[string]any) (storage.EventEnvelope, error) {
 	event := s.baseEvent(req, typ, invocationID, sourceCommandID, attempt, &result, payload)
 	event.Cost = runner.CostRaw(result.Cost)
+	res, err := storage.AppendEvent(s.SessionDir, s.Metadata, event)
+	if err == nil {
+		event.EventID = res.EventID
+	}
+	return event, err
+}
+
+func (s *RunnerDispatchService) appendSuccessTerminal(req RunnerDispatchRequest, typ, invocationID, sourceCommandID string, attempt int, result runner.Result, payload map[string]any) (storage.EventEnvelope, error) {
+	event := s.baseEvent(req, typ, invocationID, sourceCommandID, attempt, &result, payload)
+	event.Cost = runner.CostRaw(result.Cost)
+	if req.TerminalValidator != nil {
+		validated, err := req.TerminalValidator(event)
+		if err != nil {
+			return storage.EventEnvelope{}, err
+		}
+		event = validated
+		event.Runner = s.baseEvent(req, typ, invocationID, sourceCommandID, attempt, &result, payload).Runner
+		event.Cost = runner.CostRaw(result.Cost)
+	}
 	res, err := storage.AppendEvent(s.SessionDir, s.Metadata, event)
 	if err == nil {
 		event.EventID = res.EventID
