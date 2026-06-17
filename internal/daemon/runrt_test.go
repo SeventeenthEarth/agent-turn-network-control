@@ -154,6 +154,57 @@ func TestRUNRTDispatcherNormalizesNonzeroExitStatus(t *testing.T) {
 	}
 }
 
+func TestRUNRTDispatcherPreservesRUNFIX004FailureDiagnostics(t *testing.T) {
+	dataHome, loaded, wrapper := dispatchDataHome(t)
+	metadata, _, err := storage.CreateSession(dataHome, loaded, storage.SessionSpec{ID: "sess_runfix004_failure", SessionType: storage.SessionTypeDelegation, Title: "RUNFIX-004 failure", Moderator: "agent-mod", Participants: []string{"agent-mod", "agent-1"}, EventID: "evt_created_runfix004_failure", CommandID: "cmd_create_runfix004_failure"}, daemonFixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	sessionDir, _ := storage.SessionDir(dataHome, metadata.ID)
+	member := loaded.Registry.Members["agent-1"]
+	member.ResolvedWrapper = &registry.WrapperResolution{ResolvedPath: wrapper}
+	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: false, ErrorClass: runner.ErrorClassAdapterCommandMismatch, Payload: map[string]any{"diagnostic_excerpt": "platform_delivery posted [redacted]"}}, err: runner.ErrSemantic}}}
+	service := daemon.RunnerDispatchService{SessionDir: sessionDir, Metadata: metadata, Member: member, Adapter: adapter, Runtime: daemonFixedRuntime(), Locks: &daemon.DispatchLocks{}, Now: daemonFixedRuntime().Now}
+	if _, err := service.Dispatch(context.Background(), daemon.RunnerDispatchRequest{CommandID: "cmd_runfix004_failure"}); err != nil {
+		t.Fatalf("Dispatch appending failure should succeed: %v", err)
+	}
+	index, _ := storage.ReadLogIndex(sessionDir, metadata)
+	failure := findEvent(t, index.Events, "runner_invocation_failed")
+	if failure.Payload["error_class"] != runner.ErrorClassAdapterCommandMismatch || failure.Payload["reason"] != runner.ErrorClassAdapterCommandMismatch {
+		t.Fatalf("failure payload should preserve RUNFIX-004 class/reason: %#v", failure.Payload)
+	}
+	if failure.Payload["diagnostic_excerpt"] != "platform_delivery posted [redacted]" {
+		t.Fatalf("failure payload should preserve redacted diagnostic excerpt only: %#v", failure.Payload)
+	}
+}
+
+func TestRUNRTDispatcherClassifiesCancelledLateResultAsStalePhaseEvidence(t *testing.T) {
+	dataHome, loaded, wrapper := dispatchDataHome(t)
+	metadata, _, err := storage.CreateSession(dataHome, loaded, storage.SessionSpec{ID: "sess_runfix004_stale", SessionType: storage.SessionTypeDelegation, Title: "RUNFIX-004 stale", Moderator: "agent-mod", Participants: []string{"agent-mod", "agent-1"}, EventID: "evt_created_runfix004_stale", CommandID: "cmd_create_runfix004_stale"}, daemonFixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	sessionDir, _ := storage.SessionDir(dataHome, metadata.ID)
+	member := loaded.Registry.Members["agent-1"]
+	member.ResolvedWrapper = &registry.WrapperResolution{ResolvedPath: wrapper}
+	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: true, SemanticEventType: "assignee_update", SemanticStatus: "succeeded", Payload: map[string]any{"message": "late"}, Cost: &runner.Cost{Source: runner.HermesAgentCostSource}}}}}
+	service := daemon.RunnerDispatchService{SessionDir: sessionDir, Metadata: metadata, Member: member, Adapter: adapter, Runtime: daemonFixedRuntime(), Locks: &daemon.DispatchLocks{}, Now: daemonFixedRuntime().Now}
+	if _, err := service.Dispatch(context.Background(), daemon.RunnerDispatchRequest{CommandID: "cmd_runfix004_stale", Cancelled: func() bool { return true }}); err != nil {
+		t.Fatalf("Dispatch appending stale discard should succeed: %v", err)
+	}
+	index, _ := storage.ReadLogIndex(sessionDir, metadata)
+	discarded := findEvent(t, index.Events, "runner_result_discarded")
+	if discarded.Payload["error_class"] != runner.ErrorClassStalePhaseEvidence || discarded.Payload["reason"] != runner.ErrorClassStalePhaseEvidence || discarded.Payload["discard_reason"] != "cancelled_or_late_result" {
+		t.Fatalf("discard payload should preserve stale phase evidence: %#v", discarded.Payload)
+	}
+	if discarded.Runner.Status != "discarded_after_cancel" {
+		t.Fatalf("discarded runner status=%q want discarded_after_cancel", discarded.Runner.Status)
+	}
+	if eventTypeCount(index.Events, "assignee_update") != 0 {
+		t.Fatalf("late success must not be appended as semantic success: %#v", index.Events)
+	}
+}
+
 func TestRUNRTDispatcherDoesNotLaunchWhenStartedAppendFails(t *testing.T) {
 	dataHome, loaded, wrapper := dispatchDataHome(t)
 	metadata, _, err := storage.CreateSession(dataHome, loaded, storage.SessionSpec{ID: "sess_append_fail", SessionType: storage.SessionTypeDelegation, Title: "RUNRT append fail", Moderator: "agent-mod", Participants: []string{"agent-mod", "agent-1"}, EventID: "evt_created_append_fail", CommandID: "cmd_create_append_fail"}, daemonFixedRuntime())

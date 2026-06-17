@@ -104,26 +104,26 @@ func (s *Server) dispatchSelectedSpeakerAfterGrant(ctx context.Context, sessionD
 		return nil
 	}
 	if selectedSpeakerDispatchStartedWithoutTerminal(index.Events, event.EventID) {
-		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "selected_runner_dispatch_incomplete_stale", "internal/daemon/selected_speaker.go")
+		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, runner.ErrorClassStalePhaseEvidence, "selected_runner_dispatch_incomplete_stale", "internal/daemon/selected_speaker.go")
 	}
 	selected, err := selectedSpeakerMember(event)
 	if err != nil {
-		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "selected_member_mismatch", "internal/daemon/selected_speaker.go")
+		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "", "selected_member_mismatch", "internal/daemon/selected_speaker.go")
 	}
 	if selected == "" {
-		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "selected_member_missing", "internal/daemon/selected_speaker.go")
+		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "", "selected_member_missing", "internal/daemon/selected_speaker.go")
 	}
 	loaded, err := registry.LoadSnapshot(sessionDir, s.Runtime)
 	if err != nil {
-		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "registry_snapshot_unavailable", registry.SnapshotFileName)
+		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "", "registry_snapshot_unavailable", registry.SnapshotFileName)
 	}
 	member, ok := loaded.Registry.Members[selected]
 	if !ok || !member.Enabled {
-		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "selected_member_not_enabled_in_snapshot", registry.SnapshotFileName)
+		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "", "selected_member_not_enabled_in_snapshot", registry.SnapshotFileName)
 	}
 	adapter, err := s.selectedSpeakerAdapter()
 	if err != nil {
-		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "runner_adapter_unavailable", "internal/runner")
+		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "", "runner_adapter_unavailable", "internal/runner")
 	}
 	dispatchMetadata := *metadata
 	dispatchMetadata.State.Phase = event.Phase
@@ -143,7 +143,7 @@ func (s *Server) dispatchSelectedSpeakerAfterGrant(ctx context.Context, sessionD
 	}
 	frame := storage.StreamFrame{Cursor: result.Cursor, IsReplay: false, Event: event}
 	if err := handler.Handle(ctx, frame); err != nil && !errors.Is(err, memberruntime.ErrDurableFailureRecorded) {
-		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "selected_runner_dispatch_failed", "internal/daemon/selected_speaker.go")
+		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "", "selected_runner_dispatch_failed", "internal/daemon/selected_speaker.go")
 	}
 	return nil
 }
@@ -210,7 +210,16 @@ func selectedSpeakerDispatchStartedWithoutTerminal(events []storage.EventEnvelop
 	return false
 }
 
-func (s *Server) appendSelectedSpeakerDispatchDiagnostic(sessionDir string, metadata *storage.SessionMetadata, speaker storage.EventEnvelope, reason, path string) error {
+func (s *Server) appendSelectedSpeakerDispatchDiagnostic(sessionDir string, metadata *storage.SessionMetadata, speaker storage.EventEnvelope, errorClass, reason, path string) error {
+	payload := map[string]any{
+		"reason":           reason,
+		"selected_member":  selectedMemberForDiagnostic(speaker),
+		"diagnostic_owner": "control/RUNFIX-003",
+		"diagnostic_path":  path,
+	}
+	if errorClass != "" {
+		payload["error_class"] = errorClass
+	}
 	event := storage.EventEnvelope{
 		SchemaVersion:    protocol.SchemaVersion,
 		EventID:          eventIDFor(speaker.EventID, "selected_runner_dispatch_failed", 1, s.now()),
@@ -224,12 +233,7 @@ func (s *Server) appendSelectedSpeakerDispatchDiagnostic(sessionDir string, meta
 		From:             "kkachi-agent-networkd",
 		To:               []string{metadata.Moderator},
 		CreatedAt:        s.now(),
-		Payload: map[string]any{
-			"reason":           reason,
-			"selected_member":  selectedMemberForDiagnostic(speaker),
-			"diagnostic_owner": "control/RUNFIX-003",
-			"diagnostic_path":  path,
-		},
+		Payload:          payload,
 	}
 	_, err := storage.AppendEvent(sessionDir, metadata, event)
 	return err

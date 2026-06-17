@@ -68,7 +68,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | Phase 11 | SURFD | surface delivery evidence contract | projection/transcript/export or fixture evidence supports visible rendering |
 | Phase 12 | ENSOT | terminal outcome / visible closeout event semantics | docs SOT accepted after Red/Orange/Gray review and Blue synthesis |
 | Phase 13 | ARGUE | council argument graph and discussion-quality evidence | ARGUE-001 accepted after Red/Orange/Gray review and Blue synthesis; ARGUE-002 static protocol/fixture scope accepted under KAS/KAH run `run-20260615T145822Z-caab064cf550`; ARGUE-003+ require separate explicit authorization |
-| Phase 14 | RUNFIX | council runner, activation, and discussion-quality remediation | RUNFIX-001/RUNFIX-002 docs-only SOT locks are accepted after Red/Orange/Gray review, focused re-check, and Blue final synthesis; implementation tasks still require separate authorization after this SOT lock |
+| Phase 14 | RUNFIX | council runner, activation, and discussion-quality remediation | RUNFIX-001/RUNFIX-002 docs-only SOT locks are accepted after Red/Orange/Gray review, focused re-check, and Blue final synthesis; RUNFIX-003 and RUNFIX-004 are completed as bounded local/control implementation proofs; remaining RUNFIX implementation tasks still require separate authorization and evidence gates |
 
 ## BOOTS — Bootstrap
 
@@ -165,4 +165,4 @@ RUNFIX does not assert that KAN live council discussion is ready. Until `plugin/
 | 9 | control | RUNFIX-009 | Provide integrated control smoke fixtures for runner invocation, canonical speech linkage, ARGUE quality diagnostics, and export/closeout evidence. | control smoke tests, transcript/export/projection evidence | control-only proof passes without live Discord/profile mutation |
 | 10 | plugin | RUNFIX-010 | Run approved live-local activation pilot and final operator package. | plugin activation/runbook/evidence | two-thread no-restart smoke or exact blocker; final readiness classification |
 
-RUNFIX implementation tasks after accepted RUNFIX-001/RUNFIX-002 docs-only SOT locks require separate 주군 authorization before implementation starts. `RUNFIX-003` is now completed as a local/control implementation proof only; `RUNFIX-004` through `RUNFIX-010` remain planned and still require separate authorization and evidence gates.
+RUNFIX implementation tasks after accepted RUNFIX-001/RUNFIX-002 docs-only SOT locks require separate 주군 authorization before implementation starts. `RUNFIX-003` and `RUNFIX-004` are now completed as local/control implementation proofs only; `RUNFIX-005` through `RUNFIX-010` remain planned and still require separate authorization and evidence gates.

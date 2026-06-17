@@ -208,7 +208,7 @@ func TestCouncilGrantStartedOnlyReplayRecordsStaleIncompleteDispatch(t *testing.
 		t.Fatalf("ReadLogIndex after replay: %v", err)
 	}
 	diagnostic := findEvent(t, index.Events, "selected_runner_dispatch_failed")
-	if diagnostic.Payload["reason"] != "selected_runner_dispatch_incomplete_stale" || diagnostic.CausationEventID != selected.EventID {
+	if diagnostic.Payload["reason"] != "selected_runner_dispatch_incomplete_stale" || diagnostic.Payload["error_class"] != runner.ErrorClassStalePhaseEvidence || diagnostic.CausationEventID != selected.EventID {
 		t.Fatalf("started-only replay should record stale incomplete diagnostic: %#v", diagnostic)
 	}
 	if eventTypeCount(index.Events, "speech") != 0 || eventTypeCount(index.Events, "runner_invocation_started") != 1 {

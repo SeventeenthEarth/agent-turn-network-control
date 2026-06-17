@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,7 +65,7 @@ func TestIntegrationHermesAdapterUsesResolvedWrapperArgvAndParsesCost(t *testing
 	dir := t.TempDir()
 	wrapper := filepath.Join(dir, "fake-hermes")
 	log := filepath.Join(dir, "argv.log")
-	script := "#!/bin/sh\nprintf '%s\\n' \"$0|$1|$2|$KEEP_ME|${SECRET_TOKEN-unset}\" > " + shellQuote(log) + "\nprintf '%s\\n' 'session_handle=abc123'\nprintf '%s\\n' '{\"hermes_cost\":{\"tokens_in\":3,\"tokens_out\":4,\"usd_estimate\":0.05}}' >&2\n"
+	script := "#!/bin/sh\nprintf '%s\\n' \"$0|$1|$2|$KEEP_ME|${SECRET_TOKEN-unset}\" > " + shellQuote(log) + "\nprintf '%s\\n' 'session_handle=abc123'\nprintf '%s\\n' '{\"type\":\"speech\",\"payload\":{\"turn\":1,\"speech\":\"hello world\"}}'\nprintf '%s\\n' '{\"hermes_cost\":{\"tokens_in\":3,\"tokens_out\":4,\"usd_estimate\":0.05}}' >&2\n"
 	if err := os.WriteFile(wrapper, []byte(script), 0o700); err != nil {
 		t.Fatalf("write wrapper: %v", err)
 	}
@@ -91,6 +92,9 @@ func TestIntegrationHermesAdapterUsesResolvedWrapperArgvAndParsesCost(t *testing
 	if result.SessionHandle == nil || *result.SessionHandle != "abc123" {
 		t.Fatalf("session handle not parsed: %#v", result.SessionHandle)
 	}
+	if result.SemanticEventType != "speech" || result.Payload["speech"] != "hello world" {
+		t.Fatalf("typed response payload not parsed: event=%q payload=%#v", result.SemanticEventType, result.Payload)
+	}
 }
 
 func TestIntegrationHermesAdapterTimeoutReportsMissingCost(t *testing.T) {
@@ -106,6 +110,122 @@ func TestIntegrationHermesAdapterTimeoutReportsMissingCost(t *testing.T) {
 	}
 	if result.Cost != nil {
 		t.Fatalf("timeout cost should be nil: %#v", result.Cost)
+	}
+}
+
+func TestIntegrationHermesAdapterClassifiesResponseGenerationOutput(t *testing.T) {
+	tests := []struct {
+		name            string
+		stdout          string
+		stderr          string
+		exit            int
+		wantOK          bool
+		wantEvent       string
+		wantClass       string
+		forbidExcerpt   []string
+		wantErr         bool
+		wantPayloadKey  string
+		wantSemanticErr bool
+	}{
+		{
+			name:      "explicit response text succeeds",
+			stdout:    "session_handle=abc\nfresh response text\n",
+			wantOK:    true,
+			wantEvent: "assignee_update",
+		},
+		{
+			name:          "delivery shaped output is adapter mismatch",
+			stdout:        "session_handle=abc\nplatform_delivery=posted message_id=123\n",
+			wantClass:     ErrorClassAdapterCommandMismatch,
+			wantErr:       true,
+			forbidExcerpt: []string{"message_id=123"},
+		},
+		{
+			name:            "typed platform delivery is adapter mismatch",
+			stdout:          "session_handle=abc\n{\"type\":\"platform_delivery\",\"message_id\":\"123\"}\n",
+			wantClass:       ErrorClassAdapterCommandMismatch,
+			wantErr:         true,
+			wantPayloadKey:  "diagnostic_excerpt",
+			forbidExcerpt:   []string{"message_id", "message_id\":\"123"},
+			wantSemanticErr: true,
+		},
+		{
+			name:            "typed fallback delivery is adapter mismatch",
+			stdout:          "session_handle=abc\n{\"type\":\"fallback\",\"message\":\"posted\"}\n",
+			wantClass:       ErrorClassAdapterCommandMismatch,
+			wantErr:         true,
+			wantPayloadKey:  "diagnostic_excerpt",
+			wantSemanticErr: true,
+		},
+		{
+			name:           "provider failure is classified and redacted",
+			stdout:         "session_handle=abc\n",
+			stderr:         "provider error: model not found wrapper=/tmp/secret-wrapper SECRET_TOKEN=supersecret\n",
+			exit:           1,
+			wantClass:      ErrorClassModelProviderFailure,
+			wantErr:        true,
+			wantPayloadKey: "diagnostic_excerpt",
+			forbidExcerpt:  []string{"supersecret", "SECRET_TOKEN", "/tmp/secret-wrapper"},
+		},
+		{
+			name:      "malformed json is malformed missing response",
+			stdout:    "{not json\n",
+			wantClass: ErrorClassMalformedOrMissingResponse,
+			wantErr:   true,
+		},
+		{
+			name:      "session handle alone is missing response",
+			stdout:    "session_handle=abc\n",
+			wantClass: ErrorClassMalformedOrMissingResponse,
+			wantErr:   true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			wrapper := filepath.Join(dir, "fake-hermes")
+			script := "#!/bin/sh\n"
+			if tt.stdout != "" {
+				script += "printf '%s' " + shellQuote(tt.stdout) + "\n"
+			}
+			if tt.stderr != "" {
+				script += "printf '%s' " + shellQuote(tt.stderr) + " >&2\n"
+			}
+			if tt.exit != 0 {
+				script += "exit 1\n"
+			}
+			if err := os.WriteFile(wrapper, []byte(script), 0o700); err != nil {
+				t.Fatalf("write wrapper: %v", err)
+			}
+			result, err := NewHermesAgentAdapter().Send(context.Background(), Request{ResolvedWrapper: wrapper, Member: registry.Member{Workspace: dir}})
+			if tt.wantErr && err == nil {
+				t.Fatalf("expected error, got result=%#v", result)
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("unexpected error: result=%#v err=%v", result, err)
+			}
+			if tt.wantSemanticErr && !errors.Is(err, ErrSemantic) {
+				t.Fatalf("error should wrap ErrSemantic, got result=%#v err=%v", result, err)
+			}
+			if result.OK != tt.wantOK {
+				t.Fatalf("OK=%v want %v result=%#v", result.OK, tt.wantOK, result)
+			}
+			if tt.wantEvent != "" && result.SemanticEventType != tt.wantEvent {
+				t.Fatalf("event=%q want %q payload=%#v", result.SemanticEventType, tt.wantEvent, result.Payload)
+			}
+			if tt.wantClass != "" && result.ErrorClass != tt.wantClass {
+				t.Fatalf("error_class=%q want %q result=%#v err=%v", result.ErrorClass, tt.wantClass, result, err)
+			}
+			if tt.wantPayloadKey != "" && result.Payload[tt.wantPayloadKey] == nil {
+				t.Fatalf("payload missing %q: %#v", tt.wantPayloadKey, result.Payload)
+			}
+			excerpt, _ := result.Payload["diagnostic_excerpt"].(string)
+			for _, forbidden := range tt.forbidExcerpt {
+				if strings.Contains(excerpt, forbidden) {
+					t.Fatalf("diagnostic excerpt leaked %q: %q", forbidden, excerpt)
+				}
+			}
+		})
 	}
 }
 

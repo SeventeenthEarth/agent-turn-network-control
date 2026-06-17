@@ -16,6 +16,14 @@ const HermesAgentCostSource = "hermes-agent-stderr-parse"
 
 var ErrSemantic = errors.New("semantic runner failure")
 
+const (
+	ErrorClassAdapterCommandMismatch     = "adapter_command_mismatch"
+	ErrorClassModelProviderFailure       = "model_provider_failure"
+	ErrorClassTimeout                    = "timeout"
+	ErrorClassMalformedOrMissingResponse = "malformed_or_missing_response"
+	ErrorClassStalePhaseEvidence         = "stale_phase_evidence"
+)
+
 type SessionHandle string
 
 type Cost struct {

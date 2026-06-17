@@ -115,7 +115,11 @@ func (s *RunnerDispatchService) Dispatch(ctx context.Context, req RunnerDispatch
 		out.Attempts = attempt
 		discarded := result.Discarded || (req.Cancelled != nil && req.Cancelled())
 		if discarded {
-			terminal, appendErr := s.appendTerminal(req, "runner_result_discarded", invocationID, sourceCommandID, attempt, result, map[string]any{"reason": "cancelled_or_late_result"})
+			result.Discarded = true
+			if result.ErrorClass == "" {
+				result.ErrorClass = runner.ErrorClassStalePhaseEvidence
+			}
+			terminal, appendErr := s.appendTerminal(req, "runner_result_discarded", invocationID, sourceCommandID, attempt, result, runnerDiagnosticPayload(result, map[string]any{"reason": runner.ErrorClassStalePhaseEvidence, "discard_reason": "cancelled_or_late_result"}))
 			out.TerminalEvent = terminal.EventID
 			out.TerminalEventType = terminal.Type
 			return out, appendErr
@@ -138,7 +142,7 @@ func (s *RunnerDispatchService) Dispatch(ctx context.Context, req RunnerDispatch
 					"diagnostic_path":      "internal/daemon/selected_speaker.go",
 				}
 				result.Discarded = true
-				terminal, appendErr := s.appendTerminal(req, "runner_result_discarded", invocationID, sourceCommandID, attempt, result, payload)
+				terminal, appendErr := s.appendTerminal(req, "runner_result_discarded", invocationID, sourceCommandID, attempt, result, runnerDiagnosticPayload(result, payload))
 				out.TerminalEvent = terminal.EventID
 				out.TerminalEventType = terminal.Type
 				return out, appendErr
@@ -164,7 +168,7 @@ func (s *RunnerDispatchService) Dispatch(ctx context.Context, req RunnerDispatch
 					"validation_error":     appendErr.Error(),
 				}
 				result.Discarded = true
-				terminal, appendErr = s.appendTerminal(req, "runner_result_discarded", invocationID, sourceCommandID, attempt, result, diagnosticPayload)
+				terminal, appendErr = s.appendTerminal(req, "runner_result_discarded", invocationID, sourceCommandID, attempt, result, runnerDiagnosticPayload(result, diagnosticPayload))
 			}
 			out.TerminalEvent = terminal.EventID
 			out.TerminalEventType = terminal.Type
@@ -172,7 +176,7 @@ func (s *RunnerDispatchService) Dispatch(ctx context.Context, req RunnerDispatch
 		}
 		priorErr = err
 		if !retryable(result, err) || attempt > maxRetries {
-			payload := map[string]any{"error_class": result.ErrorClass, "reason": runnerFailureReason(result)}
+			payload := runnerDiagnosticPayload(result, map[string]any{"error_class": result.ErrorClass, "reason": runnerFailureReason(result)})
 			if payload["error_class"] == "" {
 				payload["error_class"] = "runner_error"
 			}
@@ -367,6 +371,14 @@ func runnerFailureReason(result runner.Result) string {
 	switch result.ErrorClass {
 	case "timeout", "dispatch_timeout":
 		return "dispatch_timeout"
+	case runner.ErrorClassAdapterCommandMismatch:
+		return runner.ErrorClassAdapterCommandMismatch
+	case runner.ErrorClassModelProviderFailure:
+		return runner.ErrorClassModelProviderFailure
+	case runner.ErrorClassMalformedOrMissingResponse:
+		return runner.ErrorClassMalformedOrMissingResponse
+	case runner.ErrorClassStalePhaseEvidence:
+		return runner.ErrorClassStalePhaseEvidence
 	case "transport", "transport_error":
 		return "transport_error"
 	case "nonzero_exit", "nonzero_exit_empty_output":
@@ -385,6 +397,22 @@ func runnerFailureReason(result runner.Result) string {
 	}
 }
 
+func runnerDiagnosticPayload(result runner.Result, payload map[string]any) map[string]any {
+	out := map[string]any{}
+	for key, value := range payload {
+		out[key] = value
+	}
+	if result.ErrorClass != "" {
+		out["error_class"] = result.ErrorClass
+	}
+	for _, key := range []string{"diagnostic_excerpt"} {
+		if value, ok := result.Payload[key]; ok {
+			out[key] = value
+		}
+	}
+	return out
+}
+
 func (s *RunnerDispatchService) now() time.Time {
 	if s.Now != nil {
 		return s.Now().UTC()
@@ -399,7 +427,7 @@ func retryable(result runner.Result, err error) bool {
 	if err == nil {
 		return false
 	}
-	return result.ErrorClass == "timeout" || result.ErrorClass == "transport" || result.ErrorClass == "nonzero_exit" || result.ErrorClass == ""
+	return result.ErrorClass == runner.ErrorClassTimeout || result.ErrorClass == "transport" || result.ErrorClass == "nonzero_exit" || result.ErrorClass == ""
 }
 
 func resolvedWrapper(member registry.Member) string {
