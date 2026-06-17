@@ -8,6 +8,8 @@ The plugin-side companion SOT is `../../kkachi-agent-network-plugin/docs/10-live
 
 This document does **not** authorize production activation, live Discord delivery, gateway/auth/token changes, active Hermes profile mutation, KAB bridge readiness, or replacing real participant profiles with role prompts. It defines repo ownership, epic/task distribution, required gates, and non-scope boundaries for post-Release-v1 live-local work.
 
+RUNFIX update: this SOT also records the control-owned side of `RUNFIX`, the cross-repo remediation epic created from the 2026-06-17 council dogfood issues report. `control/RUNFIX-001` and `plugin/RUNFIX-002` are accepted docs-only SOT locks after Red/Orange/Gray review, focused re-check, and Blue final synthesis; they do not by themselves authorize implementation, live profile activation, gateway mutation, Discord delivery, or production readiness claims.
+
 ## Scope
 
 Control-side live transport scope covers the daemon/CLI/runtime authority required before a main agent can control a council session while participant agents observe daemon events and respond through a real member runtime path.
@@ -48,9 +50,9 @@ Out of scope unless a later task explicitly opens it:
 
 ## Active epic handoff rule
 
-Active task transfer between repos must happen only at an epic boundary.
+For legacy repo-owned epics, active task transfer between repos must happen only at an epic boundary.
 
-Do **not** start a plugin task in the middle of a control epic. Do **not** start a control task in the middle of a plugin epic. If an active epic discovers a sibling-repo dependency, block the active epic with evidence, complete the sibling epic that owns the missing capability, then resume at the original epic boundary.
+Do **not** start a plugin task in the middle of a control-owned legacy epic. Do **not** start a control task in the middle of a plugin-owned legacy epic. If an active legacy epic discovers a sibling-repo dependency, block the active epic with evidence, complete the sibling epic that owns the missing capability, then resume at the original epic boundary. For an accepted cross-repo feature/remediation epic with one global task stream, such as RUNFIX, transfer happens at the recorded repo-qualified global task boundary instead of the legacy epic boundary.
 
 Recommended execution order:
 
@@ -65,6 +67,8 @@ Recommended execution order:
 | 7 | plugin | `SURFD` / `VISUX` | visible helper/rendering boundary, moderator closeout UX, and evidence pointers | later release/live pilot decision |
 
 When a task ID is referenced outside its repo-local roadmap or SOT table, use repo-qualified notation such as `control/LTRAN-001` or `plugin/LTRAN-001` to avoid ambiguity.
+
+For accepted cross-repo feature/remediation epics, both repos use the same epic ID and one globally sequential task stream. The owning repo is recorded in the task citation, for example `control/RUNFIX-001` and `plugin/RUNFIX-002`; repo-local task lists may skip numbers owned by the sibling repo.
 
 ## Control epics and tasks
 
@@ -131,6 +135,33 @@ This table mirrors the plugin SOT in control terms. `control/LTRAN-002` adds exp
 | `stream.ack` | `stream.ack` | `control/LTRAN-002` confirmation | Acknowledge only after processing or durable failure recording. |
 | `command.submit` | concrete daemon commands such as `delegate.*`, `council.*`, and delivery-evidence commands | `control/LTRAN-002` confirmation plus `control/LTRAN-003` local proof | Do not assume a generic daemon alias unless implemented; command idempotency and structured errors must be proven before plugin equivalence claims. |
 
+### RUNFIX: Council runner, activation, and discussion-quality remediation
+
+Exit: KAN can be installed and activated for an approved live-local Discord discussion only after explicit control dependency checks, eligible participant profiles, bot-to-bot-free channel policy, parent-channel allow-listing, selected-speaker runner evidence, canonical speech linkage, fallback disclosure, and ARGUE quality diagnostics have accepted evidence. Until that exit, RUNFIX work must not be described as live council readiness.
+
+The dogfood issue report showed that fallback-visible messages and lifecycle counts are not sufficient evidence of a working KAN council. RUNFIX therefore separates canonical evidence labels. Operator reports must use the snake_case label; the parenthetical prose label is display text only:
+
+- `lifecycle_pass` (**lifecycle pass**): daemon events can complete a nominal council flow;
+- `fallback_profile_pass` (**manual/fallback profile pass**): an operator obtained participant-like text through a manual profile or fallback route;
+- `selected_runner_pass` (**selected-runner pass**): `speaker_selected` caused the selected member runner to start and either submit canonical speech or record durable failure;
+- `visible_surface_pass` (**visible-surface pass**): daemon events were rendered to the approved visible surface with reconstructable delivery/projection evidence;
+- `discussion_quality_pass` (**discussion-quality pass**): non-opening speech preserves ARGUE relation evidence or a justified `new_axis`, with orphan/repetition diagnostics exposed.
+
+| Global Order | Repo | Task ID | Task Status | Task Description |
+|---:|---|---|---|---|
+| 1 | control | RUNFIX-001 | completed/docs-only | Locked this control SOT, implementation epic, roadmap, and docs-map with the RUNFIX DAG, canonical evidence labels, fallback-disclosure rules, and control-owned implementation boundaries. Accepted after Red `t_612b4d58`, Orange `t_c673aed4`, Gray `t_ce1b0c31`, focused Orange `t_131ea8c9`, focused Gray `t_7cec278f`, and Blue synthesis `t_1bb67569`. |
+| 2 | plugin | RUNFIX-002 | completed/docs-only | Locked the companion plugin activation/operator SOT, roadmap, bundled guidance boundary, control dependency, and approval-gated activation contract. Accepted after the same RUNFIX-001/002 review and Blue synthesis gate. |
+| 3 | control | RUNFIX-003 | planned | Wire selected-speaker dispatch from stream event to selected member runner without custom harness fallback. |
+| 4 | control | RUNFIX-004 | planned | Correct Hermes adapter response-generation command contract and runner diagnostics. |
+| 5 | control | RUNFIX-005 | planned | Tighten ARGUE/moderator quality gates and closeout diagnostics. |
+| 6 | plugin | RUNFIX-006 | planned | Build discussion activation planner/doctor for explicit config, control dependency, profile/tool visibility, and approval gates. |
+| 7 | plugin | RUNFIX-007 | planned | Add Discord profile eligibility, parent-channel allow-list planning, and bot-to-bot enabled profile exclusion policy. |
+| 8 | plugin | RUNFIX-008 | planned | Update participant ARGUE response guidance and fallback reporting templates. |
+| 9 | control | RUNFIX-009 | planned | Publish integrated control smoke fixtures for runner invocation, canonical speech linkage, ARGUE diagnostics, and export/closeout evidence. |
+| 10 | plugin | RUNFIX-010 | planned | Run the approved live-local activation pilot and publish the final operator package/readiness classification. |
+
+Control-owned RUNFIX implementation must fail closed on missing selected-speaker dispatch evidence, adapter response-generation mismatch, registry/profile identity mismatch, cursor gap, orphan speech in quality-required mode, stale runner phase, or fallback-only evidence mislabeled as KAN success.
+
 ### MEMBR: Member runtime profile invocation
 
 Exit: a selected participant can be invoked through a real member profile/wrapper path and produce or fail a participant response with durable daemon evidence. This exit does not claim always-on production runtimes.
@@ -141,6 +172,8 @@ Exit: a selected participant can be invoked through a real member profile/wrappe
 | MEMBR-002 | Prove selected participant invocation | candidate/isolated proof | Blue accepted an isolated fake-wrapper implementation proof that `speaker_selected` dispatches only the selected registry member through the bounded runner path and records success or durable failure evidence. Real-profile invocation, live daemon/profile activation, provider/gateway/auth/token mutation, and production readiness remain unproven and approval-gated. |
 
 #### control/MEMBR-001 docs-only acceptance
+
+
 
 `control/MEMBR-001` is a documentation gate. It selects the first participant invocation pilot mode and records the evidence and failure rules that `control/MEMBR-002` must implement. It does not edit source code, run member profiles, activate daemons, execute KAB, mutate providers/gateways/auth/tokens/secrets, or claim production/live readiness.
 

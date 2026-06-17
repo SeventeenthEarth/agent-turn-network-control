@@ -15,3 +15,20 @@ test_commands:
   - "make check-plugin-contract"
   - "make test-release-acceptance"
   - "make test"
+
+runfix:
+  epic: "RUNFIX"
+  control_sot: "docs/24-live-transport-control-sot.md"
+  plugin_sot: "../kkachi-agent-network-plugin/docs/10-live-transport-sot.md"
+  cross_repo_dag:
+    - "control/RUNFIX-001"
+    - "plugin/RUNFIX-002"
+    - "control/RUNFIX-003"
+    - "control/RUNFIX-004"
+    - "control/RUNFIX-005"
+    - "plugin/RUNFIX-006"
+    - "plugin/RUNFIX-007"
+    - "plugin/RUNFIX-008"
+    - "control/RUNFIX-009"
+    - "plugin/RUNFIX-010"
+  boundary: "RUNFIX separates lifecycle, selected-runner, visible-surface, fallback, and ARGUE-quality evidence. RUNFIX-001/002 are accepted docs-only SOT locks after Red/Orange/Gray review, focused re-check, and Blue final synthesis; no live activation, Discord/gateway/profile/provider mutation, KAB readiness, production readiness, or fallback success-as-KAN-success claim is authorized."

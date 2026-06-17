@@ -10,7 +10,7 @@ Plugin scope: Hermes plugin manifest/entrypoint, Python daemon client, tools/sla
 
 ## Epic and task ID convention
 
-Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{EPIC}-002`, and so on. The current Release v1 epic IDs are:
+Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{EPIC}-002`, and so on. For a jointly developed control/plugin capability, both repositories use the same epic ID and a single globally sequential task number stream; cite tasks with repo-qualified notation such as `control/RUNFIX-001` or `plugin/RUNFIX-002`. A repository may therefore have gaps in its local task numbers when another repo owns the intervening task. The current Release v1 and post-Release epic IDs are:
 
 | Epic ID | Epic Title | Scope |
 | --- | --- | --- |
@@ -28,6 +28,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | SURFD | Surface delivery evidence contract | event-to-visible rendering and evidence projection |
 | ENSOT | Event/outcome visible-closeout SOT | terminal council outcome and moderator visible-closeout semantics |
 | ARGUE | Council argument graph and discussion quality | control protocol/fixtures/validation/projection for claim-relation evidence |
+| RUNFIX | KAN council runner, activation, and discussion-quality remediation | cross-repo remediation for selected-speaker runner dispatch, adapter command contract, activation UX, Discord/profile eligibility, fallback disclosure, and ARGUE quality proof |
 
 ## Epic dependency graph
 
@@ -47,6 +48,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | SURFD | MEMBR, TRANS | visible rendering needs participant response evidence plus transcript/export surfaces |
 | ENSOT | SURFD | plugin visible closeout UX needs a locked terminal outcome / visible evidence contract |
 | ARGUE | ENSOT, COUNC, TRANS | discussion-quality relation evidence depends on council speech events, terminal visible-closeout semantics, and transcript/export surfaces |
+| RUNFIX | MEMBR, ARGUE, SURFD, ENSOT, LTRAN | dogfood remediation depends on prior selected-participant proof seams, argument-graph protocol, visible-surface evidence, terminal closeout semantics, and live transport compatibility |
 
 ## Implementation phase grouping
 
@@ -66,6 +68,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | Phase 11 | SURFD | surface delivery evidence contract | projection/transcript/export or fixture evidence supports visible rendering |
 | Phase 12 | ENSOT | terminal outcome / visible closeout event semantics | docs SOT accepted after Red/Orange/Gray review and Blue synthesis |
 | Phase 13 | ARGUE | council argument graph and discussion-quality evidence | ARGUE-001 accepted after Red/Orange/Gray review and Blue synthesis; ARGUE-002 static protocol/fixture scope accepted under KAS/KAH run `run-20260615T145822Z-caab064cf550`; ARGUE-003+ require separate explicit authorization |
+| Phase 14 | RUNFIX | council runner, activation, and discussion-quality remediation | RUNFIX-001/RUNFIX-002 docs-only SOT locks are accepted after Red/Orange/Gray review, focused re-check, and Blue final synthesis; implementation tasks still require separate authorization after this SOT lock |
 
 ## BOOTS — Bootstrap
 
@@ -141,3 +144,25 @@ Active task transfer between control and plugin happens only at an epic boundary
 | ARGUE-005 | Prove the control integration gate before plugin handoff or live-local pilot planning. Completed as a local verification gate under KAS/KAH run `run-20260616T132731Z-781418864c04` after plugin-contract compatibility, ARGUE conformance fixture, validation/scoring, transcript/export/projection, and full local test evidence passed. This does not claim plugin/ARGUE-004, live-local pilot readiness, production activation, or live Discord/profile/provider mutation. | integration tests, conformance checks, docs evidence | `make check-plugin-contract`; focused `go test ./internal/protocol`; focused `go test ./internal/storage`; full `make test`; no live activation |
 
 Plugin-side ARGUE adapter, rendering, participant response generation, and packaged operator guidance are companion consumer work in `../../kkachi-agent-network-plugin/`. They are referenced here only as handoff/consumer notes and are not control-roadmap tasks.
+
+
+## RUNFIX — KAN council runner, activation, and discussion-quality remediation
+
+`RUNFIX` is a cross-repo remediation epic created from the 2026-06-17 KAN council dogfood issue report. The epic uses one global task number stream across the control and plugin repositories. The owning repository is part of the task citation; gaps in a repo-local list are expected and intentional.
+
+RUNFIX does not assert that KAN live council discussion is ready. Until `plugin/RUNFIX-010` provides accepted live-local evidence, operators must distinguish lifecycle-only success, manual/fallback profile success, selected-speaker runner success, visible-surface success, and ARGUE discussion-quality success.
+
+| Global Order | Repo | Task ID | Scope | Suggested paths | Verification / gate |
+|---:|---|---|---|---|---|
+| 1 | control | RUNFIX-001 | Lock the control-side remediation SOT, readiness/fallback labels, cross-repo DAG, and roadmap entries. | `docs/24-live-transport-control-sot.md`, `docs/09-implementation-epics.md`, `docs/roadmap.md`, `docs/kkachi-docs-map.yaml` | docs guardrails, plugin contract check, Red/Orange/Gray review, Blue synthesis |
+| 2 | plugin | RUNFIX-002 | Lock the plugin-side activation/operator SOT, control dependency, cross-repo DAG, and roadmap entries. | plugin `docs/10-live-transport-sot.md`, `docs/06-implementation-epics-tasks.md`, `docs/09-skill-and-operator-guide.md`, bundled `kan-plugin` skill | plugin docs/test-prep/core-contract checks, Red/Orange/Gray review, Blue synthesis |
+| 3 | control | RUNFIX-003 | Wire automatic selected-speaker member runtime dispatch so `speaker_selected` can trigger selected-member runner invocation without a custom harness. | `internal/daemon/`, `internal/memberruntime/`, `internal/runner/`, stream/cursor tests | disposable runner smoke; no profile/provider/gateway mutation |
+| 4 | control | RUNFIX-004 | Correct Hermes adapter response-generation command contract and runner diagnostics. | `internal/runner/`, registry/runtime docs, runner tests | distinguishes adapter mismatch/model failure/timeout; no stale phase evidence |
+| 5 | control | RUNFIX-005 | Add or tighten ARGUE/moderator quality gates and closeout diagnostics for non-opening speech relation evidence. | `internal/daemon/`, `internal/storage/`, protocol/ARGUE docs/tests | quality-required orphan speech fails closed; lifecycle pass remains separate from discussion-quality pass |
+| 6 | plugin | RUNFIX-006 | Add KAN discussion activation planner/doctor contract for explicit control dependency, profile/tool visibility, daemon config, and approval gates. | plugin activation docs/tools as scoped by plan | dry-run shows planned changes, excluded profiles, rollback, and blockers |
+| 7 | plugin | RUNFIX-007 | Define/implement Discord profile eligibility, parent-channel allow-list planning, and bot-to-bot enabled profile exclusion. | plugin docs/tools; possible Hermes gateway dependency | bot-to-bot enabled profiles excluded; parent-thread inheritance smoke or fail-closed blocker |
+| 8 | plugin | RUNFIX-008 | Update participant ARGUE response guidance and fallback reporting templates. | `docs/09-skill-and-operator-guide.md`, bundled skill, ARGUE docs | relation-aware examples; fallback cannot be reported as full KAN success |
+| 9 | control | RUNFIX-009 | Provide integrated control smoke fixtures for runner invocation, canonical speech linkage, ARGUE quality diagnostics, and export/closeout evidence. | control smoke tests, transcript/export/projection evidence | control-only proof passes without live Discord/profile mutation |
+| 10 | plugin | RUNFIX-010 | Run approved live-local activation pilot and final operator package. | plugin activation/runbook/evidence | two-thread no-restart smoke or exact blocker; final readiness classification |
+
+RUNFIX implementation tasks (`RUNFIX-003` through `RUNFIX-010`) remain planned after accepted RUNFIX-001/RUNFIX-002 docs-only SOT locks and require separate 주군 authorization before implementation starts.
