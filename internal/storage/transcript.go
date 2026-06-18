@@ -179,9 +179,10 @@ func renderTranscriptMarkdown(metadata *SessionMetadata, events []EventEnvelope)
 	fmt.Fprintf(&b, "- registry_snapshot_sha256: `%s`\n", metadata.RegistrySnapshot.SourceSHA256)
 	fmt.Fprintln(&b)
 	fmt.Fprintln(&b, "## Runner And Cost Summary")
-	fmt.Fprintf(&b, "- runner_calls_total: `%d`\n", metadata.Cost.RunnerCallsTotal)
-	fmt.Fprintf(&b, "- usd_estimate_total: `%.6f`\n", metadata.Cost.USDEstimateTotal)
-	fmt.Fprintf(&b, "- missing_cost_runner_calls_total: `%d`\n\n", metadata.Cost.MissingCostRunnerCallsTotal)
+	cost := transcriptCostSummary(metadata, events)
+	fmt.Fprintf(&b, "- runner_calls_total: `%d`\n", cost.RunnerCallsTotal)
+	fmt.Fprintf(&b, "- usd_estimate_total: `%.6f`\n", cost.USDEstimateTotal)
+	fmt.Fprintf(&b, "- missing_cost_runner_calls_total: `%d`\n\n", cost.MissingCostRunnerCallsTotal)
 	renderVisibleSurfaceProjectionSummary(&b, events)
 	renderArgumentGraphProjectionSummary(&b, events)
 	fmt.Fprintln(&b, "## Events")
@@ -215,6 +216,37 @@ func renderTranscriptMarkdown(metadata *SessionMetadata, events []EventEnvelope)
 		fmt.Fprintln(&b, "\n```")
 	}
 	return []byte(b.String()), nil
+}
+
+func transcriptCostSummary(metadata *SessionMetadata, events []EventEnvelope) CostSummary {
+	if len(events) == 0 {
+		return metadata.Cost
+	}
+	summary := CostSummary{}
+	for _, event := range events {
+		if event.Runner == nil {
+			continue
+		}
+		if event.Type == "runner_invocation_started" {
+			summary.RunnerCallsTotal++
+			continue
+		}
+		cost := parseCost(event.Cost)
+		if cost.nullOrMissing {
+			summary.MissingCostRunnerCallsTotal++
+			continue
+		}
+		if cost.hasTokensIn {
+			summary.TokensInTotal += cost.tokensIn
+		}
+		if cost.hasTokensOut {
+			summary.TokensOutTotal += cost.tokensOut
+		}
+		if cost.hasUSD {
+			summary.USDEstimateTotal += cost.usd
+		}
+	}
+	return summary
 }
 
 func renderVisibleSurfaceProjectionSummary(b *strings.Builder, events []EventEnvelope) {
