@@ -347,6 +347,119 @@ func TestUnitCouncilArgumentGraphQualityWarnDiagnosticsDoNotMutateSpeechOrInferL
 	}
 }
 
+func TestUnitCouncilArgumentGraphStatusSeparatesLifecycleAndDiscussionQuality(t *testing.T) {
+	limits := Limits{Council: CouncilLimits{DiscussionQuality: &DiscussionQualityLimits{Mode: "quality_warn", OpeningUnlinkedTurns: 1}}}
+	sessionDir, metadata := argumentGraphCouncilForTest(t, "sess_argue_warn_status", limits)
+	appendArgumentGraphTargetForTest(t, sessionDir, metadata)
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_warn_status_grant", Payload: map[string]any{"turn": 2, "member": "agent-2", "selection_mode": "moderator_direct"}, Now: fixedRuntime().Now().Add(21 * time.Second)})
+	result := appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "speak", Actor: "agent-2", CommandID: "cmd_warn_status_speak", Payload: map[string]any{"turn": 2, "speech": "accepted but unlinked"}, Now: fixedRuntime().Now().Add(22 * time.Second)})
+	event := eventByIDForTest(t, sessionDir, metadata, result.EventID)
+	if _, ok := event.Payload["stance_links"]; ok {
+		t.Fatalf("quality_warn must not infer durable stance_links: %#v", event.Payload)
+	}
+
+	status, err := CouncilStatusFromLog(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("CouncilStatusFromLog: %v", err)
+	}
+	quality := status["discussion_quality"].(map[string]any)
+	if quality["lifecycle_pass"] != false {
+		t.Fatalf("open lifecycle should not pass: %#v", quality)
+	}
+	if quality["discussion_quality_pass"] != false {
+		t.Fatalf("orphan warning must fail discussion quality: %#v", quality)
+	}
+	if quality["mode"] != "quality_warn" {
+		t.Fatalf("quality mode not reported: %#v", quality)
+	}
+	hardWarnings := quality["hard_warning_counts"].(map[string]int)
+	if hardWarnings["orphan_speech"] != 1 {
+		t.Fatalf("orphan hard warning count missing: %#v", quality)
+	}
+	if quality["speech_count"] != 2 || quality["orphan_speech_count"] != 1 || quality["linked_speech_count"] != 0 {
+		t.Fatalf("speech summary counts wrong: %#v", quality)
+	}
+}
+
+func TestUnitCouncilArgumentGraphStatusPassesLinkedQualityBeforeLifecycleCompletion(t *testing.T) {
+	limits := Limits{Council: CouncilLimits{DiscussionQuality: &DiscussionQualityLimits{
+		Mode:                           "quality_required",
+		OpeningUnlinkedTurns:           1,
+		RequireClaims:                  true,
+		RequireStanceLinksAfterOpening: true,
+		AllowNewAxisWithReason:         true,
+		MaxConsecutiveNewAxis:          1,
+	}}}
+	sessionDir, metadata := argumentGraphCouncilForTest(t, "sess_argue_required_status_pass", limits)
+	appendArgumentGraphTargetForTest(t, sessionDir, metadata)
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_required_status_grant", Payload: map[string]any{"turn": 2, "member": "agent-2", "selection_mode": "moderator_direct"}, Now: fixedRuntime().Now().Add(21 * time.Second)})
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "speak", Actor: "agent-2", CommandID: "cmd_required_status_speak", Payload: map[string]any{
+		"turn":   2,
+		"speech": "linked response",
+		"claims": []any{map[string]any{"claim_id": "T2.C1", "summary": "linked claim"}},
+		"stance_links": []any{map[string]any{
+			"target_event_id": "evt_speech_cmd_argue_target_speech",
+			"target_claim_id": "T1.C1",
+			"stance":          "support",
+			"rationale":       "connects to the opening claim",
+		}},
+		"contribution_type": "support",
+	}, Now: fixedRuntime().Now().Add(22 * time.Second)})
+
+	status, err := CouncilStatusFromLog(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("CouncilStatusFromLog: %v", err)
+	}
+	quality := status["discussion_quality"].(map[string]any)
+	if quality["lifecycle_pass"] != false {
+		t.Fatalf("open lifecycle should not pass: %#v", quality)
+	}
+	if quality["discussion_quality_pass"] != true {
+		t.Fatalf("linked ARGUE quality should pass independently of lifecycle: %#v", quality)
+	}
+	relationCounts := quality["relation_counts"].(map[string]int)
+	if relationCounts["support"] != 1 || quality["target_link_count"] != 1 || quality["linked_speech_count"] != 1 {
+		t.Fatalf("relation summary counts wrong: %#v", quality)
+	}
+}
+
+func TestUnitCouncilArgumentGraphStatusSummarizesHandRaiseTargetLinks(t *testing.T) {
+	limits := Limits{Council: CouncilLimits{DiscussionQuality: &DiscussionQualityLimits{Mode: "quality_warn"}}}
+	sessionDir, metadata := argumentGraphCouncilForTest(t, "sess_argue_hand_raise_status", limits)
+	appendArgumentGraphTargetForTest(t, sessionDir, metadata)
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-2", CommandID: "cmd_hand_raise_status", Payload: map[string]any{
+		"turn":   2,
+		"intent": "challenge",
+		"target_links": []any{map[string]any{
+			"target_event_id": "evt_speech_cmd_argue_target_speech",
+			"target_claim_id": "T1.C1",
+			"stance":          "challenge",
+		}},
+	}, Now: fixedRuntime().Now().Add(20 * time.Second)})
+	grant := appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_hand_raise_status_auto_grant", Payload: map[string]any{"turn": 2, "auto": true}, Now: fixedRuntime().Now().Add(21 * time.Second)})
+	selected := eventByIDForTest(t, sessionDir, metadata, grant.EventID)
+	graphNeed, ok := selected.Payload["graph_need"].(map[string]any)
+	if !ok {
+		t.Fatalf("auto selection should preserve graph_need: %#v", selected.Payload)
+	}
+	if anyInt(graphNeed, "relation_count") != 1 || anyInt(graphNeed, "target_link_count") != 1 {
+		t.Fatalf("graph_need relation counts missing: %#v", graphNeed)
+	}
+
+	status, err := CouncilStatusFromLog(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("CouncilStatusFromLog: %v", err)
+	}
+	quality := status["discussion_quality"].(map[string]any)
+	if quality["hand_raise_target_link_count"] != 1 {
+		t.Fatalf("hand raise target links not summarized: %#v", quality)
+	}
+	handRaiseRelations := quality["hand_raise_relation_counts"].(map[string]int)
+	if handRaiseRelations["challenge"] != 1 {
+		t.Fatalf("hand raise relation counts wrong: %#v", quality)
+	}
+}
+
 func TestUnitCouncilArgumentGraphAutoSelectionScopeAndNoConsecutiveSpeaker(t *testing.T) {
 	t.Run("quality aware no eligible fails closed", func(t *testing.T) {
 		limits := Limits{Council: CouncilLimits{DiscussionQuality: &DiscussionQualityLimits{Mode: "quality_warn"}}}

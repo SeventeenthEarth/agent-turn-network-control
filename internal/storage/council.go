@@ -172,6 +172,7 @@ func CouncilStatusFromLog(sessionDir string, metadata *SessionMetadata) (map[str
 		"hand_raises":     councilHandRaiseStatus(index),
 		"vote":            councilVoteStatus(metadata, index),
 	}
+	status["discussion_quality"] = councilDiscussionQualityStatus(metadata, index, phase)
 	if len(index.Events) > 0 {
 		last := index.Events[len(index.Events)-1]
 		status["latest_event_id"] = last.EventID

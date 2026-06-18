@@ -450,6 +450,173 @@ func argumentGraphDiagnostics(index *LogIndex, turn int, actor string, payload m
 	return diagnostics
 }
 
+func councilDiscussionQualityStatus(metadata *SessionMetadata, index *LogIndex, phase Phase) map[string]any {
+	policy, err := resolveDiscussionQualityPolicy(metadata.Limits)
+	if err != nil {
+		return map[string]any{
+			"mode":                    "invalid",
+			"lifecycle_pass":          phase == "finalized",
+			"discussion_quality_pass": false,
+			"hard_warning_counts":     map[string]int{"invalid_discussion_quality_policy": 1},
+			"hard_warning_codes":      []string{"invalid_discussion_quality_policy"},
+		}
+	}
+
+	relationCounts := map[string]int{}
+	handRaiseRelationCounts := map[string]int{}
+	diagnosticCounts := map[string]int{}
+	hardWarningCounts := map[string]int{}
+	speechCount := 0
+	openingSpeechCount := 0
+	linkedSpeechCount := 0
+	orphanSpeechCount := 0
+	justifiedNewAxisCount := 0
+	repeatedNewAxisCount := 0
+	targetLinkCount := 0
+	handRaiseTargetLinkCount := 0
+	omittedGraphNeedTargetCount := 0
+	priorSpeechWasNewAxis := false
+
+	addHardWarning := func(code string) {
+		if code == "" {
+			return
+		}
+		hardWarningCounts[code]++
+	}
+	addDiagnostic := func(code string) {
+		if code == "" {
+			return
+		}
+		diagnosticCounts[code]++
+		switch code {
+		case "orphan_speech", "repeated_new_axis", "omitted_graph_need_targets", "runtime_noise", "missing_required_argue_linkage", "missing_argument_graph_fields":
+			addHardWarning(code)
+		}
+	}
+
+	for _, event := range index.Events {
+		switch event.Type {
+		case "hand_raise":
+			links, err := parseArgumentTargetLinks(index, event.Payload, "target_links", false)
+			if err != nil {
+				addDiagnostic("missing_required_argue_linkage")
+				continue
+			}
+			for _, link := range links {
+				handRaiseTargetLinkCount++
+				handRaiseRelationCounts[link.stance]++
+			}
+		case "speech":
+			speechHardWarnings := map[string]bool{}
+			addSpeechHardWarning := func(code string) {
+				if code != "" {
+					speechHardWarnings[code] = true
+				}
+			}
+			speechCount++
+			turn := anyInt(event.Payload, "turn")
+			if turn == 0 && event.Turn != nil {
+				turn = *event.Turn
+			}
+			afterOpening := turn > policy.openingUnlinkedTurns
+			if !afterOpening {
+				openingSpeechCount++
+			}
+			links, err := parseArgumentTargetLinks(index, event.Payload, "stance_links", false)
+			if err != nil {
+				addDiagnostic("missing_required_argue_linkage")
+				links = nil
+			}
+			if len(links) > 0 {
+				linkedSpeechCount++
+			}
+			for _, link := range links {
+				targetLinkCount++
+				relationCounts[link.stance]++
+			}
+			contribution := payloadStringDefault(event.Payload, "contribution_type", "")
+			newAxisReason := strings.TrimSpace(payloadStringDefault(event.Payload, "new_axis_reason", ""))
+			justifiedNewAxis := contribution == "new_axis" && newAxisReason != ""
+			if justifiedNewAxis {
+				justifiedNewAxisCount++
+				if priorSpeechWasNewAxis {
+					repeatedNewAxisCount++
+					addSpeechHardWarning("repeated_new_axis")
+				}
+			}
+			if afterOpening && len(links) == 0 && !justifiedNewAxis {
+				orphanSpeechCount++
+				addSpeechHardWarning("orphan_speech")
+			}
+			if deterministicRuntimeNoise(payloadStringDefault(event.Payload, "speech", "")) {
+				addSpeechHardWarning("runtime_noise")
+			}
+			for _, diagnostic := range payloadDiagnostics(event.Payload, "quality_diagnostics") {
+				code := strings.TrimSpace(anyString(diagnostic, "code"))
+				if code != "" {
+					diagnosticCounts[code]++
+					switch code {
+					case "orphan_speech", "repeated_new_axis", "omitted_graph_need_targets", "runtime_noise", "missing_required_argue_linkage", "missing_argument_graph_fields":
+						addSpeechHardWarning(code)
+					}
+				}
+				omittedGraphNeedTargetCount += len(anySlice(diagnostic, "missing_targets"))
+			}
+			for code := range speechHardWarnings {
+				addHardWarning(code)
+			}
+			priorSpeechWasNewAxis = contribution == "new_axis"
+		}
+	}
+
+	hardWarningCodes := sortedMapKeys(hardWarningCounts)
+	discussionPass := len(hardWarningCounts) == 0
+	if policy.mode == discussionQualityCompatibility && linkedSpeechCount == 0 && justifiedNewAxisCount == 0 {
+		discussionPass = false
+	}
+	return map[string]any{
+		"mode":                         policy.mode,
+		"mode_reason":                  policy.modeReason,
+		"lifecycle_pass":               phase == "finalized",
+		"discussion_quality_pass":      discussionPass,
+		"speech_count":                 speechCount,
+		"opening_speech_count":         openingSpeechCount,
+		"linked_speech_count":          linkedSpeechCount,
+		"orphan_speech_count":          orphanSpeechCount,
+		"justified_new_axis_count":     justifiedNewAxisCount,
+		"repeated_new_axis_count":      repeatedNewAxisCount,
+		"target_link_count":            targetLinkCount,
+		"relation_counts":              relationCounts,
+		"quality_diagnostic_counts":    diagnosticCounts,
+		"hard_warning_counts":          hardWarningCounts,
+		"hard_warning_codes":           hardWarningCodes,
+		"omitted_graph_need_targets":   omittedGraphNeedTargetCount,
+		"hand_raise_target_link_count": handRaiseTargetLinkCount,
+		"hand_raise_relation_counts":   handRaiseRelationCounts,
+	}
+}
+
+func payloadDiagnostics(payload map[string]any, key string) []map[string]any {
+	raw, ok := payload[key]
+	if !ok {
+		return nil
+	}
+	items, ok := rawObjectSlice(raw)
+	if !ok {
+		return nil
+	}
+	return items
+}
+
+func sortedMapKeys(values map[string]int) []string {
+	out := make([]string, 0, len(values))
+	for key := range values {
+		out = append(out, key)
+	}
+	sort.Strings(out)
+	return out
+}
+
 func qualityDiagnostic(code, message string) map[string]any {
 	return map[string]any{"code": code, "severity": "warning", "message": message}
 }
@@ -561,6 +728,8 @@ func scoreCouncilHandRaise(index *LogIndex, raise EventEnvelope) (int, string, m
 		}
 		need["target_links"] = targets
 		need["type"] = intent
+		need["target_link_count"] = len(links)
+		need["relation_count"] = len(links)
 	}
 	return score, reason, need
 }

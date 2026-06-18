@@ -246,6 +246,7 @@ Rules:
 - Intended targets are advisory until the selected speech is appended.
 - The moderator may use intended targets to score unresolved gaps, conflicts, or synthesis opportunities.
 - A selected speaker's final `speech.payload.stance_links[]` may differ from the hand raise intent when the participant records a rationale or the discussion changed before the floor grant.
+- For linked hand raises, the durable `speaker_selected.payload.graph_need` may include deterministic `target_link_count` and `relation_count` derived from the selected hand raise's `target_links[]`; these counts are moderator evidence only and do not create durable speech links.
 
 ### 5.3 Session-level quality mode
 
@@ -305,6 +306,17 @@ Do not hard-reject a generic pattern merely because several turns happen to refe
 ### 6.3 Compatibility warnings
 
 When the mode is `quality_warn`, the daemon/projection may emit quality diagnostics but must not alter the original speech text or silently add inferred links. Inferred relations are not durable truth.
+
+### 6.4 Status projection
+
+`CouncilStatusFromLog` reports lifecycle state separately from discussion-quality evidence. The `discussion_quality` map is the source for ARGUE quality closeout fields and may include:
+
+- `mode`, `mode_reason`, `lifecycle_pass`, and `discussion_quality_pass`;
+- speech/link counts: `speech_count`, `opening_speech_count`, `linked_speech_count`, `orphan_speech_count`, `justified_new_axis_count`, `repeated_new_axis_count`, and `target_link_count`;
+- relation and diagnostic summaries: `relation_counts`, `quality_diagnostic_counts`, `hard_warning_counts`, and `hard_warning_codes`;
+- graph-need and hand-raise summaries: `omitted_graph_need_targets`, `hand_raise_target_link_count`, and `hand_raise_relation_counts`.
+
+Hard warning codes include `orphan_speech`, `repeated_new_axis`, `omitted_graph_need_targets`, `runtime_noise`, `missing_required_argue_linkage`, and `missing_argument_graph_fields`. In `quality_required`, missing required relation evidence after the opening window fails closed. In `quality_warn`, speech remains accepted without text mutation or inferred durable links, but hard warnings keep `discussion_quality_pass=false`.
 
 ## 7. Moderator policy
 
