@@ -148,6 +148,10 @@ func buildCouncilEvent(sessionDir string, metadata *SessionMetadata, spec Counci
 }
 
 func CouncilStatusFromLog(sessionDir string, metadata *SessionMetadata) (map[string]any, error) {
+	return CouncilStatusFromLogAt(sessionDir, metadata, time.Now().UTC())
+}
+
+func CouncilStatusFromLogAt(sessionDir string, metadata *SessionMetadata, now time.Time) (map[string]any, error) {
 	if metadata == nil {
 		return nil, NewValidationError(CategoryMetadataInvalid, "session", "metadata is required")
 	}
@@ -173,6 +177,7 @@ func CouncilStatusFromLog(sessionDir string, metadata *SessionMetadata) (map[str
 		"vote":            councilVoteStatus(metadata, index),
 	}
 	status["discussion_quality"] = councilDiscussionQualityStatus(metadata, index, phase)
+	status["participant_runtime_readiness"] = ParticipantRuntimeReadinessFromIndex(metadata, index, readinessOptionsForStatus(metadata, index, now))
 	if len(index.Events) > 0 {
 		last := index.Events[len(index.Events)-1]
 		status["latest_event_id"] = last.EventID

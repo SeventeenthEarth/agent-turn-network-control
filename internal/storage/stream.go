@@ -31,11 +31,12 @@ type ReplayOptions struct {
 }
 
 type StreamStatus struct {
-	SessionID     string                       `json:"session_id"`
-	LatestCursor  string                       `json:"latest_cursor,omitempty"`
-	LatestEventID string                       `json:"latest_event_id,omitempty"`
-	Cursors       map[string]StreamCursorState `json:"cursors"`
-	Subscribers   []StreamSubscriberState      `json:"subscribers"`
+	SessionID                   string                             `json:"session_id"`
+	LatestCursor                string                             `json:"latest_cursor,omitempty"`
+	LatestEventID               string                             `json:"latest_event_id,omitempty"`
+	Cursors                     map[string]StreamCursorState       `json:"cursors"`
+	Subscribers                 []StreamSubscriberState            `json:"subscribers"`
+	ParticipantRuntimeReadiness *ParticipantRuntimeReadinessReport `json:"participant_runtime_readiness,omitempty"`
 }
 
 type StreamCursorState struct {
@@ -141,6 +142,13 @@ func followFrames(sessionDir string, metadata *SessionMetadata, start int64, opt
 }
 
 func StreamStatusFromLog(sessionDir string, metadata *SessionMetadata) (*StreamStatus, error) {
+	return StreamStatusFromLogAt(sessionDir, metadata, time.Now().UTC())
+}
+
+func StreamStatusFromLogAt(sessionDir string, metadata *SessionMetadata, now time.Time) (*StreamStatus, error) {
+	if metadata == nil {
+		return nil, NewValidationError(CategoryMetadataInvalid, "session", "metadata is required")
+	}
 	index, err := ReadLogIndex(sessionDir, metadata)
 	if err != nil {
 		return nil, err
@@ -189,7 +197,50 @@ func StreamStatusFromLog(sessionDir string, metadata *SessionMetadata) (*StreamS
 	for _, key := range keys {
 		status.Subscribers = append(status.Subscribers, subscribers[key])
 	}
+	status.ParticipantRuntimeReadiness = ParticipantRuntimeReadinessFromIndex(metadata, index, readinessOptionsForStatus(metadata, index, now))
 	return status, nil
+}
+
+func readinessOptionsForStatus(metadata *SessionMetadata, index *LogIndex, now time.Time) ParticipantRuntimeReadinessOptions {
+	opts := ParticipantRuntimeReadinessOptions{Now: now}
+	if metadata == nil || metadata.SessionType != SessionTypeCouncil {
+		return opts
+	}
+	opts.RequireAttendance = latestEventOfType(index, "attendance_requested") != nil
+	opts.RequirePreparation = latestEventOfType(index, "preparation_requested") != nil
+	if selected := latestEventOfType(index, "speaker_selected"); selected != nil {
+		opts.RequireSelectedRunner = true
+		opts.SelectedMember = payloadStringDefault(selected.Payload, "member", "")
+		if opts.SelectedMember == "" && len(selected.To) == 1 {
+			opts.SelectedMember = selected.To[0]
+		}
+		opts.SelectedRunnerEvidence = map[string]SelectedRunnerPrerequisite{opts.SelectedMember: selectedRunnerEvidenceFromLog(index, selected.EventID)}
+	}
+	return opts
+}
+
+func selectedRunnerEvidenceFromLog(index *LogIndex, speakerEventID string) SelectedRunnerPrerequisite {
+	if index == nil || strings.TrimSpace(speakerEventID) == "" {
+		return SelectedRunnerPrerequisite{Ready: false, Status: "missing_selected_runner_prerequisite", BlockingReasons: []string{"missing_selected_runner_prerequisite"}}
+	}
+	started := false
+	for _, event := range index.Events {
+		if event.CausationEventID != speakerEventID {
+			continue
+		}
+		switch event.Type {
+		case "runner_invocation_started":
+			started = true
+		case "speech":
+			return SelectedRunnerPrerequisite{Ready: true, Status: "canonical_speech_recorded", Evidence: []string{event.EventID}}
+		case "runner_invocation_failed", "runner_result_discarded", "selected_runner_dispatch_failed":
+			return SelectedRunnerPrerequisite{Ready: false, Status: "runner_terminal_failure", BlockingReasons: []string{event.Type}, Evidence: []string{event.EventID}}
+		}
+	}
+	if started {
+		return SelectedRunnerPrerequisite{Ready: false, Status: "runner_started_without_terminal", BlockingReasons: []string{"runner_started_without_terminal"}}
+	}
+	return SelectedRunnerPrerequisite{Ready: false, Status: "missing_runner_invocation_started", BlockingReasons: []string{"missing_runner_invocation_started"}}
 }
 
 func AcknowledgeCursor(sessionDir string, metadata *SessionMetadata, member, cursor, commandID string, now time.Time) (AppendResult, bool, error) {

@@ -1169,6 +1169,7 @@ Stream events are session-scoped operational events. They may occur in delegatio
 Important stream event types and origin classes:
 
 - `stream_subscriber_connected` — `daemon_internal`
+- `stream_subscriber_heartbeat` — `daemon_internal`
 - `stream_cursor_acknowledged` — `daemon_after_cli` (created by `kkachi-agent-network stream ack`)
 - `stream_subscriber_stale` — `daemon_internal`
 
@@ -1183,6 +1184,13 @@ Stream subscriber stale payload:
   "action": "repoll_or_mark_partial"
 }
 ```
+
+`stream.status` includes a derived `participant_runtime_readiness` object for
+required participants. It is computed from durable stream subscriber,
+cursor-ack, heartbeat, attendance/preparation, and selected-runner evidence.
+Gateway/process/socket liveness, transcript/export-only evidence, manual profile
+fallback text, visible-surface pointers, or parent-channel fallback visibility
+must not satisfy participant runtime readiness.
 
 ## Council events
 
@@ -1236,9 +1244,16 @@ Allowed origins:
 
 Allowed `status` values: `present`, `partial`, `unavailable`, `no_response_timeout`.
 
-When the daemon emits timeout attendance, the event uses `from: "kkachi-agent-networkd"`, `to: ["agent-mod"]`, and `payload.member` records the affected member.
+When the daemon emits timeout attendance, the event uses `from: "kkachi-agent-networkd"`, `to: ["agent-mod"]`, and `payload.member` records the affected member. Timeout payloads must preserve `status: "no_response_timeout"` and timeout source evidence so they remain distinguishable from participant success or partial-success records.
 
 For `surface.kind=discord_thread`, `preparation_requested` is valid only after one terminal `member_attended` record exists for every required participant named by the council membership/attendance request. Terminal attendance status is one of `present`, `partial`, `unavailable`, or `no_response_timeout`. Missing attendance records, duplicate unresolved attendance state, or attendance for only a subset of required participants must fail closed at append time for `preparation_requested`.
+
+Before appending `preparation_requested` for a Discord-thread council, the daemon
+must apply expired attendance timeouts and then fail closed unless required
+participant runtime readiness is explicit: subscriber presence, valid cursor ack,
+fresh cursor ack, fresh heartbeat, and attendance response/timeout evidence. A
+failure leaves no `preparation_requested` event; timeout diagnostics remain
+durable `member_attended` events.
 
 ### agenda_locked
 
@@ -1343,6 +1358,7 @@ Rules:
 
 - When a member runtime explicitly records partial preparation, `from` is the member id and `payload.reason` is normally `member_reported_partial`.
 - When the daemon emits `member_prepared_partial` because the preparation timeout expired, the event originator is `kkachi-agent-networkd`, the affected member is recorded in `payload.member`, and `payload.reason` is `timeout`.
+- Before appending `hand_raise_requested` for a Discord-thread council, the daemon must apply expired preparation timeouts and then fail closed unless required participant runtime readiness remains explicit and every required participant has preparation success or partial/failure evidence. Timeout diagnostics remain durable `member_prepared_partial` events and must not be rewritten as success.
 
 ### hand_raise_requested
 

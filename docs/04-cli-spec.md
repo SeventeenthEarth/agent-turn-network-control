@@ -225,6 +225,7 @@ Rules:
 
 - `stream` emits replayed events first, then live events when `--follow` is set. `stream` and `stream status` are read-only.
 - `stream ack` emits `stream_cursor_acknowledged`.
+- `stream status` includes derived `participant_runtime_readiness` for required participants. Daemon/socket/gateway liveness, transcript/export artifacts, and visible-surface pointers are not inputs to this readiness result.
 - Every emitted line includes `event_id`, `cursor`, `session_id`, `type`, `from`, `to`, and `payload`. `from` is a string; `to` is always an array of strings (per `03-protocol-spec.md`).
 - The stream command does **not** hide events based on `to`. A member runtime may observe events not addressed to it; it decides whether to act by inspecting event type, sender, recipients, role, phase, and policy.
 - Member runtimes must acknowledge processed cursors.

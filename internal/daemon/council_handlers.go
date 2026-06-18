@@ -65,8 +65,12 @@ func (s *Server) handleCouncilEvent(request protocol.CommandRequest) protocol.Co
 	if err != nil {
 		return protocol.ErrorResponse(request, daemonProtocolError(err))
 	}
+	action := councilActionFromCommand(request.Command)
+	if err := s.applyCouncilRuntimePreflight(request, sessionDir, metadata, action); err != nil {
+		return protocol.ErrorResponse(request, daemonProtocolError(err))
+	}
 	result, dedup, err := storage.RecordCouncilEvent(sessionDir, metadata, storage.CouncilEventSpec{
-		Action:           councilActionFromCommand(request.Command),
+		Action:           action,
 		Actor:            stringParam(request, "actor"),
 		CommandID:        stringParam(request, "command_id"),
 		CausationEventID: stringParam(request, "causation_event_id"),
@@ -87,8 +91,174 @@ func councilActionFromCommand(command string) string {
 	return strings.ReplaceAll(action, "_", "-")
 }
 
-func councilVerboseStatus(sessionDir string, metadata *storage.SessionMetadata) (map[string]any, error) {
-	return storage.CouncilStatusFromLog(sessionDir, metadata)
+func (s *Server) applyCouncilRuntimePreflight(request protocol.CommandRequest, sessionDir string, metadata *storage.SessionMetadata, action string) error {
+	if metadata == nil || metadata.SessionType != storage.SessionTypeCouncil || metadata.Surface == nil || metadata.Surface.Kind != "discord_thread" {
+		return nil
+	}
+	now := s.now()
+	switch action {
+	case "prepare":
+		if _, err := storage.ApplyAttendanceTimeouts(sessionDir, metadata, now); err != nil {
+			return err
+		}
+		report, err := storage.ParticipantRuntimeReadinessFromLog(sessionDir, metadata, storage.ParticipantRuntimeReadinessOptions{RequireAttendance: true, Now: now})
+		if err != nil {
+			return err
+		}
+		return storage.ParticipantReadinessError(report, "participant_runtime_readiness")
+	case "poll":
+		if _, err := storage.ApplyPreparationTimeouts(sessionDir, metadata, now); err != nil {
+			return err
+		}
+		report, err := storage.ParticipantRuntimeReadinessFromLog(sessionDir, metadata, storage.ParticipantRuntimeReadinessOptions{RequireAttendance: true, RequirePreparation: true, Now: now})
+		if err != nil {
+			return err
+		}
+		return storage.ParticipantReadinessError(report, "participant_runtime_readiness")
+	case "grant":
+		selected, err := s.selectedMemberForGrantPreflight(sessionDir, metadata, request)
+		if err != nil {
+			return err
+		}
+		prereq := s.selectedRunnerPrerequisite(sessionDir, selected)
+		report, err := storage.ParticipantRuntimeReadinessFromLog(sessionDir, metadata, storage.ParticipantRuntimeReadinessOptions{
+			RequireAttendance:      true,
+			RequirePreparation:     true,
+			RequireSelectedRunner:  true,
+			SelectedMember:         selected,
+			SelectedRunnerEvidence: map[string]storage.SelectedRunnerPrerequisite{selected: prereq},
+			Now:                    now,
+		})
+		if err != nil {
+			return err
+		}
+		if report.Ready {
+			return nil
+		}
+		if err := s.appendSelectedRunnerPreflightDiagnostic(sessionDir, metadata, request, selected, report); err != nil {
+			return err
+		}
+		return storage.ParticipantReadinessError(report, "selected_runner_prerequisite")
+	default:
+		return nil
+	}
+}
+
+func (s *Server) selectedMemberForGrantPreflight(sessionDir string, metadata *storage.SessionMetadata, request protocol.CommandRequest) (string, error) {
+	payload := mapParam(request, "payload")
+	if selected := strings.TrimSpace(firstNonEmpty(payloadString(payload, "member"), payloadString(payload, "to"))); selected != "" {
+		return selected, nil
+	}
+	event, err := storage.BuildCouncilEvent(sessionDir, metadata, storage.CouncilEventSpec{
+		Action:           "grant",
+		Actor:            stringParam(request, "actor"),
+		CommandID:        stringParam(request, "command_id"),
+		CausationEventID: stringParam(request, "causation_event_id"),
+		Payload:          payload,
+		Now:              s.now(),
+	})
+	if err != nil {
+		return "", err
+	}
+	selected := strings.TrimSpace(firstNonEmpty(payloadString(event.Payload, "member"), payloadString(event.Payload, "to")))
+	if selected == "" && len(event.To) == 1 {
+		selected = strings.TrimSpace(event.To[0])
+	}
+	if selected == "" {
+		return "", storage.NewValidationError(storage.CategoryPrincipalInvalid, "member", "selected speaker must be resolved before readiness preflight")
+	}
+	return selected, nil
+}
+
+func (s *Server) selectedRunnerPrerequisite(sessionDir, memberID string) storage.SelectedRunnerPrerequisite {
+	var blockers []string
+	var evidence []string
+	loaded, err := registry.LoadSnapshot(sessionDir, s.Runtime)
+	if err != nil {
+		blockers = append(blockers, "registry_snapshot_unavailable")
+	} else {
+		member, ok := loaded.Registry.Members[memberID]
+		if !ok {
+			blockers = append(blockers, "selected_member_missing_in_snapshot")
+		} else {
+			evidence = append(evidence, "registry_snapshot_member:"+member.ID)
+			if !member.Enabled {
+				blockers = append(blockers, "selected_member_not_enabled_in_snapshot")
+			}
+			if member.AdapterKind != runner.HermesAgentKind {
+				blockers = append(blockers, "unsupported_runner_adapter_kind")
+			}
+			if resolvedWrapper(member) == "" {
+				blockers = append(blockers, "resolved_wrapper_missing")
+			}
+		}
+	}
+	if _, err := s.selectedSpeakerAdapter(); err != nil {
+		blockers = append(blockers, "runner_adapter_unavailable")
+	} else {
+		evidence = append(evidence, "runner_adapter:"+runner.HermesAgentKind)
+	}
+	if len(blockers) > 0 {
+		return storage.SelectedRunnerPrerequisite{Ready: false, Status: "blocking", BlockingReasons: blockers, Evidence: evidence}
+	}
+	return storage.SelectedRunnerPrerequisite{Ready: true, Status: "ready", Evidence: evidence}
+}
+
+func (s *Server) appendSelectedRunnerPreflightDiagnostic(sessionDir string, metadata *storage.SessionMetadata, request protocol.CommandRequest, selected string, report *storage.ParticipantRuntimeReadinessReport) error {
+	commandID := strings.TrimSpace(stringParam(request, "command_id"))
+	if commandID == "" {
+		commandID = fmt.Sprintf("cmd_selected_runner_preflight_%d_%s", s.now().UnixNano(), selected)
+	}
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		return err
+	}
+	phase := metadata.State.Phase
+	if len(index.Events) > 0 {
+		phase = index.Events[len(index.Events)-1].Phase
+	}
+	for _, event := range index.Events {
+		if event.Type == "selected_runner_dispatch_failed" && event.CommandID == commandID && payloadString(event.Payload, "reason") == "selected_runner_preflight_failed" {
+			return nil
+		}
+	}
+	payload := map[string]any{
+		"reason":                    "selected_runner_preflight_failed",
+		"selected_member":           selected,
+		"diagnostic_owner":          "control/RUNFIX-011",
+		"diagnostic_path":           "internal/daemon/council_handlers.go",
+		"participant_runtime_ready": false,
+	}
+	if report != nil {
+		payload["blocking_reasons"] = append([]string(nil), report.BlockingReasons...)
+		payload["participant_runtime_readiness"] = report
+	}
+	event := storage.EventEnvelope{
+		SchemaVersion: protocol.SchemaVersion,
+		EventID:       eventIDFor(commandID, "selected_runner_dispatch_failed", 1, s.now()),
+		CommandID:     commandID,
+		CorrelationID: metadata.ID,
+		SessionID:     metadata.ID,
+		SessionType:   metadata.SessionType,
+		Phase:         phase,
+		Type:          "selected_runner_dispatch_failed",
+		From:          "kkachi-agent-networkd",
+		To:            []string{metadata.Moderator},
+		CreatedAt:     s.now(),
+		Payload:       payload,
+	}
+	_, err = storage.AppendEvent(sessionDir, metadata, event)
+	return err
+}
+
+func payloadString(payload map[string]any, key string) string {
+	if payload == nil {
+		return ""
+	}
+	if value, ok := payload[key].(string); ok {
+		return strings.TrimSpace(value)
+	}
+	return ""
 }
 
 func (s *Server) dispatchSelectedSpeakerAfterGrant(ctx context.Context, sessionDir string, metadata *storage.SessionMetadata, result storage.AppendResult) error {
@@ -112,6 +282,28 @@ func (s *Server) dispatchSelectedSpeakerAfterGrant(ctx context.Context, sessionD
 	}
 	if selected == "" {
 		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "", "selected_member_missing", "internal/daemon/selected_speaker.go")
+	}
+	if metadata.Surface != nil && metadata.Surface.Kind == "discord_thread" {
+		prereq := s.selectedRunnerPrerequisite(sessionDir, selected)
+		report, err := storage.ParticipantRuntimeReadinessFromLog(sessionDir, metadata, storage.ParticipantRuntimeReadinessOptions{
+			RequireAttendance:      true,
+			RequirePreparation:     true,
+			RequireSelectedRunner:  true,
+			SelectedMember:         selected,
+			SelectedRunnerEvidence: map[string]storage.SelectedRunnerPrerequisite{selected: prereq},
+			Now:                    s.now(),
+		})
+		if err != nil {
+			return err
+		}
+		if !report.Ready {
+			return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "", "participant_runtime_readiness_blocked", "internal/daemon/council_handlers.go", map[string]any{
+				"diagnostic_owner":              "control/RUNFIX-011",
+				"participant_runtime_ready":     false,
+				"participant_runtime_readiness": report,
+				"blocking_reasons":              append([]string(nil), report.BlockingReasons...),
+			})
+		}
 	}
 	loaded, err := registry.LoadSnapshot(sessionDir, s.Runtime)
 	if err != nil {
@@ -210,12 +402,17 @@ func selectedSpeakerDispatchStartedWithoutTerminal(events []storage.EventEnvelop
 	return false
 }
 
-func (s *Server) appendSelectedSpeakerDispatchDiagnostic(sessionDir string, metadata *storage.SessionMetadata, speaker storage.EventEnvelope, errorClass, reason, path string) error {
+func (s *Server) appendSelectedSpeakerDispatchDiagnostic(sessionDir string, metadata *storage.SessionMetadata, speaker storage.EventEnvelope, errorClass, reason, path string, extra ...map[string]any) error {
 	payload := map[string]any{
 		"reason":           reason,
 		"selected_member":  selectedMemberForDiagnostic(speaker),
 		"diagnostic_owner": "control/RUNFIX-003",
 		"diagnostic_path":  path,
+	}
+	for _, values := range extra {
+		for key, value := range values {
+			payload[key] = value
+		}
 	}
 	if errorClass != "" {
 		payload["error_class"] = errorClass

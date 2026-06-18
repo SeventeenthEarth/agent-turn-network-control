@@ -228,7 +228,7 @@ func (s *Server) handleSessionStatus(request protocol.CommandRequest) protocol.C
 		"registry_hash": metadata.RegistrySnapshot.SourceSHA256,
 	}
 	if boolParam(request, "verbose") && metadata.SessionType == storage.SessionTypeCouncil {
-		council, err := councilVerboseStatus(sessionDir, metadata)
+		council, err := storage.CouncilStatusFromLogAt(sessionDir, metadata, s.now())
 		if err != nil {
 			return protocol.ErrorResponse(request, daemonProtocolError(err))
 		}

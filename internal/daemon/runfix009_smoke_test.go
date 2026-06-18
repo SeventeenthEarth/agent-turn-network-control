@@ -23,7 +23,9 @@ func TestRUNFIX009IntegratedControlSmokeFixture(t *testing.T) {
 	appendRUNFIX009CouncilEvent(t, sessionDir, metadata, "request-attendance", "agent-mod", "cmd_runfix009_attendance", map[string]any{"timeout_sec": 30}, time.Second)
 	appendRUNFIX009CouncilEvent(t, sessionDir, metadata, "attend", "agent-1", "cmd_runfix009_attend_agent_1", map[string]any{"status": "present", "summary": "ready"}, 2*time.Second)
 	appendRUNFIX009CouncilEvent(t, sessionDir, metadata, "lock-agenda", "agent-mod", "cmd_runfix009_agenda", map[string]any{"decision_question": "What proves RUNFIX-009 locally?"}, 3*time.Second)
+	appendRUNFIX009RuntimeEvidence(t, sessionDir, metadata, "agent-1", 3500*time.Millisecond)
 	appendRUNFIX009CouncilEvent(t, sessionDir, metadata, "prepare", "agent-mod", "cmd_runfix009_prepare", map[string]any{"timeout_sec": 30}, 4*time.Second)
+	appendRUNFIX009CouncilEvent(t, sessionDir, metadata, "ready", "agent-1", "cmd_runfix009_ready_agent_1", map[string]any{"summary": "ready for RUNFIX-009 smoke"}, 4500*time.Millisecond)
 	appendRUNFIX009CouncilEvent(t, sessionDir, metadata, "poll", "agent-mod", "cmd_runfix009_poll_1", map[string]any{"turn": 1}, 5*time.Second)
 	appendRUNFIX009CouncilEvent(t, sessionDir, metadata, "hand-raise", "agent-1", "cmd_runfix009_raise_1", map[string]any{"turn": 1, "intent": "open", "reason": "seed local evidence"}, 6*time.Second)
 	appendRUNFIX009CouncilEvent(t, sessionDir, metadata, "grant", "agent-mod", "cmd_runfix009_grant_1", map[string]any{"turn": 1, "member": "agent-1", "selection_mode": "moderator_direct"}, 7*time.Second)
@@ -225,6 +227,41 @@ func appendRUNFIX009CouncilEvent(t *testing.T, sessionDir string, metadata *stor
 		t.Fatalf("RecordCouncilEvent(%s/%s): %v payload=%s", action, commandID, err, content)
 	}
 	return result
+}
+
+func appendRUNFIX009RuntimeEvidence(t *testing.T, sessionDir string, metadata *storage.SessionMetadata, member string, delta time.Duration) {
+	t.Helper()
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex before runtime evidence: %v", err)
+	}
+	last := index.Events[len(index.Events)-1]
+	cursor := storage.CursorFor(int64(len(index.Events)-1), last.EventID)
+	event := storage.EventEnvelope{
+		SchemaVersion: protocol.SchemaVersion,
+		EventID:       "evt_runfix009_runtime_heartbeat_" + member,
+		CommandID:     "cmd_runfix009_runtime_heartbeat_" + member,
+		CorrelationID: metadata.ID,
+		SessionID:     metadata.ID,
+		SessionType:   metadata.SessionType,
+		Phase:         last.Phase,
+		Type:          "stream_subscriber_heartbeat",
+		From:          member,
+		To:            []string{metadata.Moderator},
+		CreatedAt:     daemonFixedRuntime().Now().Add(delta),
+		Payload: map[string]any{
+			"member":        member,
+			"subscriber_id": "sub_runfix009_" + member,
+			"status":        "heartbeat",
+			"last_cursor":   cursor,
+		},
+	}
+	if _, err := storage.AppendEvent(sessionDir, metadata, event); err != nil {
+		t.Fatalf("AppendEvent runtime heartbeat: %v", err)
+	}
+	if _, _, err := storage.AcknowledgeCursor(sessionDir, metadata, member, cursor, "cmd_runfix009_runtime_ack_"+member, daemonFixedRuntime().Now().Add(delta+100*time.Millisecond)); err != nil {
+		t.Fatalf("AcknowledgeCursor runtime evidence: %v", err)
+	}
 }
 
 func lastEventOfType(t *testing.T, events []storage.EventEnvelope, typ string) storage.EventEnvelope {

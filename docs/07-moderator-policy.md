@@ -244,7 +244,7 @@ The recommended visible flow is:
 7. Propose, vote, and finalize/unresolve through the existing consensus events.
 8. Return the final result to Kanban and/or Vault when `linked_authority` requires it, then record return evidence as `posted`, `failed`, or `pending_followup`.
 
-For `surface.kind=discord_thread`, the moderator must not start preparation until `attendance_requested`, terminal attendance for every required participant (`present`, `partial`, `unavailable`, or `no_response_timeout`), and `agenda_locked` are already in the event log. If any prerequisite is missing, the correct action is to complete the missing attendance/agenda step or block, not to call `council prepare`.
+For `surface.kind=discord_thread`, the moderator must not start preparation until `attendance_requested`, terminal attendance for every required participant (`present`, `partial`, `unavailable`, or `no_response_timeout`), participant runtime subscriber/cursor/heartbeat readiness, and `agenda_locked` are already in the event log. If attendance timeout has expired, the daemon records `no_response_timeout` before rejecting or continuing. If any prerequisite remains missing, the correct action is to complete the missing attendance/agenda/runtime step or block, not to call `council prepare`.
 
 Linked authority return policy:
 
@@ -283,6 +283,8 @@ Divergence controls:
 ### Initial council preparation
 
 Each member receives the topic and has up to 10 minutes to prepare. Ready members record `member_ready` through `council ready`. Timed-out members proceed with partial preparation; this is recorded as `member_prepared_partial` either by the member through `council prepared-partial` or by the daemon on timeout (origin class `daemon_internal`).
+
+For Discord-thread councils, the moderator must not poll for hand raises until preparation success, partial, or timeout/failure evidence exists for every required participant and runtime subscriber/cursor/heartbeat readiness remains fresh. Timeout/failure evidence is diagnostic and must not be reported as live participant readiness.
 
 Preparation requests are addressed to the council members with an explicit `to` list. Members may still observe events not addressed to them, but they should act only when the event type, recipient list, role, and current phase require action.
 

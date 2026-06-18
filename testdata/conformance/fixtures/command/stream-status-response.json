@@ -21,6 +21,63 @@
         "status": "connected",
         "last_heartbeat_at": "2026-06-10T01:46:11Z"
       }
-    ]
+    ],
+    "participant_runtime_readiness": {
+      "session_id": "sess_conformance_delegation",
+      "ready": true,
+      "live_ready": true,
+      "status": "ready",
+      "generated_at": "2026-06-10T01:46:12Z",
+      "required_members": [
+        "agent-1"
+      ],
+      "blocking_reasons": [],
+      "stream_heartbeat_interval_sec": 30,
+      "stream_stale_threshold_sec": 90,
+      "stream_repoll_threshold_sec": 300,
+      "attendance_required": false,
+      "preparation_required": false,
+      "selected_runner_required": false,
+      "members": [
+        {
+          "member": "agent-1",
+          "ready": true,
+          "live_ready": true,
+          "readiness_class": "success",
+          "blocking_reasons": [],
+          "subscriber_presence": {
+            "status": "ready",
+            "event_id": "evt_stream_subscriber_connected_conformance",
+            "reason": "connected",
+            "recorded_at": "2026-06-10T01:46:11Z"
+          },
+          "cursor_ack": {
+            "status": "ready",
+            "event_id": "evt_stream_ack_cmd_stream_ack_conformance",
+            "cursor": "cur_000000000000_evt_created_001",
+            "reason": "cursor_acknowledged",
+            "recorded_at": "2026-06-10T01:46:10Z"
+          },
+          "cursor_ack_freshness": {
+            "status": "ready",
+            "event_id": "evt_stream_ack_cmd_stream_ack_conformance",
+            "reason": "fresh_cursor_ack",
+            "recorded_at": "2026-06-10T01:46:10Z"
+          },
+          "heartbeat_freshness": {
+            "status": "ready",
+            "event_id": "evt_stream_subscriber_connected_conformance",
+            "reason": "fresh_heartbeat",
+            "recorded_at": "2026-06-10T01:46:11Z"
+          },
+          "attendance": {
+            "status": "not_required"
+          },
+          "preparation": {
+            "status": "not_required"
+          }
+        }
+      ]
+    }
   }
 }

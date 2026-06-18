@@ -114,7 +114,7 @@ func (s *Server) handleStreamStatus(request protocol.CommandRequest) protocol.Co
 	if err != nil {
 		return protocol.ErrorResponse(request, daemonProtocolError(err))
 	}
-	status, err := storage.StreamStatusFromLog(sessionDir, metadata)
+	status, err := storage.StreamStatusFromLogAt(sessionDir, metadata, s.now())
 	if err != nil {
 		return protocol.ErrorResponse(request, daemonProtocolError(err))
 	}

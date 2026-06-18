@@ -31,6 +31,7 @@ Stream frames are newline-delimited JSON with `{cursor, is_replay, event}`. The 
 - Member-originated state changes are typed KAN commands sent through a protocol client, normally via Hermes plugin tools and always with a canonical CLI command equivalent; they are not direct daemon-state mutations.
 - One-shot runner calls are bounded adapter operations. They must not be the primary council turn loop.
 - Heartbeats from stream subscribers update `stream_subscribers`; stale subscribers emit `stream_subscriber_stale`.
+- Participant runtime readiness is derived from durable session events, not a materialized readiness table. Required members are unready unless the log proves subscriber presence, valid cursor ack, fresh cursor ack, fresh heartbeat, attendance/preparation response or timeout/failure evidence when required, and selected-runner prerequisites when a speaker is selected.
 - Stream frames carry the full event envelope. In that envelope, `from` is a string and `to` is always an array of strings (per `03-protocol-spec.md`).
 - `to` is semantic addressing, not stream access control. Member runtimes may observe events not addressed to them; they decide whether to act by inspecting event type, sender, recipients, role, phase, and policy. Read permissions are governed by `12-security.md`.
 
@@ -40,6 +41,7 @@ Stream frames are newline-delimited JSON with `{cursor, is_replay, event}`. The 
 - A subscriber with no heartbeat for **90 seconds** is marked stale and the daemon emits `stream_subscriber_stale` once.
 - A subscriber with no heartbeat for **300 seconds** triggers the session policy: the moderator may repoll the member runtime, mark its participation partial, or block the session per `07-moderator-policy.md`.
 - These thresholds (`stream_heartbeat_interval_sec`, `stream_stale_threshold_sec`, `stream_repoll_threshold_sec`) live in session `limits` and are overridable.
+- Gateway/process/socket liveness, transcript/export-only evidence, manual/profile fallback text, and parent-channel fallback visibility never count as participant runtime readiness.
 
 ## 1. Runner adapter interface
 
