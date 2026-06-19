@@ -122,6 +122,7 @@ func BuildExportBundle(sessionDir string, metadata *SessionMetadata, opts Export
 		"registry_snapshot":           metadata.RegistrySnapshot,
 		"includes_operator_evidence":  true,
 		"selected_runner_accounting":  SelectedRunnerAccountingFromIndex(index),
+		"summary_turn_accounting":     summaryTurnAccountingRows(index.Events),
 		"surface_delivery_projection": visibleSurfaceProjectionRows(index.Events),
 		"argument_graph_projection":   argumentGraphProjectionRows(index.Events),
 		"files": []string{
@@ -433,11 +434,41 @@ func hasAnyEvidencePointer(payload map[string]any, keys ...string) bool {
 		if !ok {
 			continue
 		}
+		if key == "evidence" {
+			if evidenceStringPointer(value) {
+				return true
+			}
+			continue
+		}
 		if isNonEmptyEvidencePointer(value) {
 			return true
 		}
 	}
 	return false
+}
+
+func evidenceStringPointer(value any) bool {
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed) != ""
+	case []string:
+		for _, item := range typed {
+			if strings.TrimSpace(item) != "" {
+				return true
+			}
+		}
+		return false
+	case []any:
+		for _, item := range typed {
+			text, ok := item.(string)
+			if ok && strings.TrimSpace(text) != "" {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
+	}
 }
 
 func isNonEmptyEvidencePointer(value any) bool {
