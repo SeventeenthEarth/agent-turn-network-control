@@ -45,6 +45,7 @@ type VersionFeatures struct {
 	ProtocolVersion          string   `json:"protocol_version"`
 	DaemonVersion            string   `json:"daemon_version"`
 	MinPluginProtocolVersion string   `json:"min_plugin_protocol_version"`
+	LiveReadiness            bool     `json:"live_readiness"`
 	Features                 []string `json:"features"`
 	FeatureGroups            []string `json:"feature_groups"`
 	FixtureManifest          string   `json:"fixture_manifest"`
@@ -57,6 +58,7 @@ func NewVersionFeatures() VersionFeatures {
 		ProtocolVersion:          ProtocolVersion,
 		DaemonVersion:            "daemn-002-local",
 		MinPluginProtocolVersion: ProtocolVersion,
+		LiveReadiness:            true,
 		Features:                 append([]string(nil), groups...),
 		FeatureGroups:            groups,
 		FixtureManifest:          "testdata/conformance/manifest.json",

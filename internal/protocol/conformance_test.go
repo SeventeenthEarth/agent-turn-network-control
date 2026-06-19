@@ -820,6 +820,9 @@ func TestUnitConformanceVersionFixtureMatchesRequiredGroups(t *testing.T) {
 	if features.ProtocolVersion != ProtocolVersion {
 		t.Fatalf("version fixture protocol = %q, want %q", features.ProtocolVersion, ProtocolVersion)
 	}
+	if !features.LiveReadiness {
+		t.Fatal("version fixture live_readiness must be true for approved live-local testing")
+	}
 	assertExactStrings(t, "version feature_groups", features.FeatureGroups, RequiredFeatureGroups)
 	assertExactStrings(t, "version features", features.Features, RequiredFeatureGroups)
 	if features.FixtureManifest != "testdata/conformance/manifest.json" {

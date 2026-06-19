@@ -4,6 +4,9 @@ import "testing"
 
 func TestUnitVersionFeaturesUseCanonicalDAEMN002Groups(t *testing.T) {
 	features := NewVersionFeatures()
+	if !features.LiveReadiness {
+		t.Fatal("version features must expose live_readiness=true for approved live-local testing")
+	}
 	seen := map[string]bool{}
 	for _, group := range features.FeatureGroups {
 		seen[group] = true

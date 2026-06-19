@@ -7,10 +7,11 @@ This file is the local agent contract for `/Users/draccoon/Workspace/Seventeenth
 
 These repo-local instructions preserve the useful baseline guardrails from the
 `andrej-karpathy-skills` `CLAUDE.md` lineage and adapt them for KAN control.
-KAS-managed instruction content is policy guidance only. It does not authorize
-profile mutation, auth/token changes, provider/model/gateway changes, KAH state
-writes beyond the approved project workflow, KAB runtime mutation, commits,
-pushes, live activation, Discord delivery, or deployment.
+These repo-local instructions are optional development guardrails only. They do
+not make KAS, KAH, KAB, or any profile-local skill suite a prerequisite for
+working on this repository, and they do not authorize profile mutation,
+auth/token changes, provider/model/gateway changes, commits, pushes, live
+activation, Discord delivery, or deployment.
 
 Operating principles:
 
@@ -22,22 +23,21 @@ Operating principles:
 - Surgical changes: touch only files required by the task, preserve unrelated
   project-local text, and do not reformat or refactor adjacent work.
 - Goal-driven execution: turn the task into verifiable checks, run focused tests
-  or KAH/KAS gates, read the results, and report exact evidence honestly.
+  or explicitly approved project gates, read the results, and report exact
+  evidence honestly.
 - Artifact-first detail: keep chat/console output compact and point to durable
   artifacts when long plans, logs, diffs, reviews, or evidence are needed.
 
 Layer boundaries:
 
-- KAS owns task classification, workflow guidance, prompt policy, templates, and
-  evidence expectations. It must not become a second KAH state system or a KAB
-  runtime controller.
-- KAH owns deterministic project state, schemas, artifacts, events, locks,
-  diagnostics, and pass/fail/not_applicable gates. It must not judge prose
-  quality, summarize policy, or rewrite instructions.
-- KAB owns backend bridge/session/control behavior and retained backend
-  execution evidence. It must not decide KAS task policy, silently substitute
-  lanes, or mutate auth/token/provider/model/gateway settings without explicit
-  authority.
+- KAN control repository source, tests, and docs are sufficient for ordinary
+  development. Optional Kkachi workflow helpers may record evidence or reviews
+  when explicitly selected, but absence of those helpers or profile-local phase
+  skills must not block normal code/docs work.
+- Control owns daemon, CLI, protocol, event/state authority, replay/projection,
+  and operational contracts.
+- Backend or workflow helpers must not silently substitute lanes or mutate
+  auth/token/provider/model/gateway settings without explicit authority.
 <!-- KAS:MANAGED:END core-behavior -->
 
 <!-- PROJECT:LOCAL:BEGIN -->
@@ -50,46 +50,17 @@ Layer boundaries:
 - Companion plugin repo: `/Users/draccoon/Workspace/SeventeenthEarth/kkachi/kkachi-agent-network-plugin`.
 - Team/channel ownership after KAN cutover: 마초 Blue, 서황 Red, 종회 Orange, 만총 Gray.
 
-## KAS/KAH operating baseline
+## Optional development helpers
 
-Use the profile-local KAS skill suite installed under:
+Profile-local Kkachi/KAS phase skills are development conveniences, not project
+requirements and not KAN runtime/operator skills. Do not mention or require profile-local phase-skill names in this repository's product docs or install path.
+Ordinary direct edits, tests, docs updates, and reviews may proceed from the repo
+SOT and the commands documented here.
 
-```text
-/Users/draccoon/.hermes/profiles/macho/skills/kan-control/
-```
-
-The suite is a KAN control semantic tailoring of the KAS project suite. Load phase skills by their `kan-control-*` names when a task enters KAS mode, for example:
-
-- `kan-control-orchestrate`
-- `kan-control-task-contract`
-- `kan-control-plan`
-- `kan-control-phase-state`
-- `kan-control-implement`
-- `kan-control-enhance-test`
-- `kan-control-optimize`
-- `kan-control-docs-update`
-- `kan-control-review`
-- `kan-control-final-verify`
-
-Observed local tool baseline when this file was written:
-
-```text
-kkachi-agent-helper 0.1.9
-kkachi-agent-skills 0.1.3
-```
-
-Verify before relying on it:
-
-```bash
-kkachi-agent-helper --version
-kkachi-agent-skills --version
-kkachi-agent-helper project doctor --json
-kkachi-agent-helper graph validate --json
-kkachi-agent-skills doctor --profile macho --project-suite --project kan-control --json
-kkachi-agent-skills doctor --repo /Users/draccoon/Workspace/SeventeenthEarth/kkachi/kkachi-hermes-skills --project /Users/draccoon/Workspace/SeventeenthEarth/kkachi/kkachi-agent-network-control --workflow-graph --json
-```
-
-KAS project-suite doctor may report `project_tailoring_checksum_drift` warnings for the `kan-control-*` skills. That warning is expected for this profile-local semantic tailoring when the command still returns `ok: true`. Treat checksum mismatch errors as blockers.
+When an explicitly selected workflow helper is available, `.kkachi/` and
+`.kkachi-workflow.yaml` may be used as evidence/state helpers. If those helpers
+are unavailable, record the direct-development evidence instead of blocking the
+work solely because KAS/KAH is absent.
 
 ## Authority order
 
@@ -107,27 +78,26 @@ When instructions conflict, use this order:
    - `docs/13-operational-contracts.md`
    - `docs/18-testing-strategy.md`
    - `docs/21-cross-repo-development.md`
-4. `.kkachi-workflow.yaml` after it passes `kkachi-agent-helper graph validate --json`.
-5. KAS promotion candidates such as `/Users/draccoon/Workspace/Hermes/17thHermes/40_outputs/projects/kkachi/2026-06-14-kas-policy-promotion-candidates.md`; these are useful guidance but are not applied KAS source until promoted.
+4. Optional workflow helper state under `.kkachi/` only when that helper is explicitly selected and available.
 
-Do not infer KAS/KAH/KAB policy from memory alone. Resolve the relevant source or evidence file before architecture, readiness, activation, review, or final claims.
+Do not infer Kkachi helper policy from memory alone. Resolve the relevant source or evidence file before architecture, readiness, activation, review, or final claims.
 
 ## Task classification
 
-Before KAS-mode work, classify the task and record the reason in the task contract/run artifacts:
+Before broad development work, classify the task and record the reason in the task notes or workflow artifacts when such artifacts are in use:
 
 - `development`: code, tests, build behavior, architecture, process contract, executable contract, or behavior-changing work. Use the full development spine.
 - `docs_only`: durable docs/SOT/roadmap/contract edits with no executable behavior change. Use docs/contract verification and explicit skipped-phase reasons.
 - `research_evidence`: read-only investigation, current-state evidence, option comparison, or log/source inspection.
-- `simple_command_report`: bounded command/status check with no durable project change; keep outside KAS unless 주군 explicitly keeps it in KAS.
+- `simple_command_report`: bounded command/status check with no durable project change.
 - `bootstrap_config`: repo/KAH project/profile/manifest/tooling/test-bed setup. Require explicit approval for auth, secret, gateway, provider, profile, daemon activation, or live runtime mutation.
 - `collaboration_review`: durable review/risk/team-feedback routing; use Kanban for official team-member review.
 
 ## Current workflow graph
 
-The project graph is `.kkachi-workflow.yaml`. Validate it before use.
+The optional project graph is `.kkachi-workflow.yaml`. Validate it before use when the helper is explicitly selected.
 
-Development-class spine:
+Optional development-class spine:
 
 ```text
 intake -> sot -> roadmap -> task-classification -> plan -> vet -> ask -> implement -> enhance-test -> ai-slop-cleaner -> optimize -> docs-update -> verify -> color-review -> color-adjust -> octo-review -> octo-adjudication -> post-octo-adjust -> final

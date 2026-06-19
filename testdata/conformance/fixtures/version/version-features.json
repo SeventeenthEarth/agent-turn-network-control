@@ -3,6 +3,7 @@
   "protocol_version": "kan-protocol-v1alpha0",
   "daemon_version": "daemn-002-local",
   "min_plugin_protocol_version": "kan-protocol-v1alpha0",
+  "live_readiness": true,
   "features": [
     "version.read",
     "status.read",

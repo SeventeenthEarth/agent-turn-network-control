@@ -199,6 +199,7 @@ func addCompatibilityEvidence(result map[string]any) map[string]any {
 	result["protocol_version"] = features.ProtocolVersion
 	result["daemon_version"] = features.DaemonVersion
 	result["min_plugin_protocol_version"] = features.MinPluginProtocolVersion
+	result["live_readiness"] = features.LiveReadiness
 	result["features"] = append([]string(nil), features.Features...)
 	result["feature_groups"] = append([]string(nil), features.FeatureGroups...)
 	result["fixture_manifest"] = features.FixtureManifest

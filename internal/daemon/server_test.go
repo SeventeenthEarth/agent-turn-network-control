@@ -232,6 +232,9 @@ func assertCompatibilityReadEvidence(t *testing.T, command string, result map[st
 	if result["fixture_manifest"] != features.FixtureManifest {
 		t.Fatalf("%s fixture_manifest = %v, want %q", command, result["fixture_manifest"], features.FixtureManifest)
 	}
+	if result["live_readiness"] != features.LiveReadiness {
+		t.Fatalf("%s live_readiness = %v, want %v", command, result["live_readiness"], features.LiveReadiness)
+	}
 }
 
 func numericInt(value any) (int, bool) {
