@@ -37,6 +37,7 @@ type StreamStatus struct {
 	Cursors                     map[string]StreamCursorState       `json:"cursors"`
 	Subscribers                 []StreamSubscriberState            `json:"subscribers"`
 	ParticipantRuntimeReadiness *ParticipantRuntimeReadinessReport `json:"participant_runtime_readiness,omitempty"`
+	SelectedRunnerAccounting    SelectedRunnerAccounting           `json:"selected_runner_accounting,omitempty"`
 }
 
 type StreamCursorState struct {
@@ -197,11 +198,13 @@ func StreamStatusFromLogAt(sessionDir string, metadata *SessionMetadata, now tim
 	for _, key := range keys {
 		status.Subscribers = append(status.Subscribers, subscribers[key])
 	}
-	status.ParticipantRuntimeReadiness = ParticipantRuntimeReadinessFromIndex(metadata, index, readinessOptionsForStatus(metadata, index, now))
+	selectedRunnerAccounting := SelectedRunnerAccountingFromIndex(index)
+	status.SelectedRunnerAccounting = selectedRunnerAccounting
+	status.ParticipantRuntimeReadiness = ParticipantRuntimeReadinessFromIndex(metadata, index, readinessOptionsForStatus(metadata, index, now, selectedRunnerAccounting))
 	return status, nil
 }
 
-func readinessOptionsForStatus(metadata *SessionMetadata, index *LogIndex, now time.Time) ParticipantRuntimeReadinessOptions {
+func readinessOptionsForStatus(metadata *SessionMetadata, index *LogIndex, now time.Time, selectedRunnerAccounting SelectedRunnerAccounting) ParticipantRuntimeReadinessOptions {
 	opts := ParticipantRuntimeReadinessOptions{Now: now}
 	if metadata == nil || metadata.SessionType != SessionTypeCouncil {
 		return opts
@@ -214,33 +217,9 @@ func readinessOptionsForStatus(metadata *SessionMetadata, index *LogIndex, now t
 		if opts.SelectedMember == "" && len(selected.To) == 1 {
 			opts.SelectedMember = selected.To[0]
 		}
-		opts.SelectedRunnerEvidence = map[string]SelectedRunnerPrerequisite{opts.SelectedMember: selectedRunnerEvidenceFromLog(index, selected.EventID)}
+		opts.SelectedRunnerEvidence = map[string]SelectedRunnerPrerequisite{opts.SelectedMember: selectedRunnerEvidenceFromAccounting(selectedRunnerAccounting, selected.EventID)}
 	}
 	return opts
-}
-
-func selectedRunnerEvidenceFromLog(index *LogIndex, speakerEventID string) SelectedRunnerPrerequisite {
-	if index == nil || strings.TrimSpace(speakerEventID) == "" {
-		return SelectedRunnerPrerequisite{Ready: false, Status: "missing_selected_runner_prerequisite", BlockingReasons: []string{"missing_selected_runner_prerequisite"}}
-	}
-	started := false
-	for _, event := range index.Events {
-		if event.CausationEventID != speakerEventID {
-			continue
-		}
-		switch event.Type {
-		case "runner_invocation_started":
-			started = true
-		case "speech":
-			return SelectedRunnerPrerequisite{Ready: true, Status: "canonical_speech_recorded", Evidence: []string{event.EventID}}
-		case "runner_invocation_failed", "runner_result_discarded", "selected_runner_dispatch_failed":
-			return SelectedRunnerPrerequisite{Ready: false, Status: "runner_terminal_failure", BlockingReasons: []string{event.Type}, Evidence: []string{event.EventID}}
-		}
-	}
-	if started {
-		return SelectedRunnerPrerequisite{Ready: false, Status: "runner_started_without_terminal", BlockingReasons: []string{"runner_started_without_terminal"}}
-	}
-	return SelectedRunnerPrerequisite{Ready: false, Status: "missing_runner_invocation_started", BlockingReasons: []string{"missing_runner_invocation_started"}}
 }
 
 func AcknowledgeCursor(sessionDir string, metadata *SessionMetadata, member, cursor, commandID string, now time.Time) (AppendResult, bool, error) {

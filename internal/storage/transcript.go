@@ -121,6 +121,7 @@ func BuildExportBundle(sessionDir string, metadata *SessionMetadata, opts Export
 		"source_event_log":            ChannelJSONLName,
 		"registry_snapshot":           metadata.RegistrySnapshot,
 		"includes_operator_evidence":  true,
+		"selected_runner_accounting":  SelectedRunnerAccountingFromIndex(index),
 		"surface_delivery_projection": visibleSurfaceProjectionRows(index.Events),
 		"argument_graph_projection":   argumentGraphProjectionRows(index.Events),
 		"files": []string{
@@ -183,6 +184,7 @@ func renderTranscriptMarkdown(metadata *SessionMetadata, events []EventEnvelope)
 	fmt.Fprintf(&b, "- runner_calls_total: `%d`\n", cost.RunnerCallsTotal)
 	fmt.Fprintf(&b, "- usd_estimate_total: `%.6f`\n", cost.USDEstimateTotal)
 	fmt.Fprintf(&b, "- missing_cost_runner_calls_total: `%d`\n\n", cost.MissingCostRunnerCallsTotal)
+	renderSelectedRunnerAccountingSummary(&b, SelectedRunnerAccountingFromIndex(&LogIndex{Events: events}))
 	renderVisibleSurfaceProjectionSummary(&b, events)
 	renderArgumentGraphProjectionSummary(&b, events)
 	fmt.Fprintln(&b, "## Events")
@@ -247,6 +249,41 @@ func transcriptCostSummary(metadata *SessionMetadata, events []EventEnvelope) Co
 		}
 	}
 	return summary
+}
+
+func renderSelectedRunnerAccountingSummary(b *strings.Builder, accounting SelectedRunnerAccounting) {
+	if accounting.SelectedSpeakerCount == 0 && accounting.RunnerStartedCount == 0 && accounting.RunnerlessSpeechCount == 0 {
+		return
+	}
+	fmt.Fprintln(b, "## Selected Runner Accounting")
+	fmt.Fprintln(b)
+	fmt.Fprintf(b, "- selected_runner_pass: `%t`\n", accounting.SelectedRunnerPass)
+	fmt.Fprintf(b, "- selected_speaker_count: `%d`\n", accounting.SelectedSpeakerCount)
+	fmt.Fprintf(b, "- runner_started_count: `%d`\n", accounting.RunnerStartedCount)
+	fmt.Fprintf(b, "- runner_succeeded_count: `%d`\n", accounting.RunnerSucceededCount)
+	fmt.Fprintf(b, "- runner_failed_count: `%d`\n", accounting.RunnerFailedCount)
+	fmt.Fprintf(b, "- terminal_discard_count: `%d`\n", accounting.TerminalDiscardCount)
+	fmt.Fprintf(b, "- dispatch_failure_count: `%d`\n", accounting.DispatchFailureCount)
+	fmt.Fprintf(b, "- linked_runner_speech_count: `%d`\n", accounting.LinkedRunnerSpeechCount)
+	fmt.Fprintf(b, "- runnerless_speech_count: `%d`\n", accounting.RunnerlessSpeechCount)
+	fmt.Fprintf(b, "- manual_or_fallback_speech_count: `%d`\n", accounting.ManualOrFallbackSpeechCount)
+	if len(accounting.Diagnostics) > 0 {
+		fmt.Fprintln(b, "- diagnostics:")
+		for _, diagnostic := range accounting.Diagnostics {
+			fmt.Fprintf(b, "  - `%s`", diagnostic.Code)
+			if diagnostic.EventID != "" {
+				fmt.Fprintf(b, " event=`%s`", diagnostic.EventID)
+			}
+			if diagnostic.SelectedEventID != "" {
+				fmt.Fprintf(b, " selected=`%s`", diagnostic.SelectedEventID)
+			}
+			if diagnostic.RunnerInvocationID != "" {
+				fmt.Fprintf(b, " invocation=`%s`", diagnostic.RunnerInvocationID)
+			}
+			fmt.Fprintln(b)
+		}
+	}
+	fmt.Fprintln(b)
 }
 
 func renderVisibleSurfaceProjectionSummary(b *strings.Builder, events []EventEnvelope) {

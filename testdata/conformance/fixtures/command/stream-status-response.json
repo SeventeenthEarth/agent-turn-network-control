@@ -22,6 +22,18 @@
         "last_heartbeat_at": "2026-06-10T01:46:11Z"
       }
     ],
+    "selected_runner_accounting": {
+      "selected_runner_pass": false,
+      "selected_speaker_count": 0,
+      "runner_started_count": 0,
+      "runner_succeeded_count": 0,
+      "runner_failed_count": 0,
+      "terminal_discard_count": 0,
+      "dispatch_failure_count": 0,
+      "linked_runner_speech_count": 0,
+      "runnerless_speech_count": 0,
+      "manual_or_fallback_speech_count": 0
+    },
     "participant_runtime_readiness": {
       "session_id": "sess_conformance_delegation",
       "ready": true,

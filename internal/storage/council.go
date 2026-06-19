@@ -177,7 +177,9 @@ func CouncilStatusFromLogAt(sessionDir string, metadata *SessionMetadata, now ti
 		"vote":            councilVoteStatus(metadata, index),
 	}
 	status["discussion_quality"] = councilDiscussionQualityStatus(metadata, index, phase)
-	status["participant_runtime_readiness"] = ParticipantRuntimeReadinessFromIndex(metadata, index, readinessOptionsForStatus(metadata, index, now))
+	selectedRunnerAccounting := SelectedRunnerAccountingFromIndex(index)
+	status["selected_runner_accounting"] = selectedRunnerAccounting
+	status["participant_runtime_readiness"] = ParticipantRuntimeReadinessFromIndex(metadata, index, readinessOptionsForStatus(metadata, index, now, selectedRunnerAccounting))
 	if len(index.Events) > 0 {
 		last := index.Events[len(index.Events)-1]
 		status["latest_event_id"] = last.EventID

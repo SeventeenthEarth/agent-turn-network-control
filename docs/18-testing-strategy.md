@@ -71,7 +71,7 @@ Control conformance fixtures are stored under `testdata/conformance/` once code 
 - local/fake RUNRT runner event envelopes (`runner_invocation_started`, `runner_invocation_failed`, terminal semantic runner events, and `runner_result_discarded`);
 - TRANS-001 transcript/export command envelopes, deterministic renderer golden coverage, local bundle contents, and plugin handoff fixture checks.
 
-Transcript/export tests must cover deterministic Markdown and JSONL rendering, output path rejection, missing/corrupt session errors, export bundle contents, read-only fingerprints for `status`/`transcript`/`export`/`tail`, council linked-authority evidence, delegation/review evidence, terminal/blocked state rendering, and runner/cost summaries.
+Transcript/export tests must cover deterministic Markdown and JSONL rendering, output path rejection, missing/corrupt session errors, export bundle contents, read-only fingerprints for `status`/`transcript`/`export`/`tail`, council linked-authority evidence, delegation/review evidence, terminal/blocked state rendering, runner/cost summaries, and selected-runner terminal accounting where runner failure/discard/dispatch failure blocks `selected_runner_pass` even if later runnerless/manual/fallback speech exists.
 
 The plugin repository must run its Python client against either copied fixtures or a temporary daemon built from this repo.
 

@@ -253,7 +253,7 @@ func TestUnitConformanceFixturesUseCanonicalCommandsAndDeliveryEvidence(t *testi
 		t.Fatalf("stream status fixture has wrong command shape: %+v", streamStatusRequest)
 	}
 	streamStatusResponse := readJSONFixture[CommandResponse](t, "fixtures/command/stream-status-response.json")
-	for _, key := range []string{"session_id", "latest_cursor", "latest_event_id", "cursors", "subscribers", "participant_runtime_readiness"} {
+	for _, key := range []string{"session_id", "latest_cursor", "latest_event_id", "cursors", "subscribers", "selected_runner_accounting", "participant_runtime_readiness"} {
 		if _, ok := streamStatusResponse.Result[key]; !ok {
 			t.Fatalf("stream.status response missing %q in %+v", key, streamStatusResponse.Result)
 		}
