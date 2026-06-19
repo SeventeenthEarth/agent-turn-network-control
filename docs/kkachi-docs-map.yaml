@@ -15,6 +15,19 @@ test_commands:
   - "make check-plugin-contract"
   - "make test-release-acceptance"
   - "make test"
+kan_team:
+  blue: "macho"
+  red: "seohwang"
+  orange: "jonghoe"
+  gray: "manchong"
+kas:
+  project: "kan-control"
+  suite_roles:
+    macho: "blue_commander"
+    seohwang: "red_reviewer"
+    jonghoe: "orange_pm_reviewer"
+    manchong: "gray_scribe"
+  tailoring_mode: "profile_local_role_semantic_tailoring"
 
 runfix:
   epic: "RUNFIX"
@@ -31,4 +44,11 @@ runfix:
     - "plugin/RUNFIX-008"
     - "control/RUNFIX-009"
     - "plugin/RUNFIX-010"
-  boundary: "RUNFIX separates lifecycle, selected-runner, visible-surface, fallback, and ARGUE-quality evidence. RUNFIX-001/002 are accepted docs-only SOT locks after Red/Orange/Gray review, focused re-check, and Blue final synthesis; no live activation, Discord/gateway/profile/provider mutation, KAB readiness, production readiness, or fallback success-as-KAN-success claim is authorized."
+    - "control/RUNFIX-011"
+    - "plugin/RUNFIX-012"
+    - "plugin/RUNFIX-013"
+    - "control/RUNFIX-014"
+    - "plugin/RUNFIX-015"
+    - "control/RUNFIX-016"
+    - "plugin/RUNFIX-017"
+  boundary: "RUNFIX separates lifecycle, selected-runner, visible-surface, fallback, and ARGUE-quality evidence. RUNFIX-014..017 add planned post-pilot guardrails for runner terminal accounting, visible author identity, summary schema robustness, and ARGUE quality-required prompting. RUNFIX-001/002 are accepted docs-only SOT locks after Red/Orange/Gray review, focused re-check, and Blue final synthesis; no live activation, Discord/gateway/profile/provider mutation, KAB readiness, production readiness, or fallback success-as-KAN-success claim is authorized."
