@@ -15,12 +15,16 @@ const (
 )
 
 type ParticipantRuntimeReadinessOptions struct {
-	RequireAttendance      bool
-	RequirePreparation     bool
-	RequireSelectedRunner  bool
-	SelectedMember         string
-	SelectedRunnerEvidence map[string]SelectedRunnerPrerequisite
-	Now                    time.Time
+	RequireAttendance           bool
+	RequirePreparation          bool
+	RequireSelectedRunner       bool
+	SelectedMember              string
+	SelectedRunnerEvidence      map[string]SelectedRunnerPrerequisite
+	Now                         time.Time
+	FreshnessNow                time.Time
+	EvaluationMode              string
+	FreshnessReferenceEventID   string
+	FreshnessReferenceEventType string
 }
 
 type ParticipantRuntimeReadinessReport struct {
@@ -29,6 +33,10 @@ type ParticipantRuntimeReadinessReport struct {
 	LiveReady                     bool                                `json:"live_ready"`
 	Status                        string                              `json:"status"`
 	GeneratedAt                   string                              `json:"generated_at"`
+	EvaluatedAt                   string                              `json:"evaluated_at"`
+	EvaluationMode                string                              `json:"evaluation_mode"`
+	FreshnessReferenceEventID     string                              `json:"freshness_reference_event_id,omitempty"`
+	FreshnessReferenceEventType   string                              `json:"freshness_reference_event_type,omitempty"`
 	RequiredMembers               []string                            `json:"required_members"`
 	BlockingReasons               []string                            `json:"blocking_reasons"`
 	StreamHeartbeatIntervalSec    int                                 `json:"stream_heartbeat_interval_sec"`
@@ -88,6 +96,14 @@ func ParticipantRuntimeReadinessFromIndex(metadata *SessionMetadata, index *LogI
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
+	freshnessNow := opts.FreshnessNow.UTC()
+	if freshnessNow.IsZero() {
+		freshnessNow = now
+	}
+	evaluationMode := strings.TrimSpace(opts.EvaluationMode)
+	if evaluationMode == "" {
+		evaluationMode = "current"
+	}
 	limits := effectiveRuntimeLimits(metadata)
 	required := readinessRequiredMembers(metadata)
 	streams := streamEvidenceByMember(index)
@@ -95,18 +111,22 @@ func ParticipantRuntimeReadinessFromIndex(metadata *SessionMetadata, index *LogI
 	preparationEvent, preparation := preparationEvidenceByMember(metadata, index)
 
 	report := &ParticipantRuntimeReadinessReport{
-		SessionID:                  metadata.ID,
-		Ready:                      true,
-		LiveReady:                  true,
-		Status:                     "ready",
-		GeneratedAt:                now.Format(time.RFC3339Nano),
-		RequiredMembers:            append([]string(nil), required...),
-		StreamHeartbeatIntervalSec: limits.StreamHeartbeatIntervalSec,
-		StreamStaleThresholdSec:    limits.StreamStaleThresholdSec,
-		StreamRepollThresholdSec:   limits.StreamRepollThresholdSec,
-		AttendanceRequired:         opts.RequireAttendance,
-		PreparationRequired:        opts.RequirePreparation,
-		SelectedRunnerRequired:     opts.RequireSelectedRunner,
+		SessionID:                   metadata.ID,
+		Ready:                       true,
+		LiveReady:                   true,
+		Status:                      "ready",
+		GeneratedAt:                 now.Format(time.RFC3339Nano),
+		EvaluatedAt:                 freshnessNow.Format(time.RFC3339Nano),
+		EvaluationMode:              evaluationMode,
+		FreshnessReferenceEventID:   strings.TrimSpace(opts.FreshnessReferenceEventID),
+		FreshnessReferenceEventType: strings.TrimSpace(opts.FreshnessReferenceEventType),
+		RequiredMembers:             append([]string(nil), required...),
+		StreamHeartbeatIntervalSec:  limits.StreamHeartbeatIntervalSec,
+		StreamStaleThresholdSec:     limits.StreamStaleThresholdSec,
+		StreamRepollThresholdSec:    limits.StreamRepollThresholdSec,
+		AttendanceRequired:          opts.RequireAttendance,
+		PreparationRequired:         opts.RequirePreparation,
+		SelectedRunnerRequired:      opts.RequireSelectedRunner,
 	}
 	if attendanceEvent != nil {
 		report.LatestAttendanceRequestEvent = attendanceEvent.EventID
@@ -124,8 +144,8 @@ func ParticipantRuntimeReadinessFromIndex(metadata *SessionMetadata, index *LogI
 			ReadinessClass:     "success",
 			SubscriberPresence: subscriberPresenceStatus(stream),
 			CursorAck:          cursorAckStatus(stream, index),
-			CursorAckFreshness: cursorAckFreshnessStatus(stream, now, limits.StreamRepollThresholdSec),
-			HeartbeatFreshness: heartbeatFreshnessStatus(stream, now, limits.StreamStaleThresholdSec),
+			CursorAckFreshness: cursorAckFreshnessStatus(stream, freshnessNow, limits.StreamRepollThresholdSec),
+			HeartbeatFreshness: heartbeatFreshnessStatus(stream, freshnessNow, limits.StreamStaleThresholdSec),
 			Attendance:         optionalEvidence("not_required"),
 			Preparation:        optionalEvidence("not_required"),
 		}

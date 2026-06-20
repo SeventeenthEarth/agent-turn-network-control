@@ -1,9 +1,12 @@
 package storage
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
+
+	"kkachi-agent-network-control/internal/protocol"
 )
 
 func TestUnitParticipantRuntimeReadinessRequiresSubscriberCursorHeartbeatAttendanceAndPreparation(t *testing.T) {
@@ -71,6 +74,66 @@ func TestUnitParticipantRuntimeReadinessDistinguishesTimeoutFailureFromPartialSu
 	}
 }
 
+func TestUnitStreamStatusTerminalReadinessUsesEventTimeNotStalePostFinalHeartbeat(t *testing.T) {
+	sessionDir, metadata := readinessCouncilForTest(t, "sess_runtime_terminal_reference", true)
+	metadata.Status = StatusTerminal
+	metadata.State.Phase = "finalized"
+	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
+		t.Fatalf("WriteSessionYAMLAtomic: %v", err)
+	}
+
+	status, err := StreamStatusFromLogAt(sessionDir, metadata, fixedRuntime().Now().Add(20*time.Minute))
+	if err != nil {
+		t.Fatalf("StreamStatusFromLogAt: %v", err)
+	}
+	report := status.ParticipantRuntimeReadiness
+	if report == nil {
+		t.Fatalf("expected participant runtime readiness report")
+	}
+	if !report.Ready || !report.LiveReady || report.Status != "ready" {
+		t.Fatalf("terminal report should evaluate readiness at event time, got %#v", report)
+	}
+	if report.EvaluationMode != "terminal_event_time" || report.FreshnessReferenceEventType != "stream_cursor_acknowledged" {
+		t.Fatalf("expected terminal event-time reference, got mode=%q ref_type=%q report=%#v", report.EvaluationMode, report.FreshnessReferenceEventType, report)
+	}
+	if strings.Contains(strings.Join(report.BlockingReasons, ","), "stale_heartbeat") || strings.Contains(strings.Join(report.BlockingReasons, ","), "stale_cursor_ack") {
+		t.Fatalf("terminal readiness must not be blocked by stale post-final freshness: %#v", report.BlockingReasons)
+	}
+}
+
+func TestUnitStreamStatusTerminalReadinessPrefersLatestSpeakerSelectedReference(t *testing.T) {
+	sessionDir, metadata := readinessCouncilForTest(t, "sess_runtime_terminal_speaker_reference", true)
+	selected := appendRawEventForTest(t, sessionDir, metadata, "evt_terminal_reference_selected", "cmd_terminal_reference_selected", "speaker_selected", "discussion", "agent-mod", []string{"agent-1"}, map[string]any{"turn": float64(1), "member": "agent-1", "selection_mode": "moderator_direct"}, 20*time.Second)
+	appendRunnerEventForRuntimeReadinessTest(t, sessionDir, metadata, "evt_terminal_reference_runner_started", "runner_invocation_started", selected.EventID, "run_terminal_reference", "agent-1", "started", 21*time.Second)
+	appendRunnerSpeechForRuntimeReadinessTest(t, sessionDir, metadata, "evt_terminal_reference_speech", selected.EventID, "run_terminal_reference", "agent-1", 1, 22*time.Second)
+	metadata.Status = StatusTerminal
+	metadata.State.Phase = "finalized"
+	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
+		t.Fatalf("WriteSessionYAMLAtomic: %v", err)
+	}
+
+	status, err := StreamStatusFromLogAt(sessionDir, metadata, fixedRuntime().Now().Add(20*time.Minute))
+	if err != nil {
+		t.Fatalf("StreamStatusFromLogAt: %v", err)
+	}
+	report := status.ParticipantRuntimeReadiness
+	if report == nil {
+		t.Fatalf("expected participant runtime readiness report")
+	}
+	if !report.Ready || !report.LiveReady || report.Status != "ready" {
+		t.Fatalf("terminal report should remain ready at selected-speaker event time, got %#v", report)
+	}
+	if report.EvaluationMode != "terminal_event_time" || report.FreshnessReferenceEventID != selected.EventID || report.FreshnessReferenceEventType != "speaker_selected" {
+		t.Fatalf("expected latest speaker_selected reference, got mode=%q ref_id=%q ref_type=%q report=%#v", report.EvaluationMode, report.FreshnessReferenceEventID, report.FreshnessReferenceEventType, report)
+	}
+	if report.EvaluatedAt == report.GeneratedAt {
+		t.Fatalf("terminal report should separate evaluated_at from generated_at: %#v", report)
+	}
+	if strings.Contains(strings.Join(report.BlockingReasons, ","), "stale_heartbeat") || strings.Contains(strings.Join(report.BlockingReasons, ","), "stale_cursor_ack") {
+		t.Fatalf("terminal readiness must not be blocked by stale post-final freshness: %#v", report.BlockingReasons)
+	}
+}
+
 func readinessCouncilForTest(t *testing.T, sessionID string, includeRuntimeEvidence bool) (string, *SessionMetadata) {
 	t.Helper()
 	dataHome, loaded := loadedCouncilRegistry(t)
@@ -102,4 +165,65 @@ func readinessCouncilForTest(t *testing.T, sessionID string, includeRuntimeEvide
 		}
 	}
 	return sessionDir, metadata
+}
+
+func appendRunnerEventForRuntimeReadinessTest(t *testing.T, sessionDir string, metadata *SessionMetadata, eventID, typ, selectedEventID, invocationID, member, status string, delta time.Duration) {
+	t.Helper()
+	event := EventEnvelope{
+		SchemaVersion:    protocol.SchemaVersion,
+		EventID:          eventID,
+		CommandID:        "cmd_" + eventID,
+		CausationEventID: selectedEventID,
+		CorrelationID:    metadata.ID,
+		SessionID:        metadata.ID,
+		SessionType:      metadata.SessionType,
+		Phase:            "discussion",
+		Type:             typ,
+		From:             "kkachi-agent-networkd",
+		To:               []string{member},
+		CreatedAt:        fixedRuntime().Now().Add(delta),
+		Runner: &RunnerInfo{
+			InvocationID:    invocationID,
+			AdapterKind:     "hermes-agent",
+			Member:          member,
+			Attempt:         1,
+			SourceCommandID: "cmd_" + eventID,
+			Status:          status,
+		},
+		Payload: map[string]any{"selected_event_id": selectedEventID},
+	}
+	if _, err := AppendEvent(sessionDir, metadata, event); err != nil {
+		t.Fatalf("AppendEvent(%s): %v", typ, err)
+	}
+}
+
+func appendRunnerSpeechForRuntimeReadinessTest(t *testing.T, sessionDir string, metadata *SessionMetadata, eventID, selectedEventID, invocationID, member string, turn int, delta time.Duration) {
+	t.Helper()
+	event := EventEnvelope{
+		SchemaVersion:    protocol.SchemaVersion,
+		EventID:          eventID,
+		CommandID:        "cmd_" + eventID,
+		CausationEventID: selectedEventID,
+		CorrelationID:    metadata.ID,
+		SessionID:        metadata.ID,
+		SessionType:      metadata.SessionType,
+		Phase:            "discussion",
+		Type:             "speech",
+		From:             member,
+		To:               []string{metadata.Moderator},
+		CreatedAt:        fixedRuntime().Now().Add(delta),
+		Runner: &RunnerInfo{
+			InvocationID:    invocationID,
+			AdapterKind:     "hermes-agent",
+			Member:          member,
+			Attempt:         1,
+			SourceCommandID: "cmd_" + eventID,
+			Status:          "succeeded",
+		},
+		Cost:    json.RawMessage(`{"tokens_in":1,"tokens_out":1,"usd_estimate":0.01,"source":"fixture"}`),
+		Payload: map[string]any{"turn": float64(turn), "member": member, "speech": "selected runner response", "selected_event_id": selectedEventID},
+	}
+	if _, err := AppendEvent(sessionDir, metadata, event); err != nil {
+		t.Fatalf("AppendEvent(speech): %v", err)
+	}
 }

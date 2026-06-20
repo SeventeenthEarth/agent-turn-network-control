@@ -1190,7 +1190,16 @@ required participants. It is computed from durable stream subscriber,
 cursor-ack, heartbeat, attendance/preparation, and selected-runner evidence.
 Gateway/process/socket liveness, transcript/export-only evidence, manual profile
 fallback text, visible-surface pointers, or parent-channel fallback visibility
-must not satisfy participant runtime readiness.
+must not satisfy participant runtime readiness. The report separates generation
+time from readiness-evaluation time: `generated_at` records when the status was
+rendered, while `evaluated_at`, `evaluation_mode`, and optional
+`freshness_reference_event_id` / `freshness_reference_event_type` record the
+time used for cursor/heartbeat freshness. Open sessions use current freshness.
+Terminal council sessions use event-time freshness (`evaluation_mode:
+terminal_event_time`) so final reports judge participant runtime readiness at
+the latest grant/turn evidence when present, or the latest readiness evidence
+otherwise, instead of retroactively failing a completed council only because
+heartbeat/ack evidence is naturally stale after finalization.
 
 ## Council events
 

@@ -209,6 +209,12 @@ func readinessOptionsForStatus(metadata *SessionMetadata, index *LogIndex, now t
 	if metadata == nil || metadata.SessionType != SessionTypeCouncil {
 		return opts
 	}
+	if ref := terminalRuntimeReadinessReference(metadata, index); ref != nil {
+		opts.FreshnessNow = ref.CreatedAt.UTC()
+		opts.EvaluationMode = "terminal_event_time"
+		opts.FreshnessReferenceEventID = ref.EventID
+		opts.FreshnessReferenceEventType = ref.Type
+	}
 	opts.RequireAttendance = latestEventOfType(index, "attendance_requested") != nil
 	opts.RequirePreparation = latestEventOfType(index, "preparation_requested") != nil
 	if selected := latestEventOfType(index, "speaker_selected"); selected != nil {
@@ -220,6 +226,23 @@ func readinessOptionsForStatus(metadata *SessionMetadata, index *LogIndex, now t
 		opts.SelectedRunnerEvidence = map[string]SelectedRunnerPrerequisite{opts.SelectedMember: selectedRunnerEvidenceFromAccounting(selectedRunnerAccounting, selected.EventID)}
 	}
 	return opts
+}
+
+func terminalRuntimeReadinessReference(metadata *SessionMetadata, index *LogIndex) *EventEnvelope {
+	if metadata == nil || index == nil || (metadata.Status != StatusTerminal && statusFromPhase(metadata.State.Phase) != StatusTerminal) {
+		return nil
+	}
+	if event := latestEventOfType(index, "speaker_selected"); event != nil {
+		return event
+	}
+	for i := len(index.Events) - 1; i >= 0; i-- {
+		event := index.Events[i]
+		switch event.Type {
+		case "stream_cursor_acknowledged", "stream_subscriber_heartbeat", "stream_subscriber_connected", "member_ready", "member_prepared_partial", "member_attended", "preparation_requested", "attendance_requested":
+			return &event
+		}
+	}
+	return nil
 }
 
 func AcknowledgeCursor(sessionDir string, metadata *SessionMetadata, member, cursor, commandID string, now time.Time) (AppendResult, bool, error) {
