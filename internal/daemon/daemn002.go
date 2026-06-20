@@ -25,8 +25,12 @@ func (s *Server) handleDAEMN002(request protocol.CommandRequest) (protocol.Comma
 	case "delegate.escalation_delivery_failed":
 		return s.handleDeliveryEvidence(request, "delivery_failed"), true
 	case "delegate.new":
+		s.sessionMu.Lock()
+		defer s.sessionMu.Unlock()
 		return s.handleDelegateNew(request), true
 	case "council.new":
+		s.sessionMu.Lock()
+		defer s.sessionMu.Unlock()
 		return s.handleCouncilNew(request), true
 	case "delegate.ack", "delegate.message", "delegate.clarify", "delegate.answer_clarification",
 		"delegate.update", "delegate.request_update", "delegate.submit", "delegate.review",

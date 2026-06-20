@@ -194,6 +194,78 @@ func CouncilStatusFromLogAt(sessionDir string, metadata *SessionMetadata, now ti
 	return status, nil
 }
 
+// CouncilReconcilePrincipals validates council.new request shape before any persistent
+// registry reconcile. It returns the exact moderator+member principals that may be
+// reconciled. A matching existing council returns nil principals so idempotent
+// duplicate requests do not mutate the registry.
+func CouncilReconcilePrincipals(dataHome string, loaded *registry.LoadedRegistry, spec CouncilStartSpec, runtime registry.Runtime) ([]string, error) {
+	if loaded == nil {
+		return nil, NewValidationError(CategorySnapshotRequired, "registry", "loaded registry is required")
+	}
+	runtime = runtimeWithDefaults(runtime)
+	session := spec.Session
+	if session.SessionType == "" {
+		session.SessionType = SessionTypeCouncil
+	}
+	if session.SessionType != SessionTypeCouncil {
+		return nil, NewValidationError(CategoryMetadataInvalid, "session_type", "council new requires council session_type")
+	}
+	moderator := strings.TrimSpace(session.Moderator)
+	if moderator == "" {
+		return nil, NewValidationError(CategoryPrincipalInvalid, "moderator", "moderator is required")
+	}
+	members, err := canonicalCouncilMembers(moderator, spec.Members)
+	if err != nil {
+		return nil, err
+	}
+	session.Moderator = moderator
+	session.Participants = append([]string{moderator}, members...)
+	if session.EventID == "" {
+		session.EventID = eventIDFromCommand("evt_session_created", session.CommandID)
+	}
+	if session.CommandID == "" {
+		session.CommandID = "cmd_council_new_" + session.ID
+	}
+
+	preflightLoaded := cloneLoadedRegistryWithPrincipals(loaded, session.Participants)
+	if err := validateSessionSpec(preflightLoaded, session); err != nil {
+		return nil, err
+	}
+	if existingMetadata, existingDir, ok, err := existingCouncil(dataHome, session.ID); err != nil {
+		return nil, err
+	} else if ok {
+		index, err := ReadLogIndex(existingDir, existingMetadata)
+		if err != nil {
+			return nil, err
+		}
+		created := sessionCreatedEvent(metadataFromSpec(session, preflightLoaded, existingMetadata.CreatedAt), session, existingMetadata.CreatedAt)
+		if len(index.Events) >= 1 && commandEquivalent(index.Events[0], created) {
+			return nil, nil
+		}
+		return nil, NewValidationError(CategorySessionExists, existingDir, "session already exists with different council payload")
+	}
+	if active, err := FindActiveSession(dataHome, runtime); err != nil {
+		return nil, err
+	} else if active != nil {
+		return nil, NewValidationError(CategoryCommandConflict, "active_session", fmt.Sprintf("active session %s is %s", active.SessionID, active.Status))
+	}
+	return append([]string(nil), session.Participants...), nil
+}
+
+func cloneLoadedRegistryWithPrincipals(loaded *registry.LoadedRegistry, principals []string) *registry.LoadedRegistry {
+	clone := *loaded
+	clone.Registry.Members = make(map[string]registry.Member, len(loaded.Registry.Members)+len(principals))
+	for id, member := range loaded.Registry.Members {
+		clone.Registry.Members[id] = member
+	}
+	for _, principal := range principals {
+		if _, ok := clone.Registry.Members[principal]; !ok {
+			clone.Registry.Members[principal] = registry.Member{ID: principal}
+		}
+	}
+	return &clone
+}
+
 func canonicalCouncilMembers(moderator string, raw []string) ([]string, error) {
 	if len(raw) == 0 {
 		return nil, NewValidationError(CategoryPrincipalInvalid, "members", "at least one council member is required")

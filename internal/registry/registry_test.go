@@ -217,6 +217,95 @@ func TestUnitWriteSnapshotAtomicIncludesSchemaVersion(t *testing.T) {
 	}
 }
 
+func TestUnitReconcileCouncilMembersAddsMissingExplicitPrincipal(t *testing.T) {
+	dataHome := safeDataHome(t)
+	binDir := filepath.Join(dataHome, "bin")
+	if err := os.Mkdir(binDir, 0o700); err != nil {
+		t.Fatalf("mkdir bin: %v", err)
+	}
+	writeFile(t, filepath.Join(binDir, "agent-mod"), "#!/bin/sh\nexit 0\n", 0o700)
+	writeFile(t, filepath.Join(binDir, "agent-new"), "#!/bin/sh\nexit 0\n", 0o700)
+	writeFile(t, registry.RegistryPath(dataHome), safeRegistryYAML("agent-mod", true, "agent-mod", nil, binDir), 0o600)
+
+	loaded, report, err := registry.ReconcileCouncilMembers(dataHome, []string{"agent-mod", "agent-new"}, registry.DefaultRuntime())
+	if err != nil {
+		t.Fatalf("ReconcileCouncilMembers failed: %v", err)
+	}
+	if len(report.Added) != 1 || report.Added[0] != "agent-new" {
+		t.Fatalf("expected agent-new added, got %#v", report.Added)
+	}
+	member, ok := loaded.Registry.Members["agent-new"]
+	if !ok {
+		t.Fatalf("expected agent-new in loaded registry")
+	}
+	if !member.Enabled || member.Wrapper != "agent-new" || member.AdapterKind != "hermes-agent" || member.RuntimeKind != "hermes-cli-stream" {
+		t.Fatalf("unexpected reconciled member: %#v", member)
+	}
+	if member.ResolvedWrapper == nil || member.ResolvedWrapper.ResolvedPath != filepath.Join(binDir, "agent-new") {
+		t.Fatalf("expected resolved wrapper through allowlist, got %#v", member.ResolvedWrapper)
+	}
+	if report.BeforeSHA256 == report.AfterSHA256 {
+		t.Fatalf("expected registry sha to change after reconcile")
+	}
+}
+
+func TestUnitReconcileCouncilMembersFailsClosedWhenWrapperMissing(t *testing.T) {
+	dataHome := safeDataHome(t)
+	binDir := filepath.Join(dataHome, "bin")
+	if err := os.Mkdir(binDir, 0o700); err != nil {
+		t.Fatalf("mkdir bin: %v", err)
+	}
+	writeFile(t, filepath.Join(binDir, "agent-mod"), "#!/bin/sh\nexit 0\n", 0o700)
+	writeFile(t, registry.RegistryPath(dataHome), safeRegistryYAML("agent-mod", true, "agent-mod", nil, binDir), 0o600)
+
+	_, _, err := registry.ReconcileCouncilMembers(dataHome, []string{"agent-mod", "agent-missing"}, registry.DefaultRuntime())
+	assertIssue(t, err, registry.CategoryWrapperUnresolvable)
+	loaded, loadErr := registry.Load(dataHome, registry.DefaultRuntime())
+	if loadErr != nil {
+		t.Fatalf("load after failed reconcile: %v", loadErr)
+	}
+	if _, ok := loaded.Registry.Members["agent-missing"]; ok {
+		t.Fatalf("failed reconcile must not mutate registry")
+	}
+}
+
+func TestUnitReconcileCouncilMembersFailsClosedWhenWrapperNameAmbiguous(t *testing.T) {
+	dataHome := safeDataHome(t)
+	binA := filepath.Join(dataHome, "bin-a")
+	binB := filepath.Join(dataHome, "bin-b")
+	if err := os.Mkdir(binA, 0o700); err != nil {
+		t.Fatalf("mkdir bin-a: %v", err)
+	}
+	if err := os.Mkdir(binB, 0o700); err != nil {
+		t.Fatalf("mkdir bin-b: %v", err)
+	}
+	writeFile(t, filepath.Join(binA, "agent-mod"), "#!/bin/sh\nexit 0\n", 0o700)
+	writeFile(t, filepath.Join(binA, "agent-new"), "#!/bin/sh\nexit 0\n", 0o700)
+	writeFile(t, filepath.Join(binB, "agent-new"), "#!/bin/sh\nexit 0\n", 0o700)
+	writeFile(t, registry.RegistryPath(dataHome), safeRegistryYAML("agent-mod", true, "agent-mod", nil, binA, binB), 0o600)
+
+	_, _, err := registry.ReconcileCouncilMembers(dataHome, []string{"agent-new"}, registry.DefaultRuntime())
+	assertIssue(t, err, registry.CategoryWrapperUnresolvable)
+	if !strings.Contains(err.Error(), "ambiguous") {
+		t.Fatalf("expected ambiguity in error, got %v", err)
+	}
+	loaded, loadErr := registry.Load(dataHome, registry.DefaultRuntime())
+	if loadErr != nil {
+		t.Fatalf("load after failed reconcile: %v", loadErr)
+	}
+	if _, ok := loaded.Registry.Members["agent-new"]; ok {
+		t.Fatalf("ambiguous reconcile must not mutate registry")
+	}
+}
+
+func TestUnitReconcileCouncilMembersFailsClosedWhenExistingPrincipalDisabled(t *testing.T) {
+	dataHome := safeDataHome(t)
+	writeFile(t, registry.RegistryPath(dataHome), safeRegistryYAML("agent-disabled", false, "missing-wrapper", nil), 0o600)
+
+	_, _, err := registry.ReconcileCouncilMembers(dataHome, []string{"agent-disabled"}, registry.DefaultRuntime())
+	assertIssue(t, err, registry.CategorySchemaInvalid)
+}
+
 func safeDataHome(t *testing.T) string {
 	t.Helper()
 	dataHome := t.TempDir()

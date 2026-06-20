@@ -160,6 +160,122 @@ func TestUnitDaemonSessionNewRejectsMalformedPresentLimits(t *testing.T) {
 	}
 }
 
+func TestUnitDaemonCouncilNewAutoReconcilesExplicitMissingRegistryMember(t *testing.T) {
+	dataHome, err := os.MkdirTemp("/private/tmp", "kan-daemon-reconcile-")
+	if err != nil {
+		t.Fatalf("make temp data home: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dataHome) })
+	if err := os.Chmod(dataHome, 0o700); err != nil {
+		t.Fatalf("chmod data home: %v", err)
+	}
+	binDir := filepath.Join(dataHome, "bin")
+	if err := os.Mkdir(binDir, 0o700); err != nil {
+		t.Fatalf("mkdir bin: %v", err)
+	}
+	for _, wrapper := range []string{"agent-mod", "agent-new"} {
+		if err := os.WriteFile(filepath.Join(binDir, wrapper), []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
+			t.Fatalf("write wrapper %s: %v", wrapper, err)
+		}
+	}
+	registryYAML := fmt.Sprintf(`schema_version: 1
+wrapper_path_allowlist:
+  - %s
+members:
+  agent-mod:
+    display_name: Moderator
+    wrapper: agent-mod
+    workspace: /tmp/agent-mod
+    role: moderator
+    enabled: true
+    adapter_kind: hermes-agent
+    runtime_kind: hermes-cli-stream
+`, binDir)
+	if err := os.WriteFile(registry.RegistryPath(dataHome), []byte(registryYAML), 0o600); err != nil {
+		t.Fatalf("write registry: %v", err)
+	}
+
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	response := server.Handle(protocol.NewRequest("reconcile", "council.new", map[string]any{
+		"session_id": "sess_reconciled",
+		"moderator":  "agent-mod",
+		"members":    []any{"agent-new"},
+		"title":      "auto reconcile",
+	}))
+	if !response.OK {
+		t.Fatalf("council.new should auto-reconcile explicit missing member: %+v", response)
+	}
+	loaded, err := registry.Load(dataHome, daemonFixedRuntime())
+	if err != nil {
+		t.Fatalf("load reconciled registry: %v", err)
+	}
+	if _, ok := loaded.Registry.Members["agent-new"]; !ok {
+		t.Fatalf("expected agent-new persisted in registry")
+	}
+	if _, ok := response.Result["registry_reconcile"]; !ok {
+		t.Fatalf("expected registry_reconcile evidence in response: %+v", response.Result)
+	}
+}
+
+func TestUnitDaemonCouncilNewDoesNotReconcileInvalidRoster(t *testing.T) {
+	dataHome, err := os.MkdirTemp("/private/tmp", "kan-daemon-reconcile-invalid-")
+	if err != nil {
+		t.Fatalf("make temp data home: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dataHome) })
+	if err := os.Chmod(dataHome, 0o700); err != nil {
+		t.Fatalf("chmod data home: %v", err)
+	}
+	binDir := filepath.Join(dataHome, "bin")
+	if err := os.Mkdir(binDir, 0o700); err != nil {
+		t.Fatalf("mkdir bin: %v", err)
+	}
+	for _, wrapper := range []string{"agent-mod", "agent-new"} {
+		if err := os.WriteFile(filepath.Join(binDir, wrapper), []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
+			t.Fatalf("write wrapper %s: %v", wrapper, err)
+		}
+	}
+	registryYAML := fmt.Sprintf(`schema_version: 1
+wrapper_path_allowlist:
+  - %s
+members:
+  agent-mod:
+    display_name: Moderator
+    wrapper: agent-mod
+    workspace: /tmp/agent-mod
+    role: moderator
+    enabled: true
+    adapter_kind: hermes-agent
+    runtime_kind: hermes-cli-stream
+`, binDir)
+	registryPath := registry.RegistryPath(dataHome)
+	if err := os.WriteFile(registryPath, []byte(registryYAML), 0o600); err != nil {
+		t.Fatalf("write registry: %v", err)
+	}
+	before, err := os.ReadFile(registryPath)
+	if err != nil {
+		t.Fatalf("read registry before: %v", err)
+	}
+
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	response := server.Handle(protocol.NewRequest("reconcile-invalid", "council.new", map[string]any{
+		"session_id": "sess_reconcile_invalid",
+		"moderator":  "agent-mod",
+		"members":    []any{"agent-new", "agent-new"},
+		"title":      "invalid auto reconcile",
+	}))
+	if response.OK {
+		t.Fatalf("council.new with duplicate member should fail: %+v", response)
+	}
+	after, err := os.ReadFile(registryPath)
+	if err != nil {
+		t.Fatalf("read registry after: %v", err)
+	}
+	if string(after) != string(before) {
+		t.Fatalf("invalid council.new must not mutate registry\nbefore:\n%s\nafter:\n%s", string(before), string(after))
+	}
+}
+
 func TestUnitDaemonDAEMN002VersionFeaturesAreImplemented(t *testing.T) {
 	server := daemon.NewServer("/tmp/unused", registry.DefaultRuntime())
 	response := server.Handle(protocol.NewRequest("features", protocol.FeatureVersionRead, nil))

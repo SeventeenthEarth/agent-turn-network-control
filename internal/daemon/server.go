@@ -30,10 +30,11 @@ type Server struct {
 	SelectedSpeakerTimeout    time.Duration
 	SelectedSpeakerMaxRetries int
 
-	mu       sync.RWMutex
-	ready    bool
-	started  time.Time
-	listener net.Listener
+	mu        sync.RWMutex
+	ready     bool
+	started   time.Time
+	listener  net.Listener
+	sessionMu sync.Mutex
 }
 
 func NewServer(dataHome string, runtime registry.Runtime) *Server {

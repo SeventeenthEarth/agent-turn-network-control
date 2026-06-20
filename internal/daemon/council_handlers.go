@@ -17,10 +17,12 @@ import (
 const defaultSelectedSpeakerDispatchTimeout = 30 * time.Second
 
 func (s *Server) handleCouncilNew(request protocol.CommandRequest) protocol.CommandResponse {
-	loaded, err := registry.Load(s.DataHome, s.Runtime)
+	limits, err := limitsParam(request)
 	if err != nil {
 		return protocol.ErrorResponse(request, daemonProtocolError(err))
 	}
+	moderator := stringParam(request, "moderator")
+	members := stringSliceParam(request, "members")
 	sessionID := stringParam(request, "session_id")
 	if sessionID == "" {
 		sessionID = fmt.Sprintf("sess_council_%d", s.now().UnixNano())
@@ -33,16 +35,12 @@ func (s *Server) handleCouncilNew(request protocol.CommandRequest) protocol.Comm
 	if eventID == "" {
 		eventID = "evt_session_created_" + sessionID
 	}
-	limits, err := limitsParam(request)
-	if err != nil {
-		return protocol.ErrorResponse(request, daemonProtocolError(err))
-	}
-	metadata, results, dedup, err := storage.CreateCouncil(s.DataHome, loaded, storage.CouncilStartSpec{
+	startSpec := storage.CouncilStartSpec{
 		Session: storage.SessionSpec{
 			ID:              sessionID,
 			SessionType:     storage.SessionTypeCouncil,
 			Title:           stringParam(request, "title"),
-			Moderator:       stringParam(request, "moderator"),
+			Moderator:       moderator,
 			Surface:         surfaceParam(request),
 			LinkedAuthority: linkedAuthorityParam(request),
 			TurnMode:        stringParam(request, "turn_mode"),
@@ -51,13 +49,36 @@ func (s *Server) handleCouncilNew(request protocol.CommandRequest) protocol.Comm
 			CommandID:       commandID,
 			CorrelationID:   stringParam(request, "correlation_id"),
 		},
-		Members: stringSliceParam(request, "members"),
+		Members: members,
 		Now:     s.now(),
-	}, s.Runtime)
+	}
+	loaded, err := registry.Load(s.DataHome, s.Runtime)
 	if err != nil {
 		return protocol.ErrorResponse(request, daemonProtocolError(err))
 	}
-	return protocol.SuccessResponse(request, map[string]any{"session_id": metadata.ID, "results": results, "deduplicated": dedup})
+	principals, err := storage.CouncilReconcilePrincipals(s.DataHome, loaded, startSpec, s.Runtime)
+	if err != nil {
+		return protocol.ErrorResponse(request, daemonProtocolError(err))
+	}
+	reconcileReport := registry.ReconcileReport{BeforeSHA256: loaded.SourceSHA256, AfterSHA256: loaded.SourceSHA256}
+	if len(principals) > 0 {
+		loaded, reconcileReport, err = registry.ReconcileCouncilMembers(s.DataHome, principals, s.Runtime)
+		if err != nil {
+			return protocol.ErrorResponse(request, daemonProtocolError(err))
+		}
+	}
+	metadata, results, dedup, err := storage.CreateCouncil(s.DataHome, loaded, startSpec, s.Runtime)
+	if err != nil {
+		return protocol.ErrorResponse(request, daemonProtocolError(err))
+	}
+	response := map[string]any{"session_id": metadata.ID, "results": results, "deduplicated": dedup}
+	if len(reconcileReport.Added) > 0 {
+		response["registry_reconcile"] = map[string]any{
+			"added":         append([]string(nil), reconcileReport.Added...),
+			"source_sha256": reconcileReport.AfterSHA256,
+		}
+	}
+	return protocol.SuccessResponse(request, response)
 }
 
 func (s *Server) handleCouncilEvent(request protocol.CommandRequest) protocol.CommandResponse {
