@@ -189,7 +189,16 @@ Council variant has `to` listing every council member:
 }
 ```
 
-`surface` and `linked_authority` are optional. When `surface.kind` is `discord_thread`, `thread_id` is required and Discord identifiers are evidence pointers, not ordering or state authority. `linked_authority.kanban_card_id` means the final council result must be returned to the named Kanban card or a clearly linked follow-up/review card. `linked_authority.vault_decision_note` is a decision-record target, not proof that the note already exists. Optional `turn_mode` is the session-level intended/default floor policy (`relevance`, `targeted`, `random`, `moderator_direct`, or `role_order`). It is not per-turn audit evidence; each actual floor grant records its own `speaker_selected.payload.selection_mode`.
+`surface` and `linked_authority` are optional. When `surface.kind` is `discord_thread`, `thread_id` is required and Discord identifiers are evidence pointers, not ordering or state authority. `linked_authority.kanban_card_id` means the final council result must be returned to the named Kanban card or a clearly linked follow-up/review card. `linked_authority.vault_decision_note` is a decision-record target, not proof that the note already exists. Optional `turn_mode` is the session-level intended/default floor policy (`relevance`, `targeted`, `random`, `moderator_direct`, or `role_order`). It is not per-turn audit evidence; each actual floor grant records its own `speaker_selected.payload.selection_mode`. Optional `limits.max_discussion_turns` is the explicit council participant discussion-turn limit; legacy `limits.max_turns` is not reinterpreted as lifecycle enforcement.
+
+When `limits.max_discussion_turns` is configured, the derived council discussion lifecycle is:
+
+- T0 moderator opening from the first moderator `hand_raise_requested` discussion-opening event.
+- T1..Tmax selected participant discussion speeches with `payload.turn <= max_discussion_turns`.
+- One selected participant closeout speech per council member with `payload.turn > max_discussion_turns`.
+- Final moderator conclusion from terminal `council_finalized` or `council_unresolved`.
+
+The expected visible turn total is `max_discussion_turns + participant_count + 2`. `council.propose` must fail closed until T0, the participant discussion window, and one closeout speech per member are present. `council.unresolved` remains available as a fail-closed terminal path. Lifecycle accounting does not repair selected-runner accounting or visible delivery proof.
 
 ### Surface rendering evidence contract
 
@@ -208,6 +217,8 @@ Minimum event inputs for the visible surface contract:
 | Vote closeout state | `consensus_vote_requested` and `consensus_vote` | Renderable as voting state over a specific `draft_version`. Votes do not prove final closeout until a terminal outcome event is appended and projected. |
 | Final visible result | `council_finalized` | `payload.final_summary`, `payload.consensus`, optional `payload.surface_evidence`, and required `payload.linked_authority_result` when linked authority was configured. |
 | Unresolved visible result | `council_unresolved` | Records the durable unresolved outcome; a visible unresolved notice must point back to this event rather than inventing a final decision. |
+
+Control status/export expose the derived `discussion_lifecycle` object. Export bundle `summary_turn_accounting` rows keep existing turn/member/event id fields and add `lifecycle_stage`, `visible_turn_index`, and `visible_turn_total` when a speech contributes lifecycle evidence.
 
 Cursor order is authoritative for rendering order. `created_at`, external surface timestamps, Discord message ids, and Discord message order are display/evidence data only. A renderer may surface `surface_evidence` or delivery-message ids after the corresponding durable event exists, but it must not create, reorder, or mark lifecycle progress from the external surface alone.
 

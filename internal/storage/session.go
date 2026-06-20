@@ -149,6 +149,9 @@ func validateSessionSpec(loaded *registry.LoadedRegistry, spec SessionSpec) erro
 		add(CategoryMetadataInvalid, "turn_mode", "unsupported turn_mode")
 	}
 	if spec.SessionType == SessionTypeCouncil {
+		if err := validateDiscussionLifecycleLimits(spec.Limits); err != nil {
+			issues = append(issues, Issues(err)...)
+		}
 		if err := validateDiscussionQualityLimits(spec.Limits); err != nil {
 			issues = append(issues, Issues(err)...)
 		}

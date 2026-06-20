@@ -122,7 +122,8 @@ func BuildExportBundle(sessionDir string, metadata *SessionMetadata, opts Export
 		"registry_snapshot":           metadata.RegistrySnapshot,
 		"includes_operator_evidence":  true,
 		"selected_runner_accounting":  SelectedRunnerAccountingFromIndex(index),
-		"summary_turn_accounting":     summaryTurnAccountingRows(index.Events),
+		"discussion_lifecycle":        councilDiscussionLifecycle(metadata, index),
+		"summary_turn_accounting":     summaryTurnAccountingRows(metadata, index),
 		"surface_delivery_projection": visibleSurfaceProjectionRows(index.Events),
 		"argument_graph_projection":   argumentGraphProjectionRows(index.Events),
 		"files": []string{

@@ -177,6 +177,7 @@ func CouncilStatusFromLogAt(sessionDir string, metadata *SessionMetadata, now ti
 		"vote":            councilVoteStatus(metadata, index),
 	}
 	status["discussion_quality"] = councilDiscussionQualityStatus(metadata, index, phase)
+	status["discussion_lifecycle"] = councilDiscussionLifecycle(metadata, index)
 	selectedRunnerAccounting := SelectedRunnerAccountingFromIndex(index)
 	status["selected_runner_accounting"] = selectedRunnerAccounting
 	status["participant_runtime_readiness"] = ParticipantRuntimeReadinessFromIndex(metadata, index, readinessOptionsForStatus(metadata, index, now, selectedRunnerAccounting))
@@ -541,6 +542,9 @@ func councilTransition(metadata *SessionMetadata, index *LogIndex, current Phase
 		}
 		if latestDraftVersion(index) != 0 {
 			return "", "", "", nil, nil, NewValidationError(CategoryCommandConflict, "draft_version", "initial proposal already exists")
+		}
+		if err := validateCouncilProposeLifecycle(metadata, index); err != nil {
+			return "", "", "", nil, nil, err
 		}
 		payload["draft_version"] = 1
 		return "draft_conclusion", "draft_conclusion", actor, councilMembers(metadata), nil, nil

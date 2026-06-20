@@ -46,6 +46,7 @@ type LinkedAuthority struct {
 
 type Limits struct {
 	MaxTurns                        int            `yaml:"max_turns,omitempty" json:"max_turns,omitempty"`
+	MaxDiscussionTurns              int            `yaml:"max_discussion_turns,omitempty" json:"max_discussion_turns,omitempty"`
 	MaxConsensusRounds              int            `yaml:"max_consensus_rounds,omitempty" json:"max_consensus_rounds,omitempty"`
 	ConsensusRoundWarningThreshold  int            `yaml:"consensus_round_warning_threshold,omitempty" json:"consensus_round_warning_threshold,omitempty"`
 	NoProgressRoundLimit            int            `yaml:"no_progress_round_limit,omitempty" json:"no_progress_round_limit,omitempty"`

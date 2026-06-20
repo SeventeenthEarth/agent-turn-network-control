@@ -9,6 +9,9 @@ type summaryTurnAccountingRow struct {
 	SpeechEventID          string `json:"speech_event_id"`
 	RunnerInvocationID     string `json:"runner_invocation_id"`
 	VisibleMessageID       string `json:"visible_message_id"`
+	LifecycleStage         string `json:"lifecycle_stage,omitempty"`
+	VisibleTurnIndex       int    `json:"visible_turn_index,omitempty"`
+	VisibleTurnTotal       int    `json:"visible_turn_total,omitempty"`
 }
 
 type summaryTurnKey struct {
@@ -16,7 +19,9 @@ type summaryTurnKey struct {
 	member string
 }
 
-func summaryTurnAccountingRows(events []EventEnvelope) []summaryTurnAccountingRow {
+func summaryTurnAccountingRows(metadata *SessionMetadata, index *LogIndex) []summaryTurnAccountingRow {
+	events := index.Events
+	lifecycle := councilDiscussionLifecycle(metadata, index)
 	rows := make([]summaryTurnAccountingRow, 0)
 	rowIndex := map[summaryTurnKey]int{}
 	for _, event := range events {
@@ -60,6 +65,15 @@ func summaryTurnAccountingRows(events []EventEnvelope) []summaryTurnAccountingRo
 			row := &rows[index]
 			if row.SpeechEventID == "" {
 				row.SpeechEventID = event.EventID
+			}
+			if row.LifecycleStage == "" {
+				row.LifecycleStage = lifecycle.SpeechStages[event.EventID]
+			}
+			if row.VisibleTurnIndex == 0 {
+				row.VisibleTurnIndex = lifecycle.SpeechVisibleTurnIndexes[event.EventID]
+			}
+			if row.VisibleTurnTotal == 0 {
+				row.VisibleTurnTotal = lifecycle.SpeechVisibleTurnTotalByID[event.EventID]
 			}
 			if row.RunnerInvocationID == "" && event.Runner != nil {
 				row.RunnerInvocationID = strings.TrimSpace(event.Runner.InvocationID)
