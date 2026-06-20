@@ -244,8 +244,58 @@ func TestUnitReconcileCouncilMembersAddsMissingExplicitPrincipal(t *testing.T) {
 	if member.ResolvedWrapper == nil || member.ResolvedWrapper.ResolvedPath != filepath.Join(binDir, "agent-new") {
 		t.Fatalf("expected resolved wrapper through allowlist, got %#v", member.ResolvedWrapper)
 	}
+	if member.Workspace != filepath.Join(dataHome, "workspaces", "agent-new") {
+		t.Fatalf("expected daemon-managed workspace path, got %q", member.Workspace)
+	}
+	info, statErr := os.Stat(member.Workspace)
+	if statErr != nil {
+		t.Fatalf("auto-reconciled member workspace should be created: %v", statErr)
+	}
+	if !info.IsDir() || info.Mode().Perm() != 0o700 {
+		t.Fatalf("workspace should be private directory, mode=%s is_dir=%v", info.Mode().Perm(), info.IsDir())
+	}
 	if report.BeforeSHA256 == report.AfterSHA256 {
 		t.Fatalf("expected registry sha to change after reconcile")
+	}
+}
+
+func TestUnitReconcileCouncilMembersCreatesMissingCanonicalWorkspaceForExistingPrincipal(t *testing.T) {
+	dataHome := safeDataHome(t)
+	binDir := filepath.Join(dataHome, "bin")
+	if err := os.Mkdir(binDir, 0o700); err != nil {
+		t.Fatalf("mkdir bin: %v", err)
+	}
+	writeFile(t, filepath.Join(binDir, "agent-existing"), "#!/bin/sh\nexit 0\n", 0o700)
+	workspace := filepath.Join(dataHome, "workspaces", "agent-existing")
+	content := "schema_version: 1\n" +
+		"wrapper_path_allowlist:\n" +
+		"  - " + binDir + "\n" +
+		"members:\n" +
+		"  agent-existing:\n" +
+		"    display_name: Existing\n" +
+		"    wrapper: agent-existing\n" +
+		"    workspace: " + workspace + "\n" +
+		"    role: participant\n" +
+		"    enabled: true\n" +
+		"    adapter_kind: hermes-agent\n" +
+		"    runtime_kind: hermes-cli-stream\n" +
+		"    env_allowlist: []\n"
+	writeFile(t, registry.RegistryPath(dataHome), content, 0o600)
+
+	loaded, report, err := registry.ReconcileCouncilMembers(dataHome, []string{"agent-existing"}, registry.DefaultRuntime())
+	if err != nil {
+		t.Fatalf("ReconcileCouncilMembers failed: %v", err)
+	}
+	if len(report.Added) != 0 || report.BeforeSHA256 != report.AfterSHA256 {
+		t.Fatalf("existing principal workspace ensure should not rewrite registry, report=%#v", report)
+	}
+	member := loaded.Registry.Members["agent-existing"]
+	info, statErr := os.Stat(member.Workspace)
+	if statErr != nil {
+		t.Fatalf("existing canonical workspace should be created: %v", statErr)
+	}
+	if !info.IsDir() || info.Mode().Perm() != 0o700 {
+		t.Fatalf("workspace should be private directory, mode=%s is_dir=%v", info.Mode().Perm(), info.IsDir())
 	}
 }
 

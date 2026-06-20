@@ -113,6 +113,27 @@ func TestIntegrationHermesAdapterTimeoutReportsMissingCost(t *testing.T) {
 	}
 }
 
+func TestIntegrationHermesAdapterMissingWorkspaceIsLaunchFailureNotMalformedResponse(t *testing.T) {
+	dir := t.TempDir()
+	wrapper := filepath.Join(dir, "fake-hermes")
+	marker := filepath.Join(dir, "invoked")
+	if err := os.WriteFile(wrapper, []byte("#!/bin/sh\ntouch "+shellQuote(marker)+"\nprintf '%s\\n' 'should not run'\n"), 0o700); err != nil {
+		t.Fatalf("write wrapper: %v", err)
+	}
+	missingWorkspace := filepath.Join(dir, "missing-workspace")
+
+	result, err := NewHermesAgentAdapter().Send(context.Background(), Request{ResolvedWrapper: wrapper, Member: registry.Member{Workspace: missingWorkspace}})
+	if err == nil || result.OK {
+		t.Fatalf("missing workspace should fail before wrapper launch, result=%#v err=%v", result, err)
+	}
+	if result.ErrorClass != "workspace_missing" {
+		t.Fatalf("missing workspace should be classified explicitly, not as malformed output: result=%#v err=%v", result, err)
+	}
+	if _, statErr := os.Stat(marker); !os.IsNotExist(statErr) {
+		t.Fatalf("wrapper should not be invoked when workspace is missing, stat=%v", statErr)
+	}
+}
+
 func TestIntegrationHermesAdapterClassifiesResponseGenerationOutput(t *testing.T) {
 	tests := []struct {
 		name            string

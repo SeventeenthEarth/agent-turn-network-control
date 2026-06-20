@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -55,6 +56,9 @@ func (a *HermesAgentAdapter) invoke(ctx context.Context, mode string, req Reques
 		ctx, cancel = context.WithTimeout(ctx, req.Timeout)
 		defer cancel()
 	}
+	if workspaceResult, workspaceErr := validateHermesWorkspace(req.Member.Workspace); workspaceErr != nil {
+		return workspaceResult, workspaceErr
+	}
 	args := append([]string(nil), req.Args...)
 	if len(args) == 0 {
 		switch mode {
@@ -101,6 +105,13 @@ func (a *HermesAgentAdapter) invoke(ctx context.Context, mode string, req Reques
 		result.ErrorClass = ErrorClassTimeout
 		return result, ctx.Err()
 	}
+	if err != nil && stdout.Len() == 0 && stderr.Len() == 0 {
+		if class := classifyHermesLaunchFailure(err); class != "" {
+			result.ErrorClass = class
+			result.Payload = diagnosticPayload(class, class, nil, []byte(err.Error()))
+			return result, err
+		}
+	}
 	semantic, class, reason := parseHermesResponseOutput(stdout.Bytes(), stderr.Bytes())
 	if class != "" {
 		result.OK = false
@@ -120,6 +131,40 @@ func (a *HermesAgentAdapter) invoke(ctx context.Context, mode string, req Reques
 	result.SemanticEventType = semantic.EventType
 	result.Payload = semantic.Payload
 	return result, nil
+}
+
+func validateHermesWorkspace(workspace string) (Result, error) {
+	workspace = strings.TrimSpace(workspace)
+	if workspace == "" {
+		return Result{}, nil
+	}
+	info, err := os.Stat(workspace)
+	if err != nil {
+		class := ErrorClassWorkspaceInvalid
+		if os.IsNotExist(err) {
+			class = ErrorClassWorkspaceMissing
+		}
+		return Result{OK: false, ExitCode: -1, ErrorClass: class, Payload: diagnosticPayload(class, class, nil, []byte(err.Error()))}, fmt.Errorf("%s: %w", class, err)
+	}
+	if !info.IsDir() {
+		class := ErrorClassWorkspaceInvalid
+		return Result{OK: false, ExitCode: -1, ErrorClass: class, Payload: diagnosticPayload(class, class, nil, []byte("workspace is not a directory"))}, fmt.Errorf("%s: workspace is not a directory", class)
+	}
+	return Result{}, nil
+}
+
+func classifyHermesLaunchFailure(err error) string {
+	if err == nil {
+		return ""
+	}
+	lower := strings.ToLower(err.Error())
+	if strings.Contains(lower, "chdir") || strings.Contains(lower, "current directory") {
+		if strings.Contains(lower, "no such file") || strings.Contains(lower, "not found") {
+			return ErrorClassWorkspaceMissing
+		}
+		return ErrorClassWorkspaceInvalid
+	}
+	return ""
 }
 
 type hermesSemanticOutput struct {

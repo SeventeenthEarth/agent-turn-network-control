@@ -22,6 +22,8 @@ const (
 	ErrorClassTimeout                    = "timeout"
 	ErrorClassMalformedOrMissingResponse = "malformed_or_missing_response"
 	ErrorClassStalePhaseEvidence         = "stale_phase_evidence"
+	ErrorClassWorkspaceMissing           = "workspace_missing"
+	ErrorClassWorkspaceInvalid           = "workspace_invalid"
 )
 
 type SessionHandle string

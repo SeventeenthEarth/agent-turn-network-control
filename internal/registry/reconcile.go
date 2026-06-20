@@ -41,7 +41,13 @@ func ReconcileCouncilMembers(dataHome string, principals []string, runtime Runti
 		return nil, report, err
 	}
 	if len(missing) == 0 {
+		if err := ensureCouncilMemberWorkspaces(cleanDataHome, loaded, principals); err != nil {
+			return nil, report, err
+		}
 		return loaded, report, nil
+	}
+	if err := ensureCouncilMemberWorkspaces(cleanDataHome, loaded, principals); err != nil {
+		return nil, report, err
 	}
 
 	raw, err := parseRawRegistryForWrite(loaded.SourceContent)
@@ -59,6 +65,9 @@ func ReconcileCouncilMembers(dataHome string, principals []string, runtime Runti
 		report.Added = append(report.Added, id)
 	}
 	sort.Strings(report.Added)
+	if err := ensureDaemonManagedWorkspaceDirs(cleanDataHome, missing); err != nil {
+		return nil, report, err
+	}
 
 	content, err := marshalRawRegistry(raw)
 	if err != nil {
@@ -75,7 +84,66 @@ func ReconcileCouncilMembers(dataHome string, principals []string, runtime Runti
 		return nil, report, err
 	}
 	report.AfterSHA256 = reloaded.SourceSHA256
+	if err := ensureCouncilMemberWorkspaces(cleanDataHome, reloaded, principals); err != nil {
+		return nil, report, err
+	}
 	return reloaded, report, nil
+}
+
+func ensureCouncilMemberWorkspaces(dataHome string, loaded *LoadedRegistry, principals []string) error {
+	if loaded == nil {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	for _, rawID := range principals {
+		id := strings.TrimSpace(rawID)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		member, ok := loaded.Registry.Members[id]
+		if !ok || !isDaemonManagedWorkspace(dataHome, id, member.Workspace) {
+			continue
+		}
+		if err := ensurePrivateWorkspaceDir(member.Workspace, "members."+id+".workspace"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ensureDaemonManagedWorkspaceDirs(dataHome string, ids []string) error {
+	for _, id := range ids {
+		workspace := filepath.Join(dataHome, "workspaces", id)
+		if err := ensurePrivateWorkspaceDir(workspace, "members."+id+".workspace"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func isDaemonManagedWorkspace(dataHome string, id string, workspace string) bool {
+	return filepath.Clean(workspace) == filepath.Clean(filepath.Join(dataHome, "workspaces", id))
+}
+
+func ensurePrivateWorkspaceDir(path string, issuePath string) error {
+	info, err := os.Stat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		if err := os.MkdirAll(path, 0o700); err != nil {
+			return NewValidationError(CategorySchemaInvalid, issuePath, "failed to create daemon-managed workspace: "+err.Error())
+		}
+		return os.Chmod(path, 0o700)
+	}
+	if err != nil {
+		return NewValidationError(CategorySchemaInvalid, issuePath, "failed to inspect daemon-managed workspace: "+err.Error())
+	}
+	if !info.IsDir() {
+		return NewValidationError(CategorySchemaInvalid, issuePath, "daemon-managed workspace is not a directory")
+	}
+	return os.Chmod(path, 0o700)
 }
 
 func missingCouncilPrincipals(loaded *LoadedRegistry, principals []string) ([]string, error) {

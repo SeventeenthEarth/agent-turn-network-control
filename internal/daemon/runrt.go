@@ -405,6 +405,10 @@ func runnerFailureReason(result runner.Result) string {
 		return runner.ErrorClassModelProviderFailure
 	case runner.ErrorClassMalformedOrMissingResponse:
 		return runner.ErrorClassMalformedOrMissingResponse
+	case runner.ErrorClassWorkspaceMissing:
+		return runner.ErrorClassWorkspaceMissing
+	case runner.ErrorClassWorkspaceInvalid:
+		return runner.ErrorClassWorkspaceInvalid
 	case runner.ErrorClassStalePhaseEvidence:
 		return runner.ErrorClassStalePhaseEvidence
 	case "transport", "transport_error":
