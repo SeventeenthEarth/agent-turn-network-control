@@ -509,14 +509,17 @@ func TestIntegrationDaemonStreamFollowEmitsReplayThenLive(t *testing.T) {
 	if !ok {
 		t.Fatalf("unexpected frame type: %#v", replay.Result["frames"])
 	}
-	if len(frames) != 3 {
-		t.Fatalf("expected two replay frames and one live frame, got %#v", frames)
+	if len(frames) != 4 {
+		t.Fatalf("expected two replay frames, one subscriber heartbeat replay frame, and one live frame, got %#v", frames)
 	}
-	if !frames[0].IsReplay || !frames[1].IsReplay {
-		t.Fatalf("existing durable frames must be replay first: %#v", frames)
+	if !frames[0].IsReplay || !frames[1].IsReplay || !frames[2].IsReplay {
+		t.Fatalf("existing durable frames and subscriber heartbeat must be replay first: %#v", frames)
 	}
-	if frames[2].IsReplay || frames[2].Event.EventID != "evt_daemon_live_follow" {
-		t.Fatalf("appended durable event must be emitted as live, got %#v", frames[2])
+	if frames[2].Event.Type != "stream_subscriber_heartbeat" || frames[2].Event.From != "agent-1" {
+		t.Fatalf("follow must register participant subscriber heartbeat, got %#v", frames[2])
+	}
+	if frames[3].IsReplay || frames[3].Event.EventID != "evt_daemon_live_follow" {
+		t.Fatalf("appended durable event must be emitted as live, got %#v", frames[3])
 	}
 }
 

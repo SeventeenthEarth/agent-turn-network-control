@@ -80,6 +80,11 @@ func (s *Server) handleStreamReplay(request protocol.CommandRequest) protocol.Co
 		return protocol.ErrorResponse(request, daemonProtocolError(storage.NewValidationError(storage.CategoryPrincipalInvalid, "member", "member is not a session participant")))
 	}
 	follow := boolParam(request, "follow")
+	if follow {
+		if err := s.recordStreamSubscriberHeartbeat(sessionDir, metadata, member); err != nil {
+			return protocol.ErrorResponse(request, daemonProtocolError(err))
+		}
+	}
 	frames, err := storage.ReplayStreamWithAfterReplay(sessionDir, metadata, storage.ReplayOptions{
 		FromStart:          boolParam(request, "from_start"),
 		Since:              stringParam(request, "since"),
@@ -98,6 +103,42 @@ func (s *Server) streamFollowAfterReplay(follow bool) func() error {
 		return nil
 	}
 	return s.StreamFollowAfterReplay
+}
+
+func (s *Server) recordStreamSubscriberHeartbeat(sessionDir string, metadata *storage.SessionMetadata, member string) error {
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		return err
+	}
+	now := s.now()
+	phase := storage.PhaseCreated
+	lastCursor := ""
+	if len(index.Events) > 0 {
+		last := index.Events[len(index.Events)-1]
+		phase = last.Phase
+		lastCursor = storage.CursorFor(int64(len(index.Events)-1), last.EventID)
+	}
+	suffix := fmt.Sprintf("%d", now.UnixNano())
+	_, err = storage.AppendEvent(sessionDir, metadata, storage.EventEnvelope{
+		SchemaVersion: protocol.SchemaVersion,
+		EventID:       "evt_stream_subscriber_heartbeat_" + member + "_" + suffix,
+		CommandID:     "cmd_stream_subscriber_heartbeat_" + member + "_" + suffix,
+		CorrelationID: metadata.ID,
+		SessionID:     metadata.ID,
+		SessionType:   metadata.SessionType,
+		Phase:         phase,
+		Type:          "stream_subscriber_heartbeat",
+		From:          member,
+		To:            []string{metadata.Moderator},
+		CreatedAt:     now,
+		Payload: map[string]any{
+			"member":        member,
+			"subscriber_id": "sub_" + member,
+			"status":        "heartbeat",
+			"last_cursor":   lastCursor,
+		},
+	})
+	return err
 }
 
 func (s *Server) handleStreamAck(request protocol.CommandRequest) protocol.CommandResponse {
