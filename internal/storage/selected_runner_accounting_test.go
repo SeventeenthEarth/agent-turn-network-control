@@ -121,6 +121,7 @@ func TestUnitRUNFIX014LinkedRunnerSpeechPassesSelectedRunner(t *testing.T) {
 	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "linked_success")
 	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeakerSelected(metadata, "evt_selected_success", "agent-1", 1, 0))
 	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_runner_started_success", "runner_invocation_started", "evt_selected_success", "run_success", "agent-1", "started", 1*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_runner_succeeded_success", "runner_invocation_succeeded", "evt_selected_success", "run_success", "agent-1", "succeeded", 2*time.Second))
 	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeech(metadata, "evt_runner_speech_success", "evt_selected_success", "agent-1", 1, &RunnerInfo{
 		InvocationID:    "run_success",
 		AdapterKind:     "hermes-agent",
@@ -128,7 +129,7 @@ func TestUnitRUNFIX014LinkedRunnerSpeechPassesSelectedRunner(t *testing.T) {
 		Attempt:         1,
 		SourceCommandID: "cmd_runner_success",
 		Status:          "succeeded",
-	}, map[string]any{"speech": "Linked runner speech."}, 2*time.Second))
+	}, map[string]any{"speech": "Linked runner speech."}, 3*time.Second))
 
 	index, err := ReadLogIndex(sessionDir, metadata)
 	if err != nil {
@@ -176,8 +177,8 @@ func TestUnitRUNFIX014LinkedRunnerSpeechRequiresSucceededStatus(t *testing.T) {
 	if !selectedRunnerDiagnosticsContain(accounting.Diagnostics, "linked_runner_speech_status_not_succeeded") {
 		t.Fatalf("non-succeeded linked runner speech diagnostic missing: %#v", accounting.Diagnostics)
 	}
-	if len(accounting.SelectedRunners) != 1 || accounting.SelectedRunners[0].Status != "missing_linked_runner_speech" {
-		t.Fatalf("grant should remain blocked on missing linked succeeded speech: %#v", accounting.SelectedRunners)
+	if len(accounting.SelectedRunners) != 1 || accounting.SelectedRunners[0].Status != "missing_runner_invocation_succeeded" {
+		t.Fatalf("grant should remain blocked until runner_invocation_succeeded is present: %#v", accounting.SelectedRunners)
 	}
 }
 

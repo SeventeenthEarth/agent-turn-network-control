@@ -105,7 +105,8 @@ func TestUnitStreamStatusTerminalReadinessPrefersLatestSpeakerSelectedReference(
 	sessionDir, metadata := readinessCouncilForTest(t, "sess_runtime_terminal_speaker_reference", true)
 	selected := appendRawEventForTest(t, sessionDir, metadata, "evt_terminal_reference_selected", "cmd_terminal_reference_selected", "speaker_selected", "discussion", "agent-mod", []string{"agent-1"}, map[string]any{"turn": float64(1), "member": "agent-1", "selection_mode": "moderator_direct"}, 20*time.Second)
 	appendRunnerEventForRuntimeReadinessTest(t, sessionDir, metadata, "evt_terminal_reference_runner_started", "runner_invocation_started", selected.EventID, "run_terminal_reference", "agent-1", "started", 21*time.Second)
-	appendRunnerSpeechForRuntimeReadinessTest(t, sessionDir, metadata, "evt_terminal_reference_speech", selected.EventID, "run_terminal_reference", "agent-1", 1, 22*time.Second)
+	appendRunnerEventForRuntimeReadinessTest(t, sessionDir, metadata, "evt_terminal_reference_runner_succeeded", "runner_invocation_succeeded", selected.EventID, "run_terminal_reference", "agent-1", "succeeded", 22*time.Second)
+	appendRunnerSpeechForRuntimeReadinessTest(t, sessionDir, metadata, "evt_terminal_reference_speech", selected.EventID, "run_terminal_reference", "agent-1", 1, 23*time.Second)
 	metadata.Status = StatusTerminal
 	metadata.State.Phase = "finalized"
 	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
@@ -191,6 +192,9 @@ func appendRunnerEventForRuntimeReadinessTest(t *testing.T, sessionDir string, m
 			Status:          status,
 		},
 		Payload: map[string]any{"selected_event_id": selectedEventID},
+	}
+	if typ != "runner_invocation_started" {
+		event.Cost = json.RawMessage(`{"tokens_in":1,"tokens_out":1,"usd_estimate":0.01,"source":"fixture"}`)
 	}
 	if _, err := AppendEvent(sessionDir, metadata, event); err != nil {
 		t.Fatalf("AppendEvent(%s): %v", typ, err)

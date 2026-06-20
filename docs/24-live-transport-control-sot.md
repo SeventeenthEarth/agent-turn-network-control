@@ -188,7 +188,7 @@ RUNFIX2 planned task order:
 | Global Order | Repo | Task ID | Status | Control-owned acceptance |
 |---:|---|---|---|---|
 | 1 | control | RUNFIX2-001 | completed/local-control | Local control implementation now separates status generation time from readiness evaluation time and tests terminal event-time participant runtime readiness without forcing pass labels true. KAH final gates, official Red/Orange/Gray review, and Blue acceptance passed; push/live activation remain separately approval-bound. |
-| 2 | control | RUNFIX2-002 | planned | The Hermes selected-runner adapter uses a response-generation contract and records succeeded runner-linked speech, with fake/isolated wrapper tests before any approved real profile pilot. |
+| 2 | control | RUNFIX2-002 | completed/local-control | The Hermes selected-runner adapter now defaults to response-generation `chat -Q -q <prompt>`, records `runner_invocation_succeeded` plus linked canonical selected-member `speech`, and preserves delivery/fallback output as terminal `adapter_command_mismatch` diagnostics. Proof is local fake/isolated wrapper and daemon/storage tests only; any real profile pilot remains separately approval-bound. |
 | 3 | control | RUNFIX2-003 | planned | Council turn lifecycle and total-turn accounting match intro + discussion + participant closeouts + moderator conclusion. |
 | 4 | plugin | RUNFIX2-004 | planned | Plugin visible transcript cleanup consumes control audit/status evidence without hiding audit data. |
 | 5 | plugin | RUNFIX2-005 | planned | Integrated pilot consumes control evidence and may claim success labels only from matching event chains. |

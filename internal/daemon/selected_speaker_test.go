@@ -47,18 +47,23 @@ func TestSelectedSpeakerDispatchInvokesSelectedMemberThroughRunnerAndRecordsSpee
 		t.Fatalf("ReadLogIndex: %v", err)
 	}
 	started := findEvent(t, index.Events, "runner_invocation_started")
+	succeeded := findEvent(t, index.Events, "runner_invocation_succeeded")
 	speech := findEvent(t, index.Events, "speech")
-	if started.CausationEventID != speaker.EventID || speech.CausationEventID != speaker.EventID {
-		t.Fatalf("started/speech must point back to speaker_selected: started=%q speech=%q want=%q", started.CausationEventID, speech.CausationEventID, speaker.EventID)
+	if started.CausationEventID != speaker.EventID || succeeded.CausationEventID != speaker.EventID || speech.CausationEventID != speaker.EventID {
+		t.Fatalf("started/succeeded/speech must point back to speaker_selected: started=%q succeeded=%q speech=%q want=%q", started.CausationEventID, succeeded.CausationEventID, speech.CausationEventID, speaker.EventID)
 	}
-	if started.Runner.InvocationID == "" || speech.Runner.InvocationID != started.Runner.InvocationID {
-		t.Fatalf("speech must preserve runner invocation id: started=%#v speech=%#v", started.Runner, speech.Runner)
+	if started.Runner.InvocationID == "" || succeeded.Runner.InvocationID != started.Runner.InvocationID || speech.Runner.InvocationID != started.Runner.InvocationID {
+		t.Fatalf("success and speech must preserve runner invocation id: started=%#v succeeded=%#v speech=%#v", started.Runner, succeeded.Runner, speech.Runner)
 	}
-	if started.Runner.Member != "agent-1" || speech.From != "agent-1" {
-		t.Fatalf("terminal speech must originate from selected member with runner evidence: started=%#v speech=%#v", started, speech)
+	if started.Runner.Member != "agent-1" || succeeded.Runner.Status != "succeeded" || speech.From != "agent-1" {
+		t.Fatalf("terminal speech must originate from selected member with runner success evidence: started=%#v succeeded=%#v speech=%#v", started, succeeded, speech)
 	}
 	if started.Payload["wrapper_path_sha256"] == "" || started.Payload["adapter_kind"] != runner.HermesAgentKind {
 		t.Fatalf("started payload missing redacted wrapper/backend evidence: %#v", started.Payload)
+	}
+	accounting := storage.SelectedRunnerAccountingFromIndex(index)
+	if !accounting.SelectedRunnerPass || accounting.RunnerSucceededCount != 1 || accounting.LinkedRunnerSpeechCount != 1 {
+		t.Fatalf("selected speaker runner success should account for succeeded invocation and linked speech: %#v", accounting)
 	}
 	if len(stream.acks) != 2 || stream.acks[len(stream.acks)-1].EventID != speaker.EventID {
 		t.Fatalf("runtime should ack speaker_selected after durable success evidence, acks=%#v", stream.acks)
@@ -100,6 +105,52 @@ func TestSelectedSpeakerDispatchRecordsDurableFailureBeforeAck(t *testing.T) {
 	}
 	if len(stream.acks) != 2 || stream.acks[len(stream.acks)-1].EventID != speaker.EventID {
 		t.Fatalf("runtime should ack only after durable failure evidence, acks=%#v", stream.acks)
+	}
+}
+
+func TestSelectedSpeakerDispatchDeliveryOutputMismatchCannotBeRepairedByFallbackSpeech(t *testing.T) {
+	dataHome, loaded, wrapper := dispatchDataHome(t)
+	metadata, _, err := storage.CreateSession(dataHome, loaded, storage.SessionSpec{ID: "sess_selected_speaker_delivery_mismatch", SessionType: storage.SessionTypeCouncil, Title: "RUNFIX2-002 delivery mismatch", Moderator: "agent-mod", Participants: []string{"agent-mod", "agent-1"}, EventID: "evt_created_selected_speaker_delivery_mismatch", CommandID: "cmd_create_selected_speaker_delivery_mismatch"}, daemonFixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	sessionDir, _ := storage.SessionDir(dataHome, metadata.ID)
+	speaker := appendSpeakerSelected(t, sessionDir, metadata, "evt_speaker_selected_delivery_mismatch", "cmd_council_grant_delivery_mismatch", "agent-1")
+	member := loaded.Registry.Members["agent-1"]
+	member.ResolvedWrapper = &registry.WrapperResolution{ResolvedPath: wrapper}
+	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: false, ErrorClass: runner.ErrorClassAdapterCommandMismatch, Payload: map[string]any{"diagnostic_excerpt": "platform_delivery posted [redacted]"}}, err: runner.ErrSemantic}}}
+	handler := daemon.SelectedSpeakerDispatchHandler{SessionDir: sessionDir, Metadata: metadata, Member: member, Adapter: adapter, Runtime: daemonFixedRuntime(), Locks: &daemon.DispatchLocks{}}
+	stream := &selectedSpeakerStream{frames: framesThroughSpeaker(t, sessionDir, metadata, speaker.EventID)}
+	rt := memberruntime.Runtime{SessionID: metadata.ID, Member: "agent-1", Stream: stream, Cursors: &selectedSpeakerCursorStore{}, Policy: memberruntime.Policy{ActionTypes: memberruntime.NewPolicy("speaker_selected").ActionTypes, RecipientHints: map[string]struct{}{"self": {}}}, Handler: handler}
+
+	if err := rt.RunOnce(context.Background()); err != nil {
+		t.Fatalf("durable adapter mismatch should let runtime ack, got: %v", err)
+	}
+	if _, _, err := storage.RecordCouncilEvent(sessionDir, metadata, storage.CouncilEventSpec{
+		Action:           "speak",
+		Actor:            "agent-1",
+		CommandID:        "cmd_manual_fallback_after_delivery_mismatch",
+		CausationEventID: speaker.EventID,
+		Now:              daemonFixedRuntime().Now().Add(3 * time.Second),
+		Payload: map[string]any{
+			"speech":           "Manual fallback speech after delivery-only adapter output.",
+			"fallback_profile": true,
+			"source":           "manual_fallback_profile",
+		},
+	}); err != nil {
+		t.Fatalf("RecordCouncilEvent fallback speech: %v", err)
+	}
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	failure := findEvent(t, index.Events, "runner_invocation_failed")
+	if failure.Payload["error_class"] != runner.ErrorClassAdapterCommandMismatch || failure.Payload["reason"] != runner.ErrorClassAdapterCommandMismatch {
+		t.Fatalf("delivery mismatch failure must preserve adapter mismatch diagnostics: %#v", failure.Payload)
+	}
+	accounting := storage.SelectedRunnerAccountingFromIndex(index)
+	if accounting.SelectedRunnerPass || accounting.RunnerFailedCount != 1 || accounting.RunnerSucceededCount != 0 || accounting.LinkedRunnerSpeechCount != 0 || accounting.ManualOrFallbackSpeechCount != 1 {
+		t.Fatalf("fallback speech must not repair delivery-only selected runner failure: %#v", accounting)
 	}
 }
 

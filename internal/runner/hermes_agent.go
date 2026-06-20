@@ -20,7 +20,7 @@ func (a *HermesAgentAdapter) Kind() string       { return HermesAgentKind }
 func (a *HermesAgentAdapter) CostSource() string { return HermesAgentCostSource }
 
 func (a *HermesAgentAdapter) Send(ctx context.Context, req Request) (Result, error) {
-	return a.invoke(ctx, "send", req)
+	return a.invoke(ctx, "chat", req)
 }
 
 func (a *HermesAgentAdapter) Resume(ctx context.Context, req Request) (Result, error) {
@@ -57,12 +57,23 @@ func (a *HermesAgentAdapter) invoke(ctx context.Context, mode string, req Reques
 	}
 	args := append([]string(nil), req.Args...)
 	if len(args) == 0 {
-		args = []string{mode}
-		if req.SessionHandle != nil {
-			args = append(args, "--session", string(*req.SessionHandle))
-		}
-		if req.Prompt != "" {
-			args = append(args, req.Prompt)
+		switch mode {
+		case "chat":
+			args = []string{"chat", "-Q"}
+			if req.SessionHandle != nil {
+				args = append(args, "--session", string(*req.SessionHandle))
+			}
+			if req.Prompt != "" {
+				args = append(args, "-q", req.Prompt)
+			}
+		default:
+			args = []string{mode}
+			if req.SessionHandle != nil {
+				args = append(args, "--session", string(*req.SessionHandle))
+			}
+			if req.Prompt != "" {
+				args = append(args, req.Prompt)
+			}
 		}
 	}
 	cmd := exec.CommandContext(ctx, wrapper, args...)

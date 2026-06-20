@@ -36,16 +36,20 @@ func TestRUNRTDispatcherAppendsStartedBeforeAdapterAndTerminalCost(t *testing.T)
 	if err != nil {
 		t.Fatalf("ReadLogIndex: %v", err)
 	}
-	if len(index.Events) != 3 {
-		t.Fatalf("expected created+started+terminal, got %d", len(index.Events))
+	if len(index.Events) != 4 {
+		t.Fatalf("expected created+started+runner success+terminal, got %d", len(index.Events))
 	}
 	started := index.Events[1]
-	terminal := index.Events[2]
+	succeeded := index.Events[2]
+	terminal := index.Events[3]
 	if started.Type != "runner_invocation_started" || len(started.Cost) != 0 {
 		t.Fatalf("bad started envelope: %#v cost=%s", started, started.Cost)
 	}
 	if started.From != "kkachi-agent-networkd" || len(started.To) != 1 || started.To[0] != "agent-mod" || started.CommandID != "cmd_runrt_dispatch" {
 		t.Fatalf("runner operational event should reuse original command id and address moderator: %#v", started)
+	}
+	if succeeded.Type != "runner_invocation_succeeded" || string(succeeded.Cost) == "" || succeeded.Runner.InvocationID != started.Runner.InvocationID {
+		t.Fatalf("bad runner success envelope: type=%s cost=%s runner=%#v", succeeded.Type, succeeded.Cost, succeeded.Runner)
 	}
 	if terminal.Type != "assignee_update" || string(terminal.Cost) == "" || terminal.Runner.InvocationID != started.Runner.InvocationID {
 		t.Fatalf("bad terminal envelope: type=%s cost=%s runner=%#v", terminal.Type, terminal.Cost, terminal.Runner)

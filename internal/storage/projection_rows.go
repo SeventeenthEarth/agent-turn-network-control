@@ -55,6 +55,7 @@ type runnerProjection struct {
 	hasCostUSD                                                                                     bool
 	costSource                                                                                     string
 	costMissing                                                                                    bool
+	costAggregated                                                                                 bool
 	durationSec                                                                                    float64
 	hasDurationSec                                                                                 bool
 	startedAt, completedAt                                                                         string
@@ -343,27 +344,32 @@ func (s *projectionState) applyRunnerEvent(session *sessionProjection, event Eve
 		runner.status = status
 		runner.terminalEventID = event.EventID
 		runner.completedAt = timeText(event.CreatedAt)
-		runner.costTokensIn, runner.costTokensOut, runner.costUSD = cost.tokensIn, cost.tokensOut, cost.usd
-		runner.hasCostTokensIn, runner.hasCostTokensOut, runner.hasCostUSD = cost.hasTokensIn, cost.hasTokensOut, cost.hasUSD
-		runner.costSource = cost.source
+		if !runner.costAggregated {
+			runner.costTokensIn, runner.costTokensOut, runner.costUSD = cost.tokensIn, cost.tokensOut, cost.usd
+			runner.hasCostTokensIn, runner.hasCostTokensOut, runner.hasCostUSD = cost.hasTokensIn, cost.hasTokensOut, cost.hasUSD
+			runner.costSource = cost.source
+		}
 		if event.Runner.DurationSec != nil {
 			runner.durationSec = *event.Runner.DurationSec
 			runner.hasDurationSec = true
 		}
-		if cost.nullOrMissing {
-			runner.costMissing = true
-			if session != nil {
-				session.missingCostRunnerCallsTotal++
-			}
-		} else if session != nil {
-			if cost.hasTokensIn {
-				session.tokensInTotal += cost.tokensIn
-			}
-			if cost.hasTokensOut {
-				session.tokensOutTotal += cost.tokensOut
-			}
-			if cost.hasUSD {
-				session.usdEstimateTotal += cost.usd
+		if !runner.costAggregated {
+			runner.costAggregated = true
+			if cost.nullOrMissing {
+				runner.costMissing = true
+				if session != nil {
+					session.missingCostRunnerCallsTotal++
+				}
+			} else if session != nil {
+				if cost.hasTokensIn {
+					session.tokensInTotal += cost.tokensIn
+				}
+				if cost.hasTokensOut {
+					session.tokensOutTotal += cost.tokensOut
+				}
+				if cost.hasUSD {
+					session.usdEstimateTotal += cost.usd
+				}
 			}
 		}
 	}

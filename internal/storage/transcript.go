@@ -226,6 +226,7 @@ func transcriptCostSummary(metadata *SessionMetadata, events []EventEnvelope) Co
 		return metadata.Cost
 	}
 	summary := CostSummary{}
+	aggregatedInvocations := map[string]struct{}{}
 	for _, event := range events {
 		if event.Runner == nil {
 			continue
@@ -233,6 +234,13 @@ func transcriptCostSummary(metadata *SessionMetadata, events []EventEnvelope) Co
 		if event.Type == "runner_invocation_started" {
 			summary.RunnerCallsTotal++
 			continue
+		}
+		invocationID := event.Runner.InvocationID
+		if invocationID != "" {
+			if _, ok := aggregatedInvocations[invocationID]; ok {
+				continue
+			}
+			aggregatedInvocations[invocationID] = struct{}{}
 		}
 		cost := parseCost(event.Cost)
 		if cost.nullOrMissing {

@@ -27,6 +27,7 @@ type SelectedRunnerGrantAccounting struct {
 	Turn                       int      `json:"turn,omitempty"`
 	RunnerStarted              bool     `json:"runner_started"`
 	RunnerStartEventIDs        []string `json:"runner_start_event_ids,omitempty"`
+	RunnerSucceededEventIDs    []string `json:"runner_succeeded_event_ids,omitempty"`
 	RunnerInvocationIDs        []string `json:"runner_invocation_ids,omitempty"`
 	LinkedRunnerSpeechEventIDs []string `json:"linked_runner_speech_event_ids,omitempty"`
 	TerminalFailureEventIDs    []string `json:"terminal_failure_event_ids,omitempty"`
@@ -53,6 +54,7 @@ func SelectedRunnerAccountingFromIndex(index *LogIndex) SelectedRunnerAccounting
 	}
 	grantIndex := map[string]int{}
 	invocationToGrant := map[string]string{}
+	succeededInvocations := map[string]struct{}{}
 	for _, event := range index.Events {
 		switch event.Type {
 		case "speaker_selected":
@@ -92,6 +94,42 @@ func SelectedRunnerAccountingFromIndex(index *LogIndex) SelectedRunnerAccounting
 				grant.RunnerInvocationIDs = appendUniqueString(grant.RunnerInvocationIDs, event.Runner.InvocationID)
 				invocationToGrant[event.Runner.InvocationID] = grant.SelectedEventID
 			}
+		case "runner_invocation_succeeded":
+			grantID := matchingSelectedGrant(event, grantIndex, invocationToGrant)
+			if grantID == "" || event.Runner == nil {
+				continue
+			}
+			grant := &accounting.SelectedRunners[grantIndex[grantID]]
+			if event.Runner.Status != "succeeded" {
+				accounting.Diagnostics = append(accounting.Diagnostics, SelectedRunnerDiagnostic{
+					Code:               "runner_invocation_succeeded_status_not_succeeded",
+					EventID:            event.EventID,
+					SelectedEventID:    grant.SelectedEventID,
+					Member:             event.Runner.Member,
+					RunnerInvocationID: event.Runner.InvocationID,
+					Message:            "runner_invocation_succeeded must have runner.status succeeded to count as selected-runner pass",
+				})
+				continue
+			}
+			if grant.Member != "" && event.Runner.Member != grant.Member {
+				accounting.Diagnostics = append(accounting.Diagnostics, SelectedRunnerDiagnostic{
+					Code:               "runner_success_member_mismatch",
+					EventID:            event.EventID,
+					SelectedEventID:    grant.SelectedEventID,
+					Member:             event.Runner.Member,
+					RunnerInvocationID: event.Runner.InvocationID,
+					Message:            "runner success did not match selected speaker member",
+				})
+				continue
+			}
+			if event.Runner.InvocationID != "" {
+				grant.RunnerInvocationIDs = appendUniqueString(grant.RunnerInvocationIDs, event.Runner.InvocationID)
+				grant.RunnerSucceededEventIDs = appendUniqueString(grant.RunnerSucceededEventIDs, event.EventID)
+				if _, ok := succeededInvocations[event.Runner.InvocationID]; !ok {
+					succeededInvocations[event.Runner.InvocationID] = struct{}{}
+					accounting.RunnerSucceededCount++
+				}
+			}
 		case "speech":
 			if event.Runner == nil {
 				accounting.RunnerlessSpeechCount++
@@ -120,7 +158,12 @@ func SelectedRunnerAccountingFromIndex(index *LogIndex) SelectedRunnerAccounting
 				continue
 			}
 			if event.Runner.Status == "succeeded" {
-				accounting.RunnerSucceededCount++
+				if event.Runner.InvocationID != "" {
+					if _, ok := succeededInvocations[event.Runner.InvocationID]; !ok {
+						succeededInvocations[event.Runner.InvocationID] = struct{}{}
+						accounting.RunnerSucceededCount++
+					}
+				}
 			}
 			grantID := matchingSelectedGrant(event, grantIndex, invocationToGrant)
 			if grantID == "" {
@@ -180,6 +223,15 @@ func SelectedRunnerAccountingFromIndex(index *LogIndex) SelectedRunnerAccounting
 				Member:          grant.Member,
 				Message:         "selected speaker has no selected-runner start evidence",
 			})
+		case len(grant.RunnerSucceededEventIDs) == 0:
+			grant.Pass = false
+			grant.Status = "missing_runner_invocation_succeeded"
+			accounting.Diagnostics = append(accounting.Diagnostics, SelectedRunnerDiagnostic{
+				Code:            "missing_runner_invocation_succeeded",
+				SelectedEventID: grant.SelectedEventID,
+				Member:          grant.Member,
+				Message:         "selected-runner start has no runner_invocation_succeeded evidence",
+			})
 		case len(grant.LinkedRunnerSpeechEventIDs) == 0:
 			grant.Pass = false
 			grant.Status = "missing_linked_runner_speech"
@@ -233,12 +285,15 @@ func selectedRunnerEvidenceFromAccounting(accounting SelectedRunnerAccounting, s
 			continue
 		}
 		if grant.Pass {
-			return SelectedRunnerPrerequisite{Ready: true, Status: "selected_runner_pass", Evidence: grant.LinkedRunnerSpeechEventIDs}
+			evidence := append([]string{}, grant.RunnerSucceededEventIDs...)
+			evidence = append(evidence, grant.LinkedRunnerSpeechEventIDs...)
+			return SelectedRunnerPrerequisite{Ready: true, Status: "selected_runner_pass", Evidence: uniqueSorted(evidence)}
 		}
 		evidence := append([]string{}, grant.TerminalFailureEventIDs...)
 		evidence = append(evidence, grant.TerminalDiscardEventIDs...)
 		evidence = append(evidence, grant.DispatchFailureEventIDs...)
 		evidence = append(evidence, grant.RunnerStartEventIDs...)
+		evidence = append(evidence, grant.RunnerSucceededEventIDs...)
 		return SelectedRunnerPrerequisite{Ready: false, Status: grant.Status, BlockingReasons: []string{grant.Status}, Evidence: uniqueSorted(evidence)}
 	}
 	return SelectedRunnerPrerequisite{Ready: false, Status: "missing_selected_runner_prerequisite", BlockingReasons: []string{"missing_selected_runner_prerequisite"}}

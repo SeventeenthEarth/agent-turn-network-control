@@ -65,7 +65,7 @@ func TestIntegrationHermesAdapterUsesResolvedWrapperArgvAndParsesCost(t *testing
 	dir := t.TempDir()
 	wrapper := filepath.Join(dir, "fake-hermes")
 	log := filepath.Join(dir, "argv.log")
-	script := "#!/bin/sh\nprintf '%s\\n' \"$0|$1|$2|$KEEP_ME|${SECRET_TOKEN-unset}\" > " + shellQuote(log) + "\nprintf '%s\\n' 'session_handle=abc123'\nprintf '%s\\n' '{\"type\":\"speech\",\"payload\":{\"turn\":1,\"speech\":\"hello world\"}}'\nprintf '%s\\n' '{\"hermes_cost\":{\"tokens_in\":3,\"tokens_out\":4,\"usd_estimate\":0.05}}' >&2\n"
+	script := "#!/bin/sh\nprintf '%s\\n' \"$0|$1|$2|$3|$4|$KEEP_ME|${SECRET_TOKEN-unset}\" > " + shellQuote(log) + "\nprintf '%s\\n' 'session_handle=abc123'\nprintf '%s\\n' '{\"type\":\"speech\",\"payload\":{\"turn\":1,\"speech\":\"hello world\"}}'\nprintf '%s\\n' '{\"hermes_cost\":{\"tokens_in\":3,\"tokens_out\":4,\"usd_estimate\":0.05}}' >&2\n"
 	if err := os.WriteFile(wrapper, []byte(script), 0o700); err != nil {
 		t.Fatalf("write wrapper: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestIntegrationHermesAdapterUsesResolvedWrapperArgvAndParsesCost(t *testing
 	if err != nil {
 		t.Fatalf("read argv log: %v", err)
 	}
-	if got := strings.TrimSpace(string(argv)); got != wrapper+"|send|hello world|yes|unset" {
+	if got := strings.TrimSpace(string(argv)); got != wrapper+"|chat|-Q|-q|hello world|yes|unset" {
 		t.Fatalf("wrapper was not invoked by resolved argv/minimal env: %q", got)
 	}
 	if result.Cost == nil || result.Cost.TokensIn != 3 || result.Cost.Source != HermesAgentCostSource {

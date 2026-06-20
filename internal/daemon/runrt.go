@@ -151,7 +151,7 @@ func (s *RunnerDispatchService) Dispatch(ctx context.Context, req RunnerDispatch
 			if payload == nil && req.TerminalValidator == nil {
 				payload = map[string]any{"stdout": string(result.Stdout)}
 			}
-			terminal, appendErr := s.appendSuccessTerminal(req, terminalType, invocationID, sourceCommandID, attempt, result, payload)
+			terminal, appendErr := s.buildSuccessTerminal(req, terminalType, invocationID, sourceCommandID, attempt, result, payload)
 			if appendErr != nil && req.TerminalValidator != nil {
 				reason := strings.TrimSpace(req.PayloadInvalidReason)
 				if payload == nil {
@@ -169,7 +169,20 @@ func (s *RunnerDispatchService) Dispatch(ctx context.Context, req RunnerDispatch
 				}
 				result.Discarded = true
 				terminal, appendErr = s.appendTerminal(req, "runner_result_discarded", invocationID, sourceCommandID, attempt, result, runnerDiagnosticPayload(result, diagnosticPayload))
+				out.TerminalEvent = terminal.EventID
+				out.TerminalEventType = terminal.Type
+				return out, appendErr
 			}
+			if appendErr != nil {
+				return out, appendErr
+			}
+			succeeded, appendErr := s.appendTerminal(req, "runner_invocation_succeeded", invocationID, sourceCommandID, attempt, result, runnerSuccessPayload(result, terminalType))
+			if appendErr != nil {
+				out.TerminalEvent = succeeded.EventID
+				out.TerminalEventType = succeeded.Type
+				return out, appendErr
+			}
+			terminal, appendErr = s.appendBuiltTerminal(terminal)
 			out.TerminalEvent = terminal.EventID
 			out.TerminalEventType = terminal.Type
 			return out, appendErr
@@ -277,7 +290,7 @@ func (s *RunnerDispatchService) appendTerminal(req RunnerDispatchRequest, typ, i
 	return event, err
 }
 
-func (s *RunnerDispatchService) appendSuccessTerminal(req RunnerDispatchRequest, typ, invocationID, sourceCommandID string, attempt int, result runner.Result, payload map[string]any) (storage.EventEnvelope, error) {
+func (s *RunnerDispatchService) buildSuccessTerminal(req RunnerDispatchRequest, typ, invocationID, sourceCommandID string, attempt int, result runner.Result, payload map[string]any) (storage.EventEnvelope, error) {
 	event := s.baseEvent(req, typ, invocationID, sourceCommandID, attempt, &result, payload)
 	event.Cost = runner.CostRaw(result.Cost)
 	if req.TerminalValidator != nil {
@@ -289,11 +302,26 @@ func (s *RunnerDispatchService) appendSuccessTerminal(req RunnerDispatchRequest,
 		event.Runner = s.baseEvent(req, typ, invocationID, sourceCommandID, attempt, &result, payload).Runner
 		event.Cost = runner.CostRaw(result.Cost)
 	}
+	return event, nil
+}
+
+func (s *RunnerDispatchService) appendBuiltTerminal(event storage.EventEnvelope) (storage.EventEnvelope, error) {
 	res, err := storage.AppendEvent(s.SessionDir, s.Metadata, event)
 	if err == nil {
 		event.EventID = res.EventID
 	}
 	return event, err
+}
+
+func runnerSuccessPayload(result runner.Result, terminalType string) map[string]any {
+	payload := map[string]any{
+		"status":              "succeeded",
+		"semantic_event_type": terminalType,
+	}
+	if result.SemanticStatus != "" {
+		payload["semantic_status"] = result.SemanticStatus
+	}
+	return payload
 }
 
 func (s *RunnerDispatchService) baseEvent(req RunnerDispatchRequest, typ, invocationID, sourceCommandID string, attempt int, result *runner.Result, payload map[string]any) storage.EventEnvelope {

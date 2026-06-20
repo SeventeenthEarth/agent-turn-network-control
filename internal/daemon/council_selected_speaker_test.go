@@ -35,12 +35,13 @@ func TestCouncilGrantDispatchesSelectedMemberRunnerAndRecordsSpeech(t *testing.T
 	}
 	selected := findEvent(t, index.Events, "speaker_selected")
 	started := findEvent(t, index.Events, "runner_invocation_started")
+	succeeded := findEvent(t, index.Events, "runner_invocation_succeeded")
 	speech := findEvent(t, index.Events, "speech")
-	if started.CausationEventID != selected.EventID || speech.CausationEventID != selected.EventID {
-		t.Fatalf("runner events must point to speaker_selected causation: selected=%s started=%s speech=%s", selected.EventID, started.CausationEventID, speech.CausationEventID)
+	if started.CausationEventID != selected.EventID || succeeded.CausationEventID != selected.EventID || speech.CausationEventID != selected.EventID {
+		t.Fatalf("runner events must point to speaker_selected causation: selected=%s started=%s succeeded=%s speech=%s", selected.EventID, started.CausationEventID, succeeded.CausationEventID, speech.CausationEventID)
 	}
-	if speech.Runner.InvocationID == "" || speech.Runner.InvocationID != started.Runner.InvocationID || speech.Runner.Member != "agent-1" {
-		t.Fatalf("speech must preserve invocation/member evidence: started=%#v speech=%#v", started.Runner, speech.Runner)
+	if speech.Runner.InvocationID == "" || succeeded.Runner.InvocationID != started.Runner.InvocationID || speech.Runner.InvocationID != started.Runner.InvocationID || speech.Runner.Member != "agent-1" {
+		t.Fatalf("success and speech must preserve invocation/member evidence: started=%#v succeeded=%#v speech=%#v", started.Runner, succeeded.Runner, speech.Runner)
 	}
 }
 
@@ -144,7 +145,7 @@ func TestCouncilGrantDispatchIsDurablyIdempotentAcrossReplayAndRestart(t *testin
 	if err != nil {
 		t.Fatalf("ReadLogIndex: %v", err)
 	}
-	if eventTypeCount(index.Events, "runner_invocation_started") != 1 || eventTypeCount(index.Events, "speech") != 1 {
+	if eventTypeCount(index.Events, "runner_invocation_started") != 1 || eventTypeCount(index.Events, "runner_invocation_succeeded") != 1 || eventTypeCount(index.Events, "speech") != 1 {
 		t.Fatalf("duplicate replay should not append second runner result: %#v", index.Events)
 	}
 }
