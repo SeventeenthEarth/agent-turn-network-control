@@ -172,6 +172,28 @@ Transcript/export success must not be reported as visible discussion completion 
 
 Control-owned RUNFIX implementation must fail closed on missing selected-speaker dispatch evidence, missing participant runtime subscriber/ack/heartbeat readiness, stale cursor ack, invalid cursor, attendance/preparation timeout or missing response evidence, adapter response-generation mismatch, registry/profile identity mismatch, cursor gap, orphan speech in quality-required mode, stale runner phase, or fallback-only evidence mislabeled as KAN success.
 
+
+### RUNFIX2 discussion-runtime hardening contract
+
+RUNFIX2 is the follow-up hardening epic for the 2026-06-20 live KLM/주유 dogfood where visible Discord turns were posted but daemon selected-runner invocations failed with `malformed_or_missing_response`. The root contract is:
+
+- Enablement/config defaults and evidence labels are separate. Production/operator activation may require live-visible output, participant runtime readiness, and selected-runner execution by default; `visible_surface_pass`, `participant_runtime_live_ready`, `selected_runner_pass`, and `discussion_quality_pass` remain derived from durable evidence and fail closed when evidence is missing or failed.
+- Terminal-session readiness must not be reinterpreted only through current heartbeat freshness after finalization. Final reports need a grant/turn-time readiness verdict, plus any current/stale diagnostic separately.
+- Selected-runner success requires `speaker_selected -> runner_invocation_started -> runner_invocation_succeeded -> speech` for the selected member. A daemon adapter that calls a delivery-only Hermes command such as `send <prompt>` is a contract failure; fallback/profile CLI text is diagnostic only and cannot repair `selected_runner_pass` after `runner_invocation_failed`.
+- Discussion turns use `max_discussion_turns` for participant discussion turns only. Total visible turns are `max_discussion_turns + participant_count + 2`: T0 moderator opening, discussion turns, one closeout turn per participant, and final moderator summary/conclusion.
+- Human-visible Discord transcript rows must be concise. Event ids, session ids, runner ids, role/color, and detailed `speaker_selected`/`speech` identifiers remain in audit/export/status evidence, not in the Discord message body.
+
+RUNFIX2 planned task order:
+
+| Global Order | Repo | Task ID | Status | Control-owned acceptance |
+|---:|---|---|---|---|
+| 1 | control | RUNFIX2-001 | planned | Evidence/config separation and terminal grant-time readiness reporting are specified and tested without forcing pass labels true. |
+| 2 | control | RUNFIX2-002 | planned | The Hermes selected-runner adapter uses a response-generation contract and records succeeded runner-linked speech, with fake/isolated wrapper tests before any approved real profile pilot. |
+| 3 | control | RUNFIX2-003 | planned | Council turn lifecycle and total-turn accounting match intro + discussion + participant closeouts + moderator conclusion. |
+| 4 | plugin | RUNFIX2-004 | planned | Plugin visible transcript cleanup consumes control audit/status evidence without hiding audit data. |
+| 5 | plugin | RUNFIX2-005 | planned | Integrated pilot consumes control evidence and may claim success labels only from matching event chains. |
+
+
 ### MEMBR: Member runtime profile invocation
 
 Exit: a selected participant can be invoked through a real member profile/wrapper path and produce or fail a participant response with durable daemon evidence. This exit does not claim always-on production runtimes.
