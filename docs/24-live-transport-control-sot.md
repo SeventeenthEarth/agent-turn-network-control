@@ -183,7 +183,7 @@ RUNFIX2 is the follow-up hardening epic for the 2026-06-20 live KLM/주유 dogfo
 - Discussion turns use `limits.max_discussion_turns` for participant discussion turns only. Control status/export expose `discussion_lifecycle`, and export `summary_turn_accounting` rows add lifecycle stage plus visible turn index/total where evidence exists. Total visible turns are `max_discussion_turns + participant_count + 2`: T0 moderator opening, discussion turns, one closeout turn per participant, and final moderator summary/conclusion.
 - Human-visible Discord transcript rows must be concise. Event ids, session ids, runner ids, role/color, and detailed `speaker_selected`/`speech` identifiers remain in audit/export/status evidence, not in the Discord message body.
 
-RUNFIX2 planned task order:
+RUNFIX2 task order and current local-proof status:
 
 | Global Order | Repo | Task ID | Status | Control-owned acceptance |
 |---:|---|---|---|---|
@@ -191,7 +191,7 @@ RUNFIX2 planned task order:
 | 2 | control | RUNFIX2-002 | completed/local-control | The Hermes selected-runner adapter now defaults to response-generation `chat -Q -q <prompt>`, records `runner_invocation_succeeded` plus linked canonical selected-member `speech`, and preserves delivery/fallback output as terminal `adapter_command_mismatch` diagnostics. Proof is local fake/isolated wrapper and daemon/storage tests only; any real profile pilot remains separately approval-bound. |
 | 3 | control | RUNFIX2-003 | completed/local-control | Local control status/export now expose `discussion_lifecycle`, summary turn rows add lifecycle stage and visible turn index/total where evidence exists, and `council.propose` fails closed until the configured participant discussion window plus one selected closeout speech per member are present. `council.unresolved` remains the fail-closed terminal path; selected-runner and visible-surface pass labels remain separate evidence-derived gates. |
 | 4 | plugin | RUNFIX2-004 | local plugin implementation proof | Plugin KAH run `run-20260620T121230Z-dea687353d54` adds local pure-renderer visible transcript cleanup that consumes control audit/status evidence without hiding audit data. No live Discord delivery, production readiness, pilot success, daemon/profile/provider/gateway/auth/token mutation, commit, push, or broad rollout is claimed. |
-| 5 | plugin | RUNFIX2-005 | planned | Integrated pilot consumes control evidence and may claim success labels only from matching event chains. |
+| 5 | plugin | RUNFIX2-005 | local plugin implementation proof | Plugin KAH run `run-20260620T131542Z-ae344b0d5ee9` adds local explicit-evidence planner/schema/test support for `integrated_discussion_proof`. The proof axes are separated: lifecycle, selected-runner, participant runtime readiness at grant/turns, visible-surface, clean-transcript, visible-closeout, fallback, discussion-quality, and final labels. Selected-runner proof requires explicit runner success plus canonical linked speech for the selected member; manual/profile fallback remains diagnostic-only and cannot repair selected-runner failure. This control SOT records the plugin-owned companion status only: `live_readiness` remains false, and this is not live pilot success, production readiness, live Discord delivery, daemon/profile/provider/gateway/auth/token/model mutation, push, or broad rollout. |
 
 
 ### MEMBR: Member runtime profile invocation
