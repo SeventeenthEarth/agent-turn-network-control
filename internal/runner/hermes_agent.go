@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -175,12 +176,15 @@ type hermesSemanticOutput struct {
 func parseHermesResponseOutput(stdout, stderr []byte) (hermesSemanticOutput, string, string) {
 	lines := nonEmptyOutputLines(stdout)
 	var responseLines []string
-	for _, line := range lines {
+	for index, line := range lines {
 		if strings.HasPrefix(line, "session_handle=") {
 			continue
 		}
 		if looksLikeJSON(line) {
-			semantic, class, reason := parseHermesJSONLine(line)
+			if len(responseLines) > 0 {
+				return hermesSemanticOutput{}, ErrorClassMalformedOrMissingResponse, ErrorClassMalformedOrMissingResponse
+			}
+			semantic, class, reason := parseHermesJSONText(strings.Join(lines[index:], "\n"))
 			if class != "" || semantic.EventType != "" || len(semantic.Payload) > 0 {
 				return semantic, class, reason
 			}
@@ -200,11 +204,20 @@ func parseHermesResponseOutput(stdout, stderr []byte) (hermesSemanticOutput, str
 	return hermesSemanticOutput{}, ErrorClassMalformedOrMissingResponse, ErrorClassMalformedOrMissingResponse
 }
 
-func parseHermesJSONLine(line string) (hermesSemanticOutput, string, string) {
+func parseHermesJSONText(text string) (hermesSemanticOutput, string, string) {
 	var raw map[string]any
-	if err := json.Unmarshal([]byte(line), &raw); err != nil {
+	decoder := json.NewDecoder(strings.NewReader(text))
+	if err := decoder.Decode(&raw); err != nil {
 		return hermesSemanticOutput{}, ErrorClassMalformedOrMissingResponse, ErrorClassMalformedOrMissingResponse
 	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return hermesSemanticOutput{}, ErrorClassMalformedOrMissingResponse, ErrorClassMalformedOrMissingResponse
+	}
+	return parseHermesJSON(raw)
+}
+
+func parseHermesJSON(raw map[string]any) (hermesSemanticOutput, string, string) {
 	if jsonHasProviderFailure(raw) {
 		return hermesSemanticOutput{}, ErrorClassModelProviderFailure, ErrorClassModelProviderFailure
 	}

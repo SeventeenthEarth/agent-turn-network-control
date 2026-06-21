@@ -155,6 +155,12 @@ func TestIntegrationHermesAdapterClassifiesResponseGenerationOutput(t *testing.T
 			wantEvent: "assignee_update",
 		},
 		{
+			name:      "typed compact jsonl speech succeeds",
+			stdout:    "session_handle=abc\n{\"type\":\"speech\",\"payload\":{\"turn\":1,\"speech\":\"hello from compact jsonl\"}}\n",
+			wantOK:    true,
+			wantEvent: "speech",
+		},
+		{
 			name:          "delivery shaped output is adapter mismatch",
 			stdout:        "session_handle=abc\nplatform_delivery=posted message_id=123\n",
 			wantClass:     ErrorClassAdapterCommandMismatch,
@@ -187,6 +193,24 @@ func TestIntegrationHermesAdapterClassifiesResponseGenerationOutput(t *testing.T
 			wantErr:        true,
 			wantPayloadKey: "diagnostic_excerpt",
 			forbidExcerpt:  []string{"supersecret", "SECRET_TOKEN", "/tmp/secret-wrapper"},
+		},
+		{
+			name:      "pretty typed json speech succeeds",
+			stdout:    "session_handle=abc\n{\n  \"type\": \"speech\",\n  \"payload\": {\n    \"turn\": 1,\n    \"speech\": \"hello from pretty json\"\n  }\n}\n",
+			wantOK:    true,
+			wantEvent: "speech",
+		},
+		{
+			name:      "prose before typed json is malformed missing response",
+			stdout:    "session_handle=abc\nI will answer as JSON:\n{\"type\":\"speech\",\"payload\":{\"speech\":\"hello\"}}\n",
+			wantClass: ErrorClassMalformedOrMissingResponse,
+			wantErr:   true,
+		},
+		{
+			name:      "prose after typed json is malformed missing response",
+			stdout:    "session_handle=abc\n{\"type\":\"speech\",\"payload\":{\"speech\":\"hello\"}}\nThat is my answer.\n",
+			wantClass: ErrorClassMalformedOrMissingResponse,
+			wantErr:   true,
 		},
 		{
 			name:      "malformed json is malformed missing response",

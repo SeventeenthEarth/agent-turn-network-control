@@ -84,6 +84,18 @@ class RunnerAdapter(Protocol):
 
 `RunnerResult.cost` is parsed cost information only. It is **not** used to determine whether a runner call occurred. A runner call is recorded through a durable `runner_invocation_started` event before the adapter subprocess is launched. Every actual adapter invocation attempt receives a unique `runner.invocation_id`.
 
+### Runner stdout semantic framing
+
+The Release v1 `hermes-agent` selected-runner producer contract is compact JSONL on stdout: exactly one JSON object per line for the canonical semantic response, no markdown fence, and no surrounding prose. Diagnostics, wrapper logs, provider warnings, and human-readable debugging belong on stderr or in structured evidence fields.
+
+For council selected-speaker output, the canonical stdout record is a `type: "speech"` object with a `payload` containing visible `speech` plus any `claims[]`, `stance_links[]`, `contribution_type`, `new_axis_reason`, and `evidence[]` fields needed by ARGUE validation. Example:
+
+```json
+{"type":"speech","payload":{"speech":"Visible participant answer only.","claims":[],"stance_links":[],"contribution_type":"support","new_axis_reason":null,"evidence":[]}}
+```
+
+The consumer parser remains compatibility-tolerant for real Hermes output: a single pretty/multiline JSON object may be normalized before canonical validation. This compatibility does not change the producer contract. Delivery/fallback-only JSON must still classify as `adapter_command_mismatch`, and malformed JSON must still classify as `malformed_or_missing_response`.
+
 ### Registry integration
 
 ```yaml
