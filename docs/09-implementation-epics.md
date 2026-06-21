@@ -195,3 +195,25 @@ RUNFIX2 uses five intended PR-sized tasks. The pass labels remain evidence-deriv
 | 5 | plugin | RUNFIX2-005 | Local plugin implementation proof: plugin KAH run `run-20260620T131542Z-ae344b0d5ee9` adds explicit-only `integrated_discussion_proof` planner/schema/test support for the hardened discussion runtime. The proof axes remain separated: lifecycle, selected-runner, participant runtime readiness at grant/turns, visible-surface, clean-transcript, visible-closeout, fallback, discussion-quality, and final labels. Selected-runner proof requires explicit runner success plus canonical linked speech for the selected member; manual/profile fallback is diagnostic-only and cannot repair selected-runner failure. | plugin activation planner/schema/tests, plugin operator evidence, control stream/status/export evidence as input only | local plugin proof only; `live_readiness` remains false; no live pilot success, production readiness, live Discord delivery, daemon/profile/provider/gateway/auth/token/model mutation, push, broad rollout, or control-owned implementation claim |
 
 RUNFIX2 task 5 may report `selected_runner_pass: true`, `visible_surface_pass: true`, and participant runtime readiness success only when the event log shows the matching causal chains. Manual/profile fallback or profile CLI harness success may remain diagnostic, but it must not repair `selected_runner_pass` after a runner terminal failure.
+
+
+## HUN — Hermes Unified Network public rename and runtime split
+
+`HUN` is the user-approved public rename task stream. It is intentionally recorded as a three-letter epic exception because the product short name is the task id source of truth.
+
+| Global Order | Repo | Task ID | Scope | Suggested paths | Verification / gate |
+|---:|---|---|---|---|---|
+| 1 | control | HUN-001 | Completed/docs-only: lock the control naming SOT and roadmap/index/docs-map entries. | `docs/26-hermes-unified-network-control-naming-sot.md`, `docs/roadmap.md`, `docs/README.md`, `docs/kkachi-docs-map.yaml`, `docs/09-implementation-epics.md` | docs guardrails, plugin contract check, Red/Orange/Gray review, Blue synthesis; no binary/package/runtime mutation |
+| 2 | plugin | HUN-002 | Completed/docs-only: lock the plugin naming SOT and plugin roadmap/index/docs-map entries. | plugin `docs/12-hermes-unified-network-plugin-naming-sot.md`, plugin roadmap, plugin docs map | plugin docs guardrails/core-contract check, Red/Orange/Gray review, Blue synthesis; no package/tool/runtime mutation |
+| 3 | control | HUN-003 | Planned: control code and binary rename. | `go.mod`, `cmd/`, `internal/command`, Makefile/help smoke docs | build/help/test gates after rename |
+| 4 | plugin | HUN-004 | Planned: plugin package and manifest rename. | plugin `pyproject.toml`, `plugin.yaml`, package source/imports, plugin-load smoke | plugin-load smoke and package/import tests |
+| 5 | control | HUN-005 | Planned: control protocol/fixture/test rename including `hun-protocol-v1alpha0`. | control protocol docs, conformance fixtures, contract checker | conformance and plugin-contract/core-contract gates |
+| 6 | plugin | HUN-006 | Planned: plugin tool API rename to `hun_*`. | plugin schemas, handlers, tests, docs | schema/handler/integration tests |
+| 7 | control | HUN-007 | Planned: HUN vanilla Hermes runtime hardening. | member runtime, runner, status/report docs/tests | selected-runner and fail-closed evidence tests |
+| 8 | plugin | HUN-008 | Planned: HUN activation planner evidence model. | plugin activation planner/schema/tests/docs | explicit evidence planner tests |
+| 9 | plugin | HUN-009 | Planned: HUN bundled skills rename and public rewrite. | plugin bundled skills and operator guide | bundled-skill tests and docs guardrails |
+| 10 | plugin | HUN-010 | Planned: plugin public docs/package scrub. | plugin README/docs/package metadata/examples | public docs guardrails |
+| 11 | control | HUN-011 | Planned: control public docs scrub. | control README/docs/examples | public docs guardrails |
+| 12 | control | HUN-012 | Planned: control HUN guardrails. | control guardrail scripts/tests/Makefile | forbidden-term and docs/test gates |
+| 13 | plugin | HUN-013 | Planned: plugin HUN guardrails. | plugin guardrail scripts/tests/Makefile | forbidden-term and plugin-load gates |
+| 14 | cross-repo | HUN-014 | Planned: final cross-repo HUN compatibility and release-readiness sync. | both repositories | stale-reference scan, contract checks, docs/test gates |
