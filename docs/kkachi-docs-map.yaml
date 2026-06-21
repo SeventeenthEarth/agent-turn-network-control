@@ -29,6 +29,13 @@ kas:
     jonghoe: "orange_pm_reviewer"
     manchong: "gray_scribe"
   tailoring_mode: "profile_local_role_semantic_tailoring"
+workflow:
+  graph: ".kkachi-workflow.yaml"
+  graph_id: "graph-kkachi-project-kkachi-agent-network-control-kas-v017-kah-v013-20260621"
+  configured_by: "macho"
+  apply_event_id: "evt-002756"
+  proposal_id: "gprop-000002"
+  approval_ref: "주군-discord-kan-control-workflow-graph-refresh-approval-20260621"
 
 runfix:
   epic: "RUNFIX"

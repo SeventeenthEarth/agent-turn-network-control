@@ -100,17 +100,19 @@ The optional project graph is `.kkachi-workflow.yaml`. Validate it before use wh
 Optional development-class spine:
 
 ```text
-intake -> sot -> roadmap -> task-classification -> plan -> vet -> ask -> implement -> enhance-test -> ai-slop-cleaner -> optimize -> docs-update -> verify -> color-review -> color-adjust -> octo-review -> octo-adjudication -> post-octo-adjust -> final
+intake -> sot -> roadmap -> task-classification -> plan -> vet -> ask -> implement -> enhance-test -> ai-slop-cleaner -> optimize -> docs -> verify -> review -> request-feedback-1 -> handle-feedback-1 -> mar-review -> second-color-review -> final
 ```
+
+The applied graph id is `graph-kkachi-project-kkachi-agent-network-control-kas-v017-kah-v013-20260621` and the KAH apply event is `evt-002756`. This graph aligns the repo with KAS v0.1.7 / KAH v0.1.13 workflow-managed surfaces and the MAR review lane.
 
 Important semantics:
 
-- Plan-stage development defaults to Blue vet plus official Red review.
+- Plan-stage development defaults to Blue vet plus official Red/Orange plan review when KAS/KAH roadmap policy requires it.
 - `delegate_task`, temporary helper agents, and ad-hoc subagents are not official review evidence.
 - Implementation/final acceptance normally requires official KAN Red/Orange/Gray Kanban review plus dependent Blue synthesis.
 - Color review is a convergence loop: valid requested changes return to the selected implementer lane, verification reruns, and focused re-review continues until no valid change requests remain.
-- GLM Octo review is one official feedback event for implementation tasks unless explicitly waived; Octo findings are adjudicated by Blue plus color reviewers before valid findings are routed for adjustment.
-- Non-development tasks must preserve explicit skipped-phase reasons instead of silently inheriting the full spine.
+- MAR review is the default independent review lane for development/implementation tasks unless 주군 explicitly waives or replaces it before start; required roles are `logic`, `security`, `arch`, `cve`, and `test_adequacy`.
+- Non-development tasks must preserve explicit skipped-phase reasons instead of silently inheriting the full spine; MAR phases are not forced on classes where policy marks them not applicable.
 
 ## KAN control repo boundaries
 
@@ -160,6 +162,9 @@ Use real user home in reusable artifacts and prompts:
 
 ```bash
 HOME=/Users/draccoon git diff --check
+HOME=/Users/draccoon /Users/draccoon/.local/bin/kkachi-agent-helper-toolchain graph validate --file .kkachi-workflow.yaml --json
+HOME=/Users/draccoon /Users/draccoon/.local/bin/kkachi-agent-helper-toolchain project doctor --json
+HOME=/Users/draccoon /Users/draccoon/.local/bin/kkachi-agent-skills-toolchain doctor --project . --workflow-graph --json
 HOME=/Users/draccoon make docs-guardrails
 HOME=/Users/draccoon make check-plugin-contract
 HOME=/Users/draccoon make test-prepare

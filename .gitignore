@@ -10,6 +10,7 @@ coverage.out
 
 # Kkachi/Hermes local runtime state
 .kkachi/
+.kkachi-workflow.yaml
 .codegraph/
 .omx/
 .omc/
