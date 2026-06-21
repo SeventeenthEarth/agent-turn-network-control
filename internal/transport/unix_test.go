@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/registry"
-	"kkachi-agent-network-control/internal/transport"
+	"hun-control/internal/protocol"
+	"hun-control/internal/registry"
+	"hun-control/internal/transport"
 )
 
 func TestIntegrationSocketPathAndRuntimeDirAreOwnerOnly(t *testing.T) {
@@ -28,7 +28,7 @@ func TestIntegrationSocketPathAndRuntimeDirAreOwnerOnly(t *testing.T) {
 	if info.Mode().Perm() != 0o700 {
 		t.Fatalf("expected runtime dir 0700, got %04o", info.Mode().Perm())
 	}
-	if got := transport.SocketPath(dataHome); got != filepath.Join(dataHome, "run", "kkachi-agent-networkd.sock") {
+	if got := transport.SocketPath(dataHome); got != filepath.Join(dataHome, "run", "hund.sock") {
 		t.Fatalf("unexpected socket path %q", got)
 	}
 }

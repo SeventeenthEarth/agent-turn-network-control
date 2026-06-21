@@ -13,7 +13,7 @@ func TestUnitCLIEntrypointHelpNamesCanonicalBinary(t *testing.T) {
 		t.Fatalf("expected CLI help to exit 0, got %v with output:\n%s", err, out)
 	}
 	text := string(out)
-	for _, want := range []string{"kkachi-agent-network", "Usage:", "Commands:"} {
+	for _, want := range []string{"hun", "Usage:", "Commands:"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("expected CLI entrypoint help to contain %q, got:\n%s", want, text)
 		}

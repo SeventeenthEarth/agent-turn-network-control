@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"kkachi-agent-network-control/internal/memberruntime"
-	"kkachi-agent-network-control/internal/registry"
-	"kkachi-agent-network-control/internal/runner"
-	"kkachi-agent-network-control/internal/storage"
+	"hun-control/internal/memberruntime"
+	"hun-control/internal/registry"
+	"hun-control/internal/runner"
+	"hun-control/internal/storage"
 )
 
 // SelectedSpeakerDispatchHandler is the MEMBR-002 bounded pilot seam: a real

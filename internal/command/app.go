@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"kkachi-agent-network-control/internal/daemon"
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/registry"
-	"kkachi-agent-network-control/internal/storage"
-	"kkachi-agent-network-control/internal/transport"
+	"hun-control/internal/daemon"
+	"hun-control/internal/protocol"
+	"hun-control/internal/registry"
+	"hun-control/internal/storage"
+	"hun-control/internal/transport"
 )
 
 // App describes a minimal local-only command surface for a KAN binary.
@@ -37,6 +36,13 @@ const (
 	appKindDaemon appKind = "daemon"
 )
 
+const (
+	cliBinaryName     = "hun"
+	daemonBinaryName  = "hund"
+	dataHomeEnvName   = "HUN_HOME"
+	daemonPathEnvName = "HUND_PATH"
+)
+
 // CommandSummary is a help-only command listing.
 type CommandSummary struct {
 	Name        string
@@ -50,8 +56,8 @@ func NewCLI() App {
 
 func NewCLIWithRuntime(runtime registry.Runtime) App {
 	return App{
-		Name:        "kkachi-agent-network",
-		Description: "Canonical KAN control CLI for diagnostics, recovery, and manual operation.",
+		Name:        cliBinaryName,
+		Description: "Hermes Unified Network control CLI for diagnostics, recovery, and manual operation.",
 		Runtime:     runtime,
 		Kind:        appKindCLI,
 		StartDaemon: startDaemonProcess,
@@ -82,8 +88,8 @@ func NewCLIWithRuntime(runtime registry.Runtime) App {
 // NewDaemon returns the daemon binary command surface.
 func NewDaemon() App {
 	return App{
-		Name:        "kkachi-agent-networkd",
-		Description: "KAN control daemon authority for state transitions, event append, replay, and projections.",
+		Name:        daemonBinaryName,
+		Description: "Hermes Unified Network daemon authority for state transitions, event append, replay, and projections.",
 		Runtime:     registry.DefaultRuntime(),
 		Kind:        appKindDaemon,
 		Commands: []CommandSummary{
@@ -689,7 +695,7 @@ func startDaemonProcess(dataHome string, runtime registry.Runtime) error {
 		return err
 	}
 	cmd := exec.Command(path, "run")
-	cmd.Env = append(os.Environ(), "KKACHI_AGENT_NETWORK_HOME="+dataHome)
+	cmd.Env = append(os.Environ(), dataHomeEnvName+"="+dataHome)
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 	if err := cmd.Start(); err != nil {
@@ -699,7 +705,7 @@ func startDaemonProcess(dataHome string, runtime registry.Runtime) error {
 }
 
 func daemonExecutable() (string, error) {
-	if value := os.Getenv("KKACHI_AGENT_NETWORKD_PATH"); value != "" {
+	if value := os.Getenv(daemonPathEnvName); value != "" {
 		return value, nil
 	}
 	exe, err := os.Executable()
@@ -707,17 +713,17 @@ func daemonExecutable() (string, error) {
 		return "", err
 	}
 	base := filepath.Base(exe)
-	if base == "kkachi-agent-networkd" {
+	if base == daemonBinaryName {
 		return exe, nil
 	}
-	sibling := filepath.Join(filepath.Dir(exe), "kkachi-agent-networkd")
+	sibling := filepath.Join(filepath.Dir(exe), daemonBinaryName)
 	if info, err := os.Stat(sibling); err == nil && !info.IsDir() {
 		return sibling, nil
 	}
-	if path, err := exec.LookPath("kkachi-agent-networkd"); err == nil {
+	if path, err := exec.LookPath(daemonBinaryName); err == nil {
 		return path, nil
 	}
-	return "", errors.New("kkachi-agent-networkd executable not found")
+	return "", fmt.Errorf("%s executable not found", daemonBinaryName)
 }
 
 func isHelp(arg string) bool {

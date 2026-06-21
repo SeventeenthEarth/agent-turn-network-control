@@ -23,6 +23,7 @@ This SOT does not rename files, change binaries, mutate live profiles, start a d
 | Default user data directory | `~/.hun` |
 | XDG data directory name | `hermes-unified-network` |
 | Primary data-home environment variable | `HUN_HOME` |
+| Daemon executable override environment variable | `HUND_PATH` |
 | Local socket file name | `hund.sock` |
 | Protocol family label | `hun` |
 | Protocol compatibility version | `hun-protocol-v1alpha0` |
@@ -55,6 +56,7 @@ The control repository owns these rename surfaces:
 | CLI command help and examples | `hun ...` |
 | Daemon process help and examples | `hund ...` |
 | Data-home resolution | `HUN_HOME`, XDG `hermes-unified-network`, default `~/.hun` |
+| Local daemon executable override | `HUND_PATH` may point HUN control CLI behavior at a local `hund` executable path |
 | Socket and service examples | `hund.sock`, `hund` |
 | Command transport docs | HUN daemon protocol, no plugin-to-CLI fallback |
 | Protocol/conformance fixtures | HUN labels only; `protocol_version` and `min_plugin_protocol_version` target `hun-protocol-v1alpha0` |
@@ -63,6 +65,8 @@ The control repository owns these rename surfaces:
 | Companion plugin check | validates HUN plugin contract after the plugin rename lands |
 
 The control repository does not own Python package imports, Hermes plugin manifest names, bundled skills, or Hermes tool schemas. Those are plugin repository surfaces defined by the plugin-side HUN SOT.
+
+`HUND_PATH` is only a local operator override for the `hund` executable path used by HUN control CLI behavior. It is not live activation, package publication, provider/profile/gateway/auth/token mutation, hosted repository rename, or a protocol/plugin surface rename.
 
 ## Runtime authority model retained by the rename
 
@@ -81,7 +85,7 @@ The rename must not change runtime authority:
 | Task | Repo | Status | Purpose |
 | --- | --- | --- | --- |
 | HUN-001 | control | completed/docs-only | Lock this control naming SOT and control roadmap entries. |
-| HUN-003 | control | planned | Rename Go module, CLI binary, daemon binary, help text, Makefile surfaces, and control command examples. |
+| HUN-003 | control | completed/local-proof | Rename Go module, CLI binary, daemon binary, help text, Makefile surfaces, and control command examples. Local proof passed after MAR/second color review and post-fix verification: MAR coverage PASS, Blue MAR `PASS_WITH_FINDINGS_HANDLED`, post-fix verification refresh pass, and second color review `final_gate_may_proceed=true`; live/runtime/package/plugin/protocol/commit/push readiness remains out of scope. |
 | HUN-005 | control | planned | Rename protocol docs, conformance manifests, fixtures, schemas, CLI tests, and plugin-contract checks, including `protocol_version` / `min_plugin_protocol_version` values to `hun-protocol-v1alpha0`. |
 | HUN-007 | control | planned | Reconfirm vanilla Hermes runtime hardening under the new HUN names: selected-runner evidence, wrapper identity, no role substitution, and fail-closed diagnostics. |
 | HUN-011 | control | planned | Scrub control public docs for HUN-only wording and remove internal/private release language. |

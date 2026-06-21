@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"time"
 
-	"kkachi-agent-network-control/internal/registry"
+	"hun-control/internal/registry"
 )
 
 const HermesAgentKind = "hermes-agent"

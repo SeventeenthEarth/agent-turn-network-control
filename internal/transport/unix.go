@@ -10,13 +10,13 @@ import (
 	"syscall"
 	"time"
 
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/registry"
+	"hun-control/internal/protocol"
+	"hun-control/internal/registry"
 )
 
 const (
 	RuntimeDirName = "run"
-	SocketName     = "kkachi-agent-networkd.sock"
+	SocketName     = "hund.sock"
 )
 
 type SocketState string

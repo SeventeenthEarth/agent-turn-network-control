@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"kkachi-agent-network-control/internal/registry"
+	"hun-control/internal/registry"
 )
 
 type SessionType string

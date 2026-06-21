@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"kkachi-agent-network-control/internal/protocol"
+	"hun-control/internal/protocol"
 )
 
 func TestUnitExitTaxonomyAndStructuredUnsupportedFeature(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/storage"
+	"hun-control/internal/protocol"
+	"hun-control/internal/storage"
 )
 
 func TestRuntimeReplayFirstThenLiveAckAndPersist(t *testing.T) {

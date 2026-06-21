@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"kkachi-agent-network-control/internal/daemon"
-	"kkachi-agent-network-control/internal/registry"
-	"kkachi-agent-network-control/internal/runner"
-	"kkachi-agent-network-control/internal/storage"
+	"hun-control/internal/daemon"
+	"hun-control/internal/registry"
+	"hun-control/internal/runner"
+	"hun-control/internal/storage"
 )
 
 func TestRUNRTDispatcherAppendsStartedBeforeAdapterAndTerminalCost(t *testing.T) {

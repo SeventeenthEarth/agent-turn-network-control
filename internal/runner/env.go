@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"kkachi-agent-network-control/internal/registry"
+	"hun-control/internal/registry"
 )
 
 func EnvForMember(member registry.Member, runtime registry.Runtime) []string {

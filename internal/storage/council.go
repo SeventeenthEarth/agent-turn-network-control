@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/registry"
+	"hun-control/internal/protocol"
+	"hun-control/internal/registry"
 )
 
 const daemonPrincipal = "kkachi-agent-networkd"

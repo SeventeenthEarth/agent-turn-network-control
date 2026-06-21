@@ -1,4 +1,4 @@
-module kkachi-agent-network-control
+module hun-control
 
 go 1.25.0
 

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/registry"
+	"hun-control/internal/protocol"
+	"hun-control/internal/registry"
 )
 
 var cursorPattern = regexp.MustCompile(`^cur_([0-9]{12})_(.+)$`)

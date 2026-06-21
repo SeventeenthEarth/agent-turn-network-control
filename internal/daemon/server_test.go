@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"kkachi-agent-network-control/internal/daemon"
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/registry"
-	"kkachi-agent-network-control/internal/storage"
-	"kkachi-agent-network-control/internal/transport"
+	"hun-control/internal/daemon"
+	"hun-control/internal/protocol"
+	"hun-control/internal/registry"
+	"hun-control/internal/storage"
+	"hun-control/internal/transport"
 )
 
 func TestIntegrationDaemonLifecycleStatusHealthAndShutdown(t *testing.T) {

@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/registry"
+	"hun-control/internal/protocol"
+	"hun-control/internal/registry"
 
 	"gopkg.in/yaml.v3"
 	_ "modernc.org/sqlite"

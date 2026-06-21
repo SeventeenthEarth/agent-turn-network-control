@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"kkachi-agent-network-control/internal/command"
+	"hun-control/internal/command"
 )
 
 func TestUnitCLIHelpNamesCanonicalBinaryAndHasNoErrors(t *testing.T) {
@@ -20,7 +20,7 @@ func TestUnitCLIHelpNamesCanonicalBinaryAndHasNoErrors(t *testing.T) {
 	}
 	out := stdout.String()
 	for _, want := range []string{
-		"kkachi-agent-network",
+		"hun",
 		"Usage:",
 		"Commands:",
 		"daemon",
@@ -47,7 +47,7 @@ func TestUnitDaemonHelpNamesDaemonAndHasNoErrors(t *testing.T) {
 	}
 	out := stdout.String()
 	for _, want := range []string{
-		"kkachi-agent-networkd",
+		"hund",
 		"Usage:",
 		"Commands:",
 		"run",
@@ -94,7 +94,7 @@ func TestUnitVersionReportsProtocolMetadata(t *testing.T) {
 	}
 	out := stdout.String()
 	for _, want := range []string{
-		"kkachi-agent-network",
+		"hun",
 		"protocol_version=kan-protocol-v1alpha0",
 		"schema_version=1",
 	} {
@@ -112,7 +112,7 @@ func TestIntegrationInitCreatesSafeDataHomeAndDisabledSampleRegistry(t *testing.
 	if err := os.Remove(dataHome); err != nil {
 		t.Fatalf("remove temp data home before init: %v", err)
 	}
-	t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+	t.Setenv("HUN_HOME", dataHome)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
@@ -177,7 +177,7 @@ members:
 	if err := os.Chmod(dataHome+"/registry.yaml", 0o600); err != nil {
 		t.Fatalf("chmod registry: %v", err)
 	}
-	t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+	t.Setenv("HUN_HOME", dataHome)
 	t.Setenv("ANTHROPIC_API_KEY", "must-not-appear")
 
 	var validateOut bytes.Buffer

@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"kkachi-agent-network-control/internal/command"
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/registry"
-	"kkachi-agent-network-control/internal/storage"
+	"hun-control/internal/command"
+	"hun-control/internal/protocol"
+	"hun-control/internal/registry"
+	"hun-control/internal/storage"
 
 	_ "modernc.org/sqlite"
 )
@@ -62,7 +62,7 @@ func TestReleaseAcceptanceChannelCorruptionFailsClosed(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dataHome := commandStorageFixture(t)
-			t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+			t.Setenv("HUN_HOME", dataHome)
 			tc.mutate(t, filepath.Join(dataHome, storage.SessionsDirName, "sess_command", storage.ChannelJSONLName))
 
 			stdout, stderr, exitCode := runReleaseCLI("storage", "verify")
@@ -80,7 +80,7 @@ func TestReleaseAcceptanceChannelCorruptionFailsClosed(t *testing.T) {
 func TestReleaseAcceptanceRegistrySnapshotFailuresAndLiveRegistryMutation(t *testing.T) {
 	t.Run("missing snapshot fails closed", func(t *testing.T) {
 		dataHome := commandStorageFixture(t)
-		t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+		t.Setenv("HUN_HOME", dataHome)
 		if err := os.Remove(filepath.Join(dataHome, storage.SessionsDirName, "sess_command", registry.SnapshotFileName)); err != nil {
 			t.Fatalf("remove registry snapshot: %v", err)
 		}
@@ -94,7 +94,7 @@ func TestReleaseAcceptanceRegistrySnapshotFailuresAndLiveRegistryMutation(t *tes
 
 	t.Run("corrupt snapshot fails closed", func(t *testing.T) {
 		dataHome := commandStorageFixture(t)
-		t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+		t.Setenv("HUN_HOME", dataHome)
 		writeFile(t, filepath.Join(dataHome, storage.SessionsDirName, "sess_command", registry.SnapshotFileName), []byte("members:\n  - not-a-map\n"))
 
 		stdout, stderr, exitCode := runReleaseCLI("storage", "verify")
@@ -106,7 +106,7 @@ func TestReleaseAcceptanceRegistrySnapshotFailuresAndLiveRegistryMutation(t *tes
 
 	t.Run("live registry mutation does not reinterpret historical sessions", func(t *testing.T) {
 		dataHome := commandStorageFixture(t)
-		t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+		t.Setenv("HUN_HOME", dataHome)
 		registryPath := registry.RegistryPath(dataHome)
 		content := string(readFile(t, registryPath))
 		content = strings.Replace(content, "display_name: Agent One", "display_name: Agent Mutated", 1)
@@ -133,7 +133,7 @@ func TestReleaseAcceptanceRegistrySnapshotFailuresAndLiveRegistryMutation(t *tes
 
 func TestReleaseAcceptanceReplayRebuildIsSideEffectFree(t *testing.T) {
 	dataHome := commandStorageFixture(t)
-	t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+	t.Setenv("HUN_HOME", dataHome)
 	channel := filepath.Join(dataHome, storage.SessionsDirName, "sess_command", storage.ChannelJSONLName)
 	beforeHash := fileSHA256(t, channel)
 	beforeEvents := strings.Count(string(readFile(t, channel)), "\n")
@@ -172,7 +172,7 @@ func TestReleaseAcceptanceReplayRebuildIsSideEffectFree(t *testing.T) {
 func TestReleaseAcceptanceProjectionAndPathFaults(t *testing.T) {
 	t.Run("missing projection verifies as recoverable then rebuilds", func(t *testing.T) {
 		dataHome := commandStorageFixture(t)
-		t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+		t.Setenv("HUN_HOME", dataHome)
 
 		stdout, stderr, exitCode := runReleaseCLI("storage", "verify")
 		if exitCode != protocol.ExitStorage || !strings.Contains(stdout, "storage_status: missing_projection") || !strings.Contains(stdout, "recoverable_projection_only: true") {
@@ -192,7 +192,7 @@ func TestReleaseAcceptanceProjectionAndPathFaults(t *testing.T) {
 
 	t.Run("unsafe projection path fails closed", func(t *testing.T) {
 		dataHome := commandStorageFixture(t)
-		t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+		t.Setenv("HUN_HOME", dataHome)
 		target := filepath.Join(t.TempDir(), "outside.sqlite")
 		writeFile(t, target, []byte("outside"))
 		if err := os.Symlink(target, filepath.Join(dataHome, storage.ProjectionDBName)); err != nil {
@@ -210,7 +210,7 @@ func TestReleaseAcceptanceProjectionAndPathFaults(t *testing.T) {
 func TestReleaseAcceptanceObservabilitySurfacesAreLocalReadOnlyAndRedacted(t *testing.T) {
 	t.Run("storage and doctor summaries are read only and redacted", func(t *testing.T) {
 		dataHome := commandStorageFixture(t)
-		t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+		t.Setenv("HUN_HOME", dataHome)
 		t.Setenv("ANTHROPIC_API_KEY", "secret-value")
 		before := commandTreeFingerprint(t, dataHome)
 
@@ -234,7 +234,7 @@ func TestReleaseAcceptanceObservabilitySurfacesAreLocalReadOnlyAndRedacted(t *te
 
 	t.Run("daemon status and health are read only and redacted", func(t *testing.T) {
 		dataHome := commandDaemonFixture(t)
-		t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+		t.Setenv("HUN_HOME", dataHome)
 		t.Setenv("ANTHROPIC_API_KEY", "secret-value")
 		app, cancel := cliWithInProcessDaemon(t)
 		defer cancel()

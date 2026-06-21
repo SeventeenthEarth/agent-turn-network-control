@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"kkachi-agent-network-control/internal/registry"
+	"hun-control/internal/registry"
 )
 
 func TestUnitResolveDataHomePrecedence(t *testing.T) {
 	env := map[string]string{
-		"KKACHI_AGENT_NETWORK_HOME": "/tmp/kan-home",
-		"XDG_DATA_HOME":             "/tmp/xdg",
+		"HUN_HOME":      "/tmp/hun-home",
+		"XDG_DATA_HOME": "/tmp/xdg",
 	}
 	runtime := testRuntime(env, "/home/tester")
 
@@ -21,16 +21,16 @@ func TestUnitResolveDataHomePrecedence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveDataHome failed: %v", err)
 	}
-	if got != "/tmp/kan-home" {
+	if got != "/tmp/hun-home" {
 		t.Fatalf("expected explicit home, got %q", got)
 	}
 
-	delete(env, "KKACHI_AGENT_NETWORK_HOME")
+	delete(env, "HUN_HOME")
 	got, err = registry.ResolveDataHome(runtime)
 	if err != nil {
 		t.Fatalf("ResolveDataHome with XDG failed: %v", err)
 	}
-	if got != "/tmp/xdg/kkachi-agent-network" {
+	if got != "/tmp/xdg/hermes-unified-network" {
 		t.Fatalf("expected XDG data home, got %q", got)
 	}
 
@@ -39,7 +39,7 @@ func TestUnitResolveDataHomePrecedence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveDataHome fallback failed: %v", err)
 	}
-	if got != "/home/tester/.kkachi-agent-network" {
+	if got != "/home/tester/.hun" {
 		t.Fatalf("expected home fallback, got %q", got)
 	}
 }

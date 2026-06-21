@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"kkachi-agent-network-control/internal/command"
+	"hun-control/internal/command"
 )
 
 func main() {

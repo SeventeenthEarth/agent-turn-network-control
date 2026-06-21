@@ -34,10 +34,10 @@ docs-guardrails:
 
 help-smoke:
 	@if command -v go >/dev/null 2>&1 && [ -f go.mod ]; then \
-		cli_help=$$(go run ./cmd/kkachi-agent-network --help); \
-		printf '%s\n' "$$cli_help" | grep -q '^kkachi-agent-network$$'; \
-		daemon_help=$$(go run ./cmd/kkachi-agent-networkd --help); \
-		printf '%s\n' "$$daemon_help" | grep -q '^kkachi-agent-networkd$$'; \
+		cli_help=$$(go run ./cmd/hun --help); \
+		printf '%s\n' "$$cli_help" | grep -q '^hun$$'; \
+		daemon_help=$$(go run ./cmd/hund --help); \
+		printf '%s\n' "$$daemon_help" | grep -q '^hund$$'; \
 	else \
 		echo "help-smoke: go/go.mod unavailable; skipped until Go scaffold exists"; \
 	fi

@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/registry"
-	"kkachi-agent-network-control/internal/storage"
+	"hun-control/internal/protocol"
+	"hun-control/internal/registry"
+	"hun-control/internal/storage"
 )
 
 func (s *Server) handleDelegateNew(request protocol.CommandRequest) protocol.CommandResponse {

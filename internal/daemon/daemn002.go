@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/storage"
+	"hun-control/internal/protocol"
+	"hun-control/internal/storage"
 )
 
 func (s *Server) handleDAEMN002(request protocol.CommandRequest) (protocol.CommandResponse, bool) {

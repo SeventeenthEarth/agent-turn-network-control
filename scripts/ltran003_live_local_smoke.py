@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """LTRAN-003 disposable live-local CLI/daemon smoke.
 
-This script builds local temp binaries, starts kkachi-agent-networkd with a
+This script builds local temp binaries, starts hund with a
 script-owned disposable data home, exercises daemon-backed CLI reads, stream
 replay/follow/ack/status, and delegate.submit idempotency/conflict, then writes
 redacted evidence. It never mutates the sibling plugin repo or production data.
@@ -20,12 +20,14 @@ import time
 from pathlib import Path
 from typing import Any
 
-LIVE_ENV_PREFIXES = ("KAB_", "GATEWAY_", "PROVIDER_", "PROFILE_", "DISCORD_", "HERMES_")
-LIVE_ENV_NAMES = {
+SCRUBBED_ENV_PREFIXES = ("KAB_", "GATEWAY_", "PROVIDER_", "PROFILE_", "DISCORD_", "HERMES_")
+SCRUBBED_ENV_NAMES = {
     "DISCORD_TOKEN",
     "HERMES_TOKEN",
     "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY",
+    "HUN_HOME",
+    "HUND_PATH",
     "KKACHI_AGENT_NETWORK_HOME",
     "KKACHI_AGENT_NETWORKD_PATH",
 }
@@ -60,7 +62,7 @@ def make_env(data_home: Path, daemon_path: Path) -> tuple[dict[str, str], list[s
     env: dict[str, str] = {}
     keep = {"PATH", "TMPDIR", "GOCACHE", "GOMODCACHE"}
     for key, value in os.environ.items():
-        if key in LIVE_ENV_NAMES or key.startswith(LIVE_ENV_PREFIXES):
+        if key in SCRUBBED_ENV_NAMES or key.startswith(SCRUBBED_ENV_PREFIXES):
             scrubbed.append(key)
             continue
         if key in keep:
@@ -69,8 +71,8 @@ def make_env(data_home: Path, daemon_path: Path) -> tuple[dict[str, str], list[s
     env.setdefault("TMPDIR", tempfile.gettempdir())
     env.setdefault("GOCACHE", "/tmp/kkachi-go-build-cache")
     env["HOME"] = str(data_home / "fake-home")
-    env["KKACHI_AGENT_NETWORK_HOME"] = str(data_home)
-    env["KKACHI_AGENT_NETWORKD_PATH"] = str(daemon_path)
+    env["HUN_HOME"] = str(data_home)
+    env["HUND_PATH"] = str(daemon_path)
     env["KAN_EXTERNAL"] = "0"
     return env, sorted(set(scrubbed))
 
@@ -123,8 +125,8 @@ class Smoke:
             raise SystemExit(f"refusing non-disposable data home: {self.data_home}")
         os.chmod(self.data_home, 0o700)
         self.bin_dir = Path(tempfile.mkdtemp(prefix="kan-ltran-003-bin-", dir="/tmp")).resolve()
-        self.cli = self.bin_dir / "kkachi-agent-network"
-        self.daemon = self.bin_dir / "kkachi-agent-networkd"
+        self.cli = self.bin_dir / "hun"
+        self.daemon = self.bin_dir / "hund"
         self.env, self.scrubbed = make_env(self.data_home, self.daemon)
         self.commands: list[dict[str, Any]] = []
         self.checks: list[str] = []
@@ -155,14 +157,14 @@ class Smoke:
         return record
 
     def build(self) -> None:
-        self.run(["go", "build", "-o", str(self.cli), "./cmd/kkachi-agent-network"], timeout=60)
-        self.run(["go", "build", "-o", str(self.daemon), "./cmd/kkachi-agent-networkd"], timeout=60)
+        self.run(["go", "build", "-o", str(self.cli), "./cmd/hun"], timeout=60)
+        self.run(["go", "build", "-o", str(self.daemon), "./cmd/hund"], timeout=60)
         self.checks.append("built temp CLI and daemon binaries")
 
     def start_daemon(self) -> None:
-        socket_path = self.data_home / "run" / "kkachi-agent-networkd.sock"
+        socket_path = self.data_home / "run" / "hund.sock"
         self.daemon_proc = subprocess.Popen([str(self.daemon), "run"], cwd=self.root, env=self.env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        self.daemon_record = {"args": ["kkachi-agent-networkd", "run"], "exit_code": None, "stdout": "", "stderr": "", "started": True}
+        self.daemon_record = {"args": ["hund", "run"], "exit_code": None, "stdout": "", "stderr": "", "started": True}
         self.commands.append(self.daemon_record)
         deadline = time.monotonic() + 5.0
         while time.monotonic() < deadline:
@@ -210,7 +212,7 @@ class Smoke:
         time.sleep(0.1)
         self.run([str(self.cli), "delegate", "ack", "sess_ltran_003", "--actor", "agent-1", "--understanding", "ready", "--command-id", "cmd_ltran003_ack"])
         follow_stdout, follow_stderr = follow_proc.communicate(timeout=5)
-        follow_record = {"args": ["kkachi-agent-network", "stream", "sess_ltran_003", "--member", "agent-1", "--since", "cur_000000000000_evt_ltran003_created", "--follow", "--follow-timeout-ms", "1200", "--follow-poll-ms", "10", "--format", "ndjson"], "exit_code": follow_proc.returncode, "stdout": follow_stdout, "stderr": follow_stderr, "parsed_stdout": decode_stdout(follow_stdout, ndjson=True)}
+        follow_record = {"args": ["hun", "stream", "sess_ltran_003", "--member", "agent-1", "--since", "cur_000000000000_evt_ltran003_created", "--follow", "--follow-timeout-ms", "1200", "--follow-poll-ms", "10", "--format", "ndjson"], "exit_code": follow_proc.returncode, "stdout": follow_stdout, "stderr": follow_stderr, "parsed_stdout": decode_stdout(follow_stdout, ndjson=True)}
         self.commands.append(follow_record)
         if follow_proc.returncode != 0:
             raise AssertionError(f"follow failed: {follow_record}")
@@ -273,7 +275,7 @@ class Smoke:
             "repo": str(self.root),
             "data_home": str(self.data_home),
             "disposable_data_home": is_disposable_path(self.data_home),
-            "daemon_socket": str(self.data_home / "run" / "kkachi-agent-networkd.sock"),
+            "daemon_socket": str(self.data_home / "run" / "hund.sock"),
             "production_activation_claim": False,
             "plugin_repo_mutated": False,
             "live_service_contact": False,

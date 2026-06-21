@@ -13,7 +13,7 @@ func TestUnitDaemonEntrypointHelpNamesCanonicalBinary(t *testing.T) {
 		t.Fatalf("expected daemon help to exit 0, got %v with output:\n%s", err, out)
 	}
 	text := string(out)
-	for _, want := range []string{"kkachi-agent-networkd", "Usage:", "Commands:"} {
+	for _, want := range []string{"hund", "Usage:", "Commands:"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("expected daemon entrypoint help to contain %q, got:\n%s", want, text)
 		}

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"kkachi-agent-network-control/internal/protocol"
+	"hun-control/internal/protocol"
 )
 
 var delegationPhases = map[Phase]struct{}{

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/registry"
+	"hun-control/internal/protocol"
+	"hun-control/internal/registry"
 )
 
 func TestUnitRUNFIX014RunnerFailureThenFallbackSpeechDoesNotPassSelectedRunner(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"kkachi-agent-network-control/internal/registry"
+	"hun-control/internal/registry"
 )
 
 const (

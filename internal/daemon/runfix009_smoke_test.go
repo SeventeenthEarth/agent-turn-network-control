@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"kkachi-agent-network-control/internal/daemon"
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/runner"
-	"kkachi-agent-network-control/internal/storage"
+	"hun-control/internal/daemon"
+	"hun-control/internal/protocol"
+	"hun-control/internal/runner"
+	"hun-control/internal/storage"
 
 	_ "modernc.org/sqlite"
 )

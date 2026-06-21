@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/registry"
-	"kkachi-agent-network-control/internal/runner"
-	"kkachi-agent-network-control/internal/storage"
+	"hun-control/internal/protocol"
+	"hun-control/internal/registry"
+	"hun-control/internal/runner"
+	"hun-control/internal/storage"
 )
 
 type RunnerDispatchService struct {

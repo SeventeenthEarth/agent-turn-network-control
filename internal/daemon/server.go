@@ -10,11 +10,11 @@ import (
 	"sync"
 	"time"
 
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/registry"
-	"kkachi-agent-network-control/internal/runner"
-	"kkachi-agent-network-control/internal/storage"
-	"kkachi-agent-network-control/internal/transport"
+	"hun-control/internal/protocol"
+	"hun-control/internal/registry"
+	"hun-control/internal/runner"
+	"hun-control/internal/storage"
+	"hun-control/internal/transport"
 )
 
 type Server struct {

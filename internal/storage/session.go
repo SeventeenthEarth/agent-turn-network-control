@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/registry"
+	"hun-control/internal/protocol"
+	"hun-control/internal/registry"
 )
 
 func CreateSession(dataHome string, loaded *registry.LoadedRegistry, spec SessionSpec, runtime registry.Runtime) (*SessionMetadata, AppendResult, error) {

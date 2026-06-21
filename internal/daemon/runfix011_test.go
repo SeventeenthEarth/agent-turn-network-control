@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"kkachi-agent-network-control/internal/daemon"
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/storage"
+	"hun-control/internal/daemon"
+	"hun-control/internal/protocol"
+	"hun-control/internal/storage"
 )
 
 func TestRUNFIX011PrepareRecordsAttendanceTimeoutAndFailsClosedWithoutRuntimeReadiness(t *testing.T) {

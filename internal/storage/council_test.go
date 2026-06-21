@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"kkachi-agent-network-control/internal/registry"
+	"hun-control/internal/registry"
 
 	_ "modernc.org/sqlite"
 )

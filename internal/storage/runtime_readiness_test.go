@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"kkachi-agent-network-control/internal/protocol"
+	"hun-control/internal/protocol"
 )
 
 func TestUnitParticipantRuntimeReadinessRequiresSubscriberCursorHeartbeatAttendanceAndPreparation(t *testing.T) {

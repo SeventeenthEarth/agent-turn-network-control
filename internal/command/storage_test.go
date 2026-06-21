@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"kkachi-agent-network-control/internal/command"
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/registry"
-	"kkachi-agent-network-control/internal/storage"
+	"hun-control/internal/command"
+	"hun-control/internal/protocol"
+	"hun-control/internal/registry"
+	"hun-control/internal/storage"
 
 	_ "modernc.org/sqlite"
 )
@@ -38,7 +38,7 @@ func TestUnitCLIHelpIncludesStorageCommand(t *testing.T) {
 
 func TestIntegrationStorageRebuildThenVerifyCommands(t *testing.T) {
 	dataHome := commandStorageFixture(t)
-	t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+	t.Setenv("HUN_HOME", dataHome)
 
 	var rebuildOut bytes.Buffer
 	var rebuildErr bytes.Buffer
@@ -63,7 +63,7 @@ func TestIntegrationStorageRebuildThenVerifyCommands(t *testing.T) {
 
 func TestIntegrationStorageVerifyFailsOnProjectionMismatchWithStorageExit(t *testing.T) {
 	dataHome := commandStorageFixture(t)
-	t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+	t.Setenv("HUN_HOME", dataHome)
 	if _, err := storage.RebuildProjection(dataHome, storage.ProjectionOptions{}); err != nil {
 		t.Fatalf("rebuild fixture projection: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestIntegrationStorageVerifyFailsOnProjectionMismatchWithStorageExit(t *tes
 
 func TestIntegrationStorageVerifyFailsOnCorruptProjectionBytesWithStorageExit(t *testing.T) {
 	dataHome := commandStorageFixture(t)
-	t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+	t.Setenv("HUN_HOME", dataHome)
 	if err := os.WriteFile(filepath.Join(dataHome, storage.ProjectionDBName), []byte("not a sqlite database"), 0o600); err != nil {
 		t.Fatalf("write corrupt projection: %v", err)
 	}
@@ -125,7 +125,7 @@ func TestIntegrationStorageCommandsMapValidationUnsafeAndReplayFailures(t *testi
 		if err := os.Chmod(dataHome, 0o777); err != nil {
 			t.Fatalf("chmod unsafe data home: %v", err)
 		}
-		t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+		t.Setenv("HUN_HOME", dataHome)
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
 		exitCode := command.NewCLI().Run([]string{"storage", "verify"}, &stdout, &stderr)
@@ -136,7 +136,7 @@ func TestIntegrationStorageCommandsMapValidationUnsafeAndReplayFailures(t *testi
 
 	t.Run("corrupt log exit six", func(t *testing.T) {
 		dataHome := commandStorageFixture(t)
-		t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+		t.Setenv("HUN_HOME", dataHome)
 		channel := filepath.Join(dataHome, storage.SessionsDirName, "sess_command", storage.ChannelJSONLName)
 		content, err := os.ReadFile(channel)
 		if err != nil {
@@ -156,7 +156,7 @@ func TestIntegrationStorageCommandsMapValidationUnsafeAndReplayFailures(t *testi
 
 func TestIntegrationDoctorReportsStorageHealthReadOnly(t *testing.T) {
 	dataHome := commandStorageFixture(t)
-	t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+	t.Setenv("HUN_HOME", dataHome)
 	before := projectionExists(t, dataHome)
 
 	var stdout bytes.Buffer
@@ -177,7 +177,7 @@ func TestIntegrationDoctorReportsStorageHealthReadOnly(t *testing.T) {
 
 func TestIntegrationDoctorReportsValidStorageAfterRebuild(t *testing.T) {
 	dataHome := commandStorageFixture(t)
-	t.Setenv("KKACHI_AGENT_NETWORK_HOME", dataHome)
+	t.Setenv("HUN_HOME", dataHome)
 	rebuild, err := storage.RebuildProjection(dataHome, storage.ProjectionOptions{})
 	if err != nil {
 		t.Fatalf("rebuild fixture projection: %v", err)

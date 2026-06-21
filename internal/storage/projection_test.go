@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"kkachi-agent-network-control/internal/protocol"
+	"hun-control/internal/protocol"
 
 	_ "modernc.org/sqlite"
 )

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"kkachi-agent-network-control/internal/protocol"
-	"kkachi-agent-network-control/internal/storage"
+	"hun-control/internal/protocol"
+	"hun-control/internal/storage"
 )
 
 var ErrDurableFailureRecorded = errors.New("durable fail event recorded")
