@@ -177,7 +177,7 @@ func parseHermesResponseOutput(stdout, stderr []byte) (hermesSemanticOutput, str
 	lines := nonEmptyOutputLines(stdout)
 	var responseLines []string
 	for index, line := range lines {
-		if strings.HasPrefix(line, "session_handle=") {
+		if isHermesCLIControlLine(line) {
 			continue
 		}
 		if looksLikeJSON(line) {
@@ -261,6 +261,10 @@ func nonEmptyOutputLines(stdout []byte) []string {
 		}
 	}
 	return lines
+}
+
+func isHermesCLIControlLine(line string) bool {
+	return strings.HasPrefix(line, "session_handle=") || strings.HasPrefix(line, "session_id:") || strings.HasPrefix(line, "session_id=")
 }
 
 func looksLikeJSON(line string) bool {

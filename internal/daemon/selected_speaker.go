@@ -90,12 +90,13 @@ func (h SelectedSpeakerDispatchHandler) validateCanonicalSpeechTerminal() Runner
 		if event.Payload == nil {
 			return storage.EventEnvelope{}, fmt.Errorf("selected runner speech payload is required")
 		}
+		payload := normalizeSelectedRunnerSpeechPayload(event.Payload)
 		canonical, err := storage.BuildCouncilEvent(h.SessionDir, h.Metadata, storage.CouncilEventSpec{
 			Action:           "speak",
 			Actor:            h.Member.ID,
 			CommandID:        event.CommandID,
 			CausationEventID: event.CausationEventID,
-			Payload:          event.Payload,
+			Payload:          payload,
 			Now:              event.CreatedAt,
 		})
 		if err != nil {
@@ -115,7 +116,27 @@ func (h SelectedSpeakerDispatchHandler) promptFor(event storage.EventEnvelope) s
 		return h.PromptBuilder(event, h.Member)
 	}
 	turn := event.Payload["turn"]
-	return fmt.Sprintf("KAN council selected registered member %s to speak for turn %v. Use the configured participant wrapper boundary and return a typed speech event. causation_event_id=%s", h.Member.ID, turn, event.EventID)
+	return fmt.Sprintf("KAN council selected registered member %s to speak for turn %v. Use the configured participant wrapper boundary and return only a typed speech JSON object. Required shape: {\"type\":\"speech\",\"payload\":{\"speech\":\"visible participant answer\"}}. Do not use payload.message instead of payload.speech. causation_event_id=%s", h.Member.ID, turn, event.EventID)
+}
+
+func normalizeSelectedRunnerSpeechPayload(payload map[string]any) map[string]any {
+	if payload == nil {
+		return nil
+	}
+	normalized := make(map[string]any, len(payload)+1)
+	for key, value := range payload {
+		normalized[key] = value
+	}
+	if speech, ok := normalized["speech"].(string); ok && strings.TrimSpace(speech) != "" {
+		return normalized
+	}
+	for _, key := range []string{"message", "content", "text"} {
+		if value, ok := normalized[key].(string); ok && strings.TrimSpace(value) != "" {
+			normalized["speech"] = value
+			return normalized
+		}
+	}
+	return normalized
 }
 
 func selectedSpeakerMember(event storage.EventEnvelope) (string, error) {

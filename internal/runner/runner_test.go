@@ -201,6 +201,12 @@ func TestIntegrationHermesAdapterClassifiesResponseGenerationOutput(t *testing.T
 			wantEvent: "speech",
 		},
 		{
+			name:      "hermes cli session id before pretty typed json succeeds",
+			stdout:    "session_id: 20260621_151539_a3a94e\n{\n  \"type\": \"speech\",\n  \"payload\": {\n    \"turn\": 1,\n    \"speech\": \"hello from hermes cli stdout\"\n  }\n}\n",
+			wantOK:    true,
+			wantEvent: "speech",
+		},
+		{
 			name:      "prose before typed json is malformed missing response",
 			stdout:    "session_handle=abc\nI will answer as JSON:\n{\"type\":\"speech\",\"payload\":{\"speech\":\"hello\"}}\n",
 			wantClass: ErrorClassMalformedOrMissingResponse,

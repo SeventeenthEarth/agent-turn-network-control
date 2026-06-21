@@ -24,7 +24,7 @@ func TestSelectedSpeakerDispatchInvokesSelectedMemberThroughRunnerAndRecordsSpee
 	speaker := appendSpeakerSelected(t, sessionDir, metadata, "evt_speaker_selected_agent_1", "cmd_council_grant", "agent-1")
 	member := loaded.Registry.Members["agent-1"]
 	member.ResolvedWrapper = &registry.WrapperResolution{ResolvedPath: wrapper}
-	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": 1, "speech": "isolated wrapper speech evidence"}, Cost: &runner.Cost{TokensIn: 2, TokensOut: 3, USDEstimate: 0.04, Source: runner.HermesAgentCostSource}}}}}
+	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": 1, "message": "isolated wrapper speech evidence"}, Cost: &runner.Cost{TokensIn: 2, TokensOut: 3, USDEstimate: 0.04, Source: runner.HermesAgentCostSource}}}}}
 	handler := daemon.SelectedSpeakerDispatchHandler{SessionDir: sessionDir, Metadata: metadata, Member: member, Adapter: adapter, Runtime: daemonFixedRuntime(), Locks: &daemon.DispatchLocks{}}
 	stream := &selectedSpeakerStream{frames: framesThroughSpeaker(t, sessionDir, metadata, speaker.EventID)}
 	rt := memberruntime.Runtime{SessionID: metadata.ID, Member: "agent-1", Role: "assignee", Stream: stream, Cursors: &selectedSpeakerCursorStore{}, Policy: memberruntime.Policy{ActionTypes: memberruntime.NewPolicy("speaker_selected").ActionTypes, RecipientHints: map[string]struct{}{"self": {}}}, Handler: handler}
@@ -55,8 +55,8 @@ func TestSelectedSpeakerDispatchInvokesSelectedMemberThroughRunnerAndRecordsSpee
 	if started.Runner.InvocationID == "" || succeeded.Runner.InvocationID != started.Runner.InvocationID || speech.Runner.InvocationID != started.Runner.InvocationID {
 		t.Fatalf("success and speech must preserve runner invocation id: started=%#v succeeded=%#v speech=%#v", started.Runner, succeeded.Runner, speech.Runner)
 	}
-	if started.Runner.Member != "agent-1" || succeeded.Runner.Status != "succeeded" || speech.From != "agent-1" {
-		t.Fatalf("terminal speech must originate from selected member with runner success evidence: started=%#v succeeded=%#v speech=%#v", started, succeeded, speech)
+	if started.Runner.Member != "agent-1" || succeeded.Runner.Status != "succeeded" || speech.From != "agent-1" || speech.Payload["speech"] != "isolated wrapper speech evidence" {
+		t.Fatalf("terminal speech must originate from selected member with normalized speech payload and runner success evidence: started=%#v succeeded=%#v speech=%#v", started, succeeded, speech)
 	}
 	if started.Payload["wrapper_path_sha256"] == "" || started.Payload["adapter_kind"] != runner.HermesAgentKind {
 		t.Fatalf("started payload missing redacted wrapper/backend evidence: %#v", started.Payload)

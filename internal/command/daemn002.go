@@ -753,7 +753,7 @@ func (a App) daemonCommand(command string, params map[string]any, stderr io.Writ
 		return protocol.CommandResponse{}, writeProtocolError(stderr, protocol.InternalError(err.Error()))
 	}
 	request := protocol.NewRequest("cli-"+strings.ReplaceAll(command, ".", "-")+"-"+fmt.Sprint(time.Now().UnixNano()), command, params)
-	response, err := transport.RoundTripWithRuntime(dataHome, a.Runtime, request, time.Second)
+	response, err := transport.RoundTripWithRuntime(dataHome, a.Runtime, request, daemonCommandTimeout(command))
 	if err != nil {
 		if response.Error != nil {
 			return response, writeProtocolError(stderr, response.Error)
@@ -761,6 +761,15 @@ func (a App) daemonCommand(command string, params map[string]any, stderr io.Writ
 		return response, writeProtocolError(stderr, protocol.ToStructuredError(err))
 	}
 	return response, protocol.ExitOK
+}
+
+func daemonCommandTimeout(command string) time.Duration {
+	switch command {
+	case "council.grant":
+		return 3 * time.Minute
+	default:
+		return time.Second
+	}
 }
 
 func safeOperatorOutputPath(value string) (string, error) {

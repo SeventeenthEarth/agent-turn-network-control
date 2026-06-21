@@ -94,7 +94,7 @@ For council selected-speaker output, the canonical stdout record is a `type: "sp
 {"type":"speech","payload":{"speech":"Visible participant answer only.","claims":[],"stance_links":[],"contribution_type":"support","new_axis_reason":null,"evidence":[]}}
 ```
 
-The consumer parser remains compatibility-tolerant for real Hermes output: a single pretty/multiline JSON object may be normalized before canonical validation. This compatibility does not change the producer contract. Delivery/fallback-only JSON must still classify as `adapter_command_mismatch`, and malformed JSON must still classify as `malformed_or_missing_response`.
+The consumer parser remains compatibility-tolerant for real Hermes output: Hermes CLI control lines such as `session_id: ...` are ignored before parsing the semantic response, and a single pretty/multiline JSON object may be normalized before canonical validation. For selected-runner `speech` events only, `payload.message`, `payload.content`, or `payload.text` may be copied into missing `payload.speech` before canonical council-speech validation; the producer contract remains `payload.speech`. CLI `council.grant` waits longer than ordinary daemon commands because selected-runner response generation may take tens of seconds; ordinary daemon command timeouts remain short. Delivery/fallback-only JSON must still classify as `adapter_command_mismatch`, and malformed JSON must still classify as `malformed_or_missing_response`.
 
 ### Registry integration
 
