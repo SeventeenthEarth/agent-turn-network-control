@@ -86,7 +86,7 @@ The rename must not change runtime authority:
 | --- | --- | --- | --- |
 | HUN-001 | control | completed/docs-only | Lock this control naming SOT and control roadmap entries. |
 | HUN-003 | control | completed/local-proof | Rename Go module, CLI binary, daemon binary, help text, Makefile surfaces, and control command examples. Local proof passed after MAR/second color review and post-fix verification: MAR coverage PASS, Blue MAR `PASS_WITH_FINDINGS_HANDLED`, post-fix verification refresh pass, and second color review `final_gate_may_proceed=true`; live/runtime/package/plugin/protocol/commit/push readiness remains out of scope. |
-| HUN-005 | control | planned | Rename protocol docs, conformance manifests, fixtures, schemas, CLI tests, and plugin-contract checks, including `protocol_version` / `min_plugin_protocol_version` values to `hun-protocol-v1alpha0`. |
+| HUN-005 | control | completed/local-proof | Renamed protocol docs, conformance manifests, fixtures, schemas, CLI tests, and plugin-contract checks to `hun-protocol-v1alpha0` with no legacy alias/fallback. Sibling plugin protocol marker sync completed in plugin repo-local companion run `run-20260622T003936Z-0d6e8b285d41`; runtime/live/package/commit/push readiness remains out of scope. |
 | HUN-007 | control | planned | Reconfirm vanilla Hermes runtime hardening under the new HUN names: selected-runner evidence, wrapper identity, no role substitution, and fail-closed diagnostics. |
 | HUN-011 | control | planned | Scrub control public docs for HUN-only wording and remove internal/private release language. |
 | HUN-012 | control | planned | Add control forbidden-term guardrails and final docs/test gates for HUN-only repository content. |

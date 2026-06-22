@@ -6,7 +6,7 @@ from pathlib import Path
 
 CORE = Path(__file__).resolve().parents[1]
 PLUGIN = Path(os.environ.get("KAN_PLUGIN_REPO", CORE.parent / "kkachi-agent-network-plugin")).resolve()
-EXPECTED_PROTOCOL = "kan-protocol-v1alpha0"
+EXPECTED_PROTOCOL = "hun-protocol-v1alpha0"
 CONFORMANCE = CORE / "testdata" / "conformance"
 
 REQUIRED_FEATURE_GROUPS = [

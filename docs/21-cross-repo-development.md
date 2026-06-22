@@ -24,7 +24,7 @@ The control repo can move without waiting for plugin UX work. The plugin can mov
 
 | Field | Value |
 | --- | --- |
-| Protocol version | `kan-protocol-v1alpha0` |
+| Protocol version | `hun-protocol-v1alpha0` |
 | Fixture manifest | `testdata/conformance/manifest.json` |
 | Stability | draft local implementation + static DAEMN/DELEG/COUNC conformance fixtures |
 | Live readiness | `false`; no live Hermes/Discord/KAB/gateway/auth/token support is claimed |

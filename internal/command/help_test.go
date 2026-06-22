@@ -95,7 +95,7 @@ func TestUnitVersionReportsProtocolMetadata(t *testing.T) {
 	out := stdout.String()
 	for _, want := range []string{
 		"hun",
-		"protocol_version=kan-protocol-v1alpha0",
+		"protocol_version=hun-protocol-v1alpha0",
 		"schema_version=1",
 	} {
 		if !strings.Contains(out, want) {
