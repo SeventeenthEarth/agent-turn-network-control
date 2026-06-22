@@ -143,7 +143,7 @@ The dogfood issue report showed that fallback-visible messages and lifecycle cou
 
 - `lifecycle_pass` (**lifecycle pass**): daemon events can complete a nominal council flow;
 - `fallback_profile_pass` (**manual/fallback profile pass**): an operator obtained participant-like text through a manual profile or fallback route;
-- `selected_runner_pass` (**selected-runner pass**): `speaker_selected` caused the selected member runner to start and the selected runner submitted linked canonical speech. Durable runner failure is separate terminal-failure diagnostic evidence and blocks `selected_runner_pass`;
+- `selected_runner_pass` (**selected-runner pass**): durable evidence must prove the selected-member causal chain `speaker_selected -> runner_invocation_started -> runner_invocation_succeeded -> speech`, where the selected runner submitted linked canonical speech for the same selected member and invocation. Durable runner failure, fallback/profile/manual text, or runner-tagged speech without `runner_invocation_succeeded` is separate diagnostic evidence and blocks `selected_runner_pass`;
 - `visible_surface_pass` (**visible-surface pass**): daemon events were rendered to the approved visible surface with reconstructable delivery/projection evidence;
 - `discussion_quality_pass` (**discussion-quality pass**): non-opening speech preserves ARGUE relation evidence or a justified `new_axis`, with orphan/repetition diagnostics exposed.
 

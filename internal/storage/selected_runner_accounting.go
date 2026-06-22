@@ -157,14 +157,6 @@ func SelectedRunnerAccountingFromIndex(index *LogIndex) SelectedRunnerAccounting
 				}
 				continue
 			}
-			if event.Runner.Status == "succeeded" {
-				if event.Runner.InvocationID != "" {
-					if _, ok := succeededInvocations[event.Runner.InvocationID]; !ok {
-						succeededInvocations[event.Runner.InvocationID] = struct{}{}
-						accounting.RunnerSucceededCount++
-					}
-				}
-			}
 			grantID := matchingSelectedGrant(event, grantIndex, invocationToGrant)
 			if grantID == "" {
 				continue

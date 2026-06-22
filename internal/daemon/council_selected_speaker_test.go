@@ -243,12 +243,55 @@ func TestCouncilGrantBoundedDispatchTimeoutRecordsFailure(t *testing.T) {
 	}
 }
 
+func TestCouncilGrantUnsupportedAdapterFailsClosedBeforeSelectedRunnerLaunch(t *testing.T) {
+	dataHome, metadata, sessionDir := createSurfacedDiscussionCouncilForDispatch(t)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	server.RunnerAdapter = &unsupportedSelectedSpeakerAdapter{}
+
+	response := server.Handle(councilGrantRequest(metadata.ID, "cmd_council_grant_unsupported_adapter", "agent-1"))
+	if response.OK {
+		t.Fatalf("council.grant should fail closed for unsupported selected-runner adapter: %+v", response)
+	}
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	diagnostic := findEvent(t, index.Events, "selected_runner_dispatch_failed")
+	if diagnostic.Payload["reason"] != "selected_runner_preflight_failed" {
+		t.Fatalf("unsupported adapter should record selected-runner preflight diagnostic: %#v", diagnostic.Payload)
+	}
+	if !strings.Contains(strings.Join(anyStringSlice(diagnostic.Payload["blocking_reasons"]), ","), "runner_adapter_unavailable") {
+		t.Fatalf("diagnostic should expose unsupported adapter blocker: %#v", diagnostic.Payload)
+	}
+	if eventTypeCount(index.Events, "speaker_selected") != 0 || eventTypeCount(index.Events, "runner_invocation_started") != 0 || eventTypeCount(index.Events, "speech") != 0 {
+		t.Fatalf("unsupported adapter preflight must not append grant, runner, or speech events: %#v", index.Events)
+	}
+}
+
+type unsupportedSelectedSpeakerAdapter struct {
+	fakeRunRTAdapter
+}
+
+func (*unsupportedSelectedSpeakerAdapter) Kind() string {
+	return "codex-cli"
+}
+
 func createDiscussionCouncilForDispatch(t *testing.T) (string, *storage.SessionMetadata, string) {
+	t.Helper()
+	return createCouncilForDispatch(t, nil)
+}
+
+func createSurfacedDiscussionCouncilForDispatch(t *testing.T) (string, *storage.SessionMetadata, string) {
+	t.Helper()
+	return createCouncilForDispatch(t, &storage.Surface{Kind: "discord_thread", ThreadID: "thread_hun007"})
+}
+
+func createCouncilForDispatch(t *testing.T, surface *storage.Surface) (string, *storage.SessionMetadata, string) {
 	t.Helper()
 	dataHome, loaded, _ := dispatchDataHome(t)
 	name := strings.NewReplacer("/", "_", "\x00", "_").Replace(t.Name())
 	metadata, _, _, err := storage.CreateCouncil(dataHome, loaded, storage.CouncilStartSpec{
-		Session: storage.SessionSpec{ID: "sess_council_dispatch_" + name, Title: "RUNFIX-003", Moderator: "agent-mod", EventID: "evt_created_" + name, CommandID: "cmd_created_" + name},
+		Session: storage.SessionSpec{ID: "sess_council_dispatch_" + name, Title: "RUNFIX-003", Moderator: "agent-mod", Surface: surface, EventID: "evt_created_" + name, CommandID: "cmd_created_" + name},
 		Members: []string{"agent-1"},
 		Now:     daemonFixedRuntime().Now(),
 	}, daemonFixedRuntime())

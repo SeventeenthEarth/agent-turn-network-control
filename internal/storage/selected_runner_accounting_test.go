@@ -182,6 +182,40 @@ func TestUnitRUNFIX014LinkedRunnerSpeechRequiresSucceededStatus(t *testing.T) {
 	}
 }
 
+func TestUnitRUNFIX014LinkedRunnerSpeechWithoutRunnerSuccessDoesNotInflateSuccessCount(t *testing.T) {
+	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "linked_speech_without_success")
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeakerSelected(metadata, "evt_selected_no_success", "agent-1", 1, 0))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_runner_started_no_success", "runner_invocation_started", "evt_selected_no_success", "run_no_success", "agent-1", "started", 1*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeech(metadata, "evt_runner_speech_no_success", "evt_selected_no_success", "agent-1", 1, &RunnerInfo{
+		InvocationID:    "run_no_success",
+		AdapterKind:     "hermes-agent",
+		Member:          "agent-1",
+		Attempt:         1,
+		SourceCommandID: "cmd_runner_no_success",
+		Status:          "succeeded",
+	}, map[string]any{"speech": "Runner-linked speech without durable success event."}, 2*time.Second))
+
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	accounting := SelectedRunnerAccountingFromIndex(index)
+	if accounting.SelectedRunnerPass || accounting.RunnerSucceededCount != 0 || accounting.LinkedRunnerSpeechCount != 1 {
+		t.Fatalf("linked speech without runner_invocation_succeeded must remain non-passing and not count runner success: %#v", accounting)
+	}
+	if len(accounting.SelectedRunners) != 1 || accounting.SelectedRunners[0].Status != "missing_runner_invocation_succeeded" {
+		t.Fatalf("grant should expose missing durable runner success status: %#v", accounting.SelectedRunners)
+	}
+	stream, err := StreamStatusFromLogAt(sessionDir, metadata, fixedTranscriptTime())
+	if err != nil {
+		t.Fatalf("StreamStatusFromLogAt: %v", err)
+	}
+	member := stream.ParticipantRuntimeReadiness.Members[0]
+	if member.SelectedRunnerPrerequisite == nil || member.SelectedRunnerPrerequisite.Ready || member.SelectedRunnerPrerequisite.Status != "missing_runner_invocation_succeeded" {
+		t.Fatalf("selected runner readiness should fail closed without runner_invocation_succeeded: %#v", member.SelectedRunnerPrerequisite)
+	}
+}
+
 func assertRUNFIX014FailureAccounting(t *testing.T, accounting SelectedRunnerAccounting) {
 	t.Helper()
 	if accounting.SelectedRunnerPass {

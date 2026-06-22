@@ -363,6 +363,9 @@ func (s *Server) dispatchSelectedSpeakerAfterGrant(ctx context.Context, sessionD
 
 func (s *Server) selectedSpeakerAdapter() (runner.Adapter, error) {
 	if s.RunnerAdapter != nil {
+		if s.RunnerAdapter.Kind() != runner.HermesAgentKind {
+			return nil, fmt.Errorf("unsupported runner adapter kind %q", s.RunnerAdapter.Kind())
+		}
 		return s.RunnerAdapter, nil
 	}
 	registry, err := runner.NewRegistry()
