@@ -17,5 +17,9 @@ coverage.out
 .claude/
 .claude-octopus/
 
+# Python test/runtime cache
+__pycache__/
+.pytest_cache/
+
 # OS/editor noise
 .DS_Store

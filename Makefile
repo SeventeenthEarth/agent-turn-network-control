@@ -1,11 +1,11 @@
 SHELL := /bin/sh
 
-.PHONY: test test-prepare test-unit test-int test-release-acceptance test-e2e docs-guardrails check-plugin-contract fmt lint vet help-smoke
+.PHONY: test test-prepare test-unit test-int test-release-acceptance test-e2e docs-guardrails guardrails-test check-plugin-contract fmt lint vet help-smoke
 
 test: test-prepare test-unit test-int test-release-acceptance test-e2e
 
 # Preparation gate: local-only checks that never contact Hermes/Discord or other external services.
-test-prepare: fmt lint vet docs-guardrails help-smoke
+test-prepare: fmt lint vet guardrails-test docs-guardrails help-smoke
 
 fmt:
 	@if command -v gofmt >/dev/null 2>&1 && [ -d ./cmd -o -d ./internal -o -d ./pkg ]; then \
@@ -31,6 +31,9 @@ vet:
 
 docs-guardrails:
 	@python3 scripts/guardrails.py
+
+guardrails-test:
+	@python3 scripts/guardrails_test.py
 
 help-smoke:
 	@if command -v go >/dev/null 2>&1 && [ -f go.mod ]; then \
