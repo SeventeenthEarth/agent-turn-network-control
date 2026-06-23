@@ -9,7 +9,7 @@ This document defines the control repository toolchain after the repo split. The
 | Item | Decision |
 | --- | --- |
 | Control language | Go |
-| Binaries | `kkachi-agent-networkd`, `kkachi-agent-network` |
+| Binaries | `hund`, `hun` |
 | Source layout | `cmd/`, `internal/`, `pkg/` only if public API is needed |
 | Protocol fixtures | `testdata/conformance/` |
 | Test runner | `go test` |
@@ -20,12 +20,12 @@ This document defines the control repository toolchain after the repo split. The
 ## Target layout
 
 ```text
-kkachi-agent-network-control/
+hun-control/
   go.mod
   cmd/
-    kkachi-agent-network/
+    hun/
       main.go
-    kkachi-agent-networkd/
+    hund/
       main.go
   internal/
     command/
@@ -77,8 +77,8 @@ The first Go scaffold PR must prove:
 - `go test ./...` passes.
 - `go vet ./...` passes.
 - `gofmt` reports no changed files.
-- `kkachi-agent-network --help` exits 0.
-- `kkachi-agent-networkd --help` exits 0.
+- `hun --help` exits 0.
+- `hund --help` exits 0.
 - `make test` succeeds without external resources in docs/scaffold mode.
 
 ## Guardrails

@@ -15,9 +15,9 @@ Normative SOT for related topics:
 
 This document explains what this project means by **Hermes Agent** and how the current main-agent/sub-agent operating model works. It is written for external AI reviewers that have not seen the user's team-member profiles or the Hermes tool runtime.
 
-**Hermes Agent is the primary customer of `kkachi-agent-network`.** Every contract — CLI surface, daemon socket, registry shape, runner adapter, session lifecycle — is designed for Hermes Agent operation. See `00-overview.md#primary-customer` for the consequences this has on adapter scope and Release v1 boundaries. Reactive CLI tools (Claude Code, Codex CLI, Gemini CLI, OpenCode) are not first-class users; they may interact with the system only through the bundled Hermes skill, and Release v1 ships no dedicated runner adapter for them.
+**Hermes Agent is the primary customer of `hun`.** Every contract — CLI surface, daemon socket, registry shape, runner adapter, session lifecycle — is designed for Hermes Agent operation. See `00-overview.md#primary-customer` for the consequences this has on adapter scope and Release v1 boundaries. Reactive CLI tools (Claude Code, Codex CLI, Gemini CLI, OpenCode) are not first-class users; they may interact with the system only through the bundled Hermes skill, and Release v1 ships no dedicated runner adapter for them.
 
-`kkachi-agent-network` is being designed around this runtime model. Alternative proposals are welcome, but they should preserve the same product goals: real profile identity, durable state, auditable events, user-controlled escalation, and no silent substitution with fake role-play agents.
+`hun` is being designed around this runtime model. Alternative proposals are welcome, but they should preserve the same product goals: real profile identity, durable state, auditable events, user-controlled escalation, and no silent substitution with fake role-play agents.
 
 ## What is a Hermes Agent?
 
@@ -104,7 +104,7 @@ Limits:
 - the caller must preserve session handles and resume correctly;
 - without a shared event log, the transcript can become fragmented.
 
-This is one reason `kkachi-agent-network` exists.
+This is one reason `hun` exists.
 
 ### 4. Scheduled jobs
 
@@ -167,22 +167,22 @@ Good for:
 
 Limits for this project:
 
-- MCP is not the source of truth for `kkachi-agent-network`;
+- MCP is not the source of truth for `hun`;
 - requiring MCP first would couple the design to one integration surface;
-- the current project priority is daemon plus KAN protocol client/contract, preferred Hermes plugin integration, and canonical CLI fallback, with MCP as a possible thin adapter later.
+- the current project priority is daemon plus HUN protocol client/contract, preferred Hermes plugin integration, and canonical CLI fallback, with MCP as a possible thin adapter later.
 
-### 8. The proposed `kkachi-agent-network` stream model
+### 8. The proposed `hun` stream model
 
 The target design adds a durable communication layer:
 
 ```text
 main/moderator runtime / Hermes plugin
-  -> KAN protocol client/contract typed commands
-  -> kkachi-agent-networkd durable event log and state engine
-  -> KAN protocol client/contract stream, with kkachi-agent-network stream as fallback
+  -> HUN protocol client/contract typed commands
+  -> hund durable event log and state engine
+  -> HUN protocol client/contract stream, with hun stream as fallback
   -> member runtimes
   -> real profile wrappers / resumed AI sessions
-  -> typed KAN commands through plugin protocol client, with CLI as fallback
+  -> typed HUN commands through plugin protocol client, with CLI as fallback
 ```
 
 Good for:
@@ -206,10 +206,10 @@ This project should proceed with the stream-driven member runtime model.
 
 Priority order:
 
-1. **Daemon plus protocol contract, Hermes plugin adapter, and canonical CLI fallback is the product boundary.** Agents prefer plugin tools/slash commands and can fall back to `kkachi-agent-network`; direct daemon APIs are internal.
+1. **Daemon plus protocol contract, Hermes plugin adapter, and canonical CLI fallback is the product boundary.** Agents prefer plugin tools/slash commands and can fall back to `hun`; direct daemon APIs are internal.
 2. **Event log first.** `channel.jsonl` is the source of truth; SQLite is a projection.
-3. **Stream for observation.** Moderator and members observe sessions via the KAN protocol client/contract, normally through the Hermes plugin; `kkachi-agent-network stream` remains the canonical fallback with cursors and replay.
-4. **Typed commands for writes.** Members do not mutate daemon internals; they use typed KAN commands such as `delegate clarify`, `delegate update`, `council hand-raise`, `council speak`, and `council vote`, exposed through plugin tools or canonical CLI commands.
+3. **Stream for observation.** Moderator and members observe sessions via the HUN protocol client/contract, normally through the Hermes plugin; `hun stream` remains the canonical fallback with cursors and replay.
+4. **Typed commands for writes.** Members do not mutate daemon internals; they use typed HUN commands such as `delegate clarify`, `delegate update`, `council hand-raise`, `council speak`, and `council vote`, exposed through plugin tools or canonical CLI commands.
 5. **Real profile identity.** Named members must be real profiles/wrappers/runtimes, not temporary role-prompt simulations.
 6. **Runner adapters are bounded helpers.** One-shot subprocess calls may be used inside a member runtime or for compatibility, but not as the primary council loop.
 7. **Fail closed.** Unknown members, cursor gaps, unknown schema versions, storage corruption, and unsafe wrappers stop the affected flow rather than silently continuing.
@@ -272,8 +272,8 @@ member agent          = real team-member profile such as agent-1 or agent-2
 member runtime        = long-lived loop that watches the stream and acts for one member
 runner adapter        = bounded invocation of a model/profile wrapper
 subagent              = temporary delegated worker; useful, but not a named member
-kkachi-agent-networkd        = daemon owning state, locks, event log, stream hub
-kkachi-agent-network         = stable CLI used by humans and agents
+hund        = daemon owning state, locks, event log, stream hub
+hun         = stable CLI used by humans and agents
 channel.jsonl         = source-of-truth event log
 stream cursor         = durable position in a session event stream
 ```

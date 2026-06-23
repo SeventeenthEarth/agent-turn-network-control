@@ -6,18 +6,18 @@ These contracts are cross-cutting and apply to every epic. Streaming, runner, pr
 
 ### Purpose
 
-Make real agents active participants instead of passive one-shot subprocess responses. The daemon owns state and event durability; the Hermes plugin is the preferred agent-facing interface; the CLI is the stable canonical diagnostics/recovery/manual interface; both use the KAN protocol client/contract and member runtimes listen and act.
+Make real agents active participants instead of passive one-shot subprocess responses. The daemon owns state and event durability; the Hermes plugin is the preferred agent-facing interface; the CLI is the stable canonical diagnostics/recovery/manual interface; both use the HUN protocol client/contract and member runtimes listen and act.
 
 ### Interface
 
 ```bash
 # Canonical CLI fallback
-kkachi-agent-network stream <session_id> --member <member> --since <cursor> --follow --format ndjson
-kkachi-agent-network stream ack <session_id> --member <member> --cursor <cursor>
+hun stream <session_id> --member <member> --since <cursor> --follow --format ndjson
+hun stream ack <session_id> --member <member> --cursor <cursor>
 
 # Preferred Hermes integration
-Hermes plugin stream/tail tool -> KAN protocol client/contract -> daemon stream
-Hermes plugin cursor-ack tool -> KAN protocol client/contract -> daemon ack
+Hermes plugin stream/tail tool -> HUN protocol client/contract -> daemon stream
+Hermes plugin cursor-ack tool -> HUN protocol client/contract -> daemon ack
 ```
 
 Stream frames are newline-delimited JSON with `{cursor, is_replay, event}`. The event is the full envelope from `03-protocol-spec.md`.
@@ -28,7 +28,7 @@ Stream frames are newline-delimited JSON with `{cursor, is_replay, event}`. The 
 - Member runtimes persist their own acknowledged cursor.
 - Reconnect replays missed events before live events.
 - Cursor gaps, unknown schema versions, or storage corruption fail closed.
-- Member-originated state changes are typed KAN commands sent through a protocol client, normally via Hermes plugin tools and always with a canonical CLI command equivalent; they are not direct daemon-state mutations.
+- Member-originated state changes are typed HUN commands sent through a protocol client, normally via Hermes plugin tools and always with a canonical CLI command equivalent; they are not direct daemon-state mutations.
 - One-shot runner calls are bounded adapter operations. They must not be the primary council turn loop.
 - Heartbeats from stream subscribers update `stream_subscribers`; stale subscribers emit `stream_subscriber_stale`.
 - Participant runtime readiness is derived from durable session events, not a materialized readiness table. Required members are unready unless the log proves subscriber presence, valid cursor ack, fresh cursor ack, fresh heartbeat, attendance/preparation response or timeout/failure evidence when required, and selected-runner prerequisites when a speaker is selected.
@@ -145,8 +145,8 @@ Changing `to` between string and array form is a breaking envelope change. The i
 `command_id` rules:
 
 - CLI-originated events: required. Retries of the same CLI command reuse the id and are deduplicated by the daemon.
-- Moderator-emitted delivery events (`user_escalation_delivered`, `user_escalation_delivery_failed`) are typed KAN writes from the moderator runtime per `01-product-requirements.md` and `07-moderator-policy.md`, normally through plugin tools with the CLI as the canonical fallback. They follow the participant-command rule: each carries its own `command_id`, retries of the same delivery report reuse the id, and a duplicate is deduplicated by the daemon. `causation_event_id` for these events points to the originating `user_escalation_requested`.
-- Daemon-generated events that follow directly from a CLI command reuse or correlate with the originating `command_id` according to the command result contract. Examples: `session_created` and `task_assigned` after `kkachi-agent-network delegate new`; `session_created` after `kkachi-agent-network council new`; `preparation_requested` after `kkachi-agent-network council prepare`; `stream_cursor_acknowledged` after `kkachi-agent-network stream ack`. Participant CLI events such as `assignee_acknowledged` have their own command path and their own `command_id`.
+- Moderator-emitted delivery events (`user_escalation_delivered`, `user_escalation_delivery_failed`) are typed HUN writes from the moderator runtime per `01-product-requirements.md` and `07-moderator-policy.md`, normally through plugin tools with the CLI as the canonical fallback. They follow the participant-command rule: each carries its own `command_id`, retries of the same delivery report reuse the id, and a duplicate is deduplicated by the daemon. `causation_event_id` for these events points to the originating `user_escalation_requested`.
+- Daemon-generated events that follow directly from a CLI command reuse or correlate with the originating `command_id` according to the command result contract. Examples: `session_created` and `task_assigned` after `hun delegate new`; `session_created` after `hun council new`; `preparation_requested` after `hun council prepare`; `stream_cursor_acknowledged` after `hun stream ack`. Participant CLI events such as `assignee_acknowledged` have their own command path and their own `command_id`.
 - Daemon-generated events with no CLI origin (for example `session_budget_exceeded`, `escalation_timeout`, `redaction_applied`): may be null. When null, `causation_event_id` is required.
 
 `causation_event_id` rules:
@@ -171,7 +171,7 @@ Every state-mutating Hermes plugin tool or slash command must map to a canonical
 - Replay reads `schema_version` per event and routes through registered migrations. Unknown versions halt replay with `migration_required`. Replay is independent of whether the original command arrived through the CLI or Hermes plugin because both paths emit the same daemon command/event model.
 - Replay rebuilds pending escalation batch projections (`escalation_batches`, `escalation_batch_items`, session pending counters, `waiting_user_escalation_event_id`) from `escalation_batched`, `user_escalation_requested`, `escalation_rate_limited`, and related events. Replay must not deliver escalation notifications and must not create new `user_escalation_requested` events merely because a batch deadline is in the past — timer-driven flush is daemon runtime behavior after replay completes.
 - Replay uses `channel.jsonl` and existing session files. It must **not** reread live `<data_home>/registry.yaml` to reinterpret historical session participants; historical sessions use their recorded events and per-session `registry_snapshot.yaml`. Live registry edits must not alter past session meaning.
-- Projection rebuild is replay. `kkachi-agent-network storage rebuild-projection` must follow the same side-effect-free rules as replay: no runner calls, no outbound notifications, no timer-driven event creation, no registry reinterpretation of historical sessions, and no append to `channel.jsonl`. The detailed operational procedure lives in `17-disaster-recovery.md`.
+- Projection rebuild is replay. `hun storage rebuild-projection` must follow the same side-effect-free rules as replay: no runner calls, no outbound notifications, no timer-driven event creation, no registry reinterpretation of historical sessions, and no append to `channel.jsonl`. The detailed operational procedure lives in `17-disaster-recovery.md`.
 - Replay rebuilds `surface` and `linked_authority` projections only from durable events such as `session_created`, `council_finalized`, and `council_unresolved`. Replay must not call Discord APIs, create Kanban comments, write Vault notes, or infer missing return-path evidence from thread/card/note identifiers.
 - Replay and projection rebuild for Discord-thread councils must also rebuild attendance and agenda projections from `attendance_requested`, terminal `member_attended` events for required participants, and `agenda_locked`. Missing projection for those events is an operational/acceptance failure, not a reason to infer state from Discord messages or Hermes plugin/gateway delivery history.
 
@@ -238,13 +238,13 @@ After replay on daemon startup, the daemon scans pending escalation batches. If 
 Reserved principals:
 
 - `user`
-- `kkachi-agent-networkd`
+- `hund`
 
 Registry member ids must not collide with reserved principals (per `12-security.md`).
 
-Allowed `from` values: registry member ids, `user`, `kkachi-agent-networkd`.
+Allowed `from` values: registry member ids, `user`, `hund`.
 
-Allowed `to` recipients: registry member ids and `user`. `to: []` is allowed only for unaddressed session audit events. `kkachi-agent-networkd` is not a normal recipient.
+Allowed `to` recipients: registry member ids and `user`. `to: []` is allowed only for unaddressed session audit events. `hund` is not a normal recipient.
 
 Broadcast is represented by an explicit recipient list. Special values such as `"all"`, `["all"]`, or `"*"` are forbidden.
 
@@ -351,7 +351,7 @@ Deduplication and cap checks happen before the final `user_escalation_requested`
 
 The low-urgency batching window starts when the first `escalation_batched` event for that batch is appended. The batch must be flushed, cancelled, or rate-limited by `batch_deadline_at`.
 
-`user_escalation_requested` has origin class `mixed`. Immediate moderator escalation is a participant CLI event. Manual batch flush through `kkachi-agent-network delegate escalation-flush` is a daemon-after-CLI event. Timer-driven or startup-reconciliation flush is daemon-internal. All daemon-generated flush events must carry a valid `causation_event_id` pointing to the batch or triggering policy event.
+`user_escalation_requested` has origin class `mixed`. Immediate moderator escalation is a participant CLI event. Manual batch flush through `hun delegate escalation-flush` is a daemon-after-CLI event. Timer-driven or startup-reconciliation flush is daemon-internal. All daemon-generated flush events must carry a valid `causation_event_id` pointing to the batch or triggering policy event.
 
 ### Session roll-up
 
@@ -375,7 +375,7 @@ When a terminal runner event has `runner` metadata and `cost: null`:
 - the runner invocation remains counted in `runner_calls_total`;
 - token and USD totals are not incremented;
 - `missing_cost_runner_calls_total` increments;
-- `kkachi-agent-network status --verbose` and `kkachi-agent-network limits show` must surface the missing cost count;
+- `hun status --verbose` and `hun limits show` must surface the missing cost count;
 - transcript and export must preserve that the cost was missing.
 
 The daemon must not invent token or USD estimates. Missing cost does not by itself transition the session to `blocked` unless a future explicit product limit is added.

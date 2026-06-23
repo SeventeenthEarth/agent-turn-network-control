@@ -2,7 +2,7 @@
 
 ## Status
 
-This document is the control-side Source of Truth for planned post-Release local live transport work across `kkachi-agent-networkd`, the `kkachi-agent-network` CLI, and the companion `kkachi-agent-network-plugin`.
+This document is the control-side Source of Truth for planned post-Release local live transport work across `hund`, the `hun` CLI, and the companion `hun-plugin`.
 
 The plugin-side companion SOT is `../../kkachi-agent-network-plugin/docs/10-live-transport-sot.md`. This control SOT owns daemon, CLI, protocol, conformance, member-runtime, and event-to-visible-surface delivery-evidence boundaries. The plugin SOT owns Python plugin transport, Hermes tool behavior, bundled skill/operator guidance, and plugin-side visible helper behavior. For plugin visible-UX work such as `plugin/VISUX-001`, the control-owned event/outcome SOT is `docs/03-protocol-spec.md` plus `docs/07-moderator-policy.md` and `docs/13-operational-contracts.md`; this document records the cross-repo handoff boundary.
 
@@ -115,7 +115,7 @@ Acceptance evidence:
 Completion evidence:
 
 - CLI `compat version|status|diagnostics --format json` reads daemon-backed plugin compatibility responses while operator-facing `status` and `daemon health/status` stay concise.
-- Disposable smoke script `scripts/ltran003_live_local_smoke.py` builds temp CLI/daemon binaries under `/tmp`, starts `kkachi-agent-networkd` with a script-owned temp data home, scrubs live-service environment variables, and records redacted evidence under the KAH run directory.
+- Disposable smoke script `scripts/ltran003_live_local_smoke.py` builds temp CLI/daemon binaries under `/tmp`, starts `hund` with a script-owned temp data home, scrubs live-service environment variables, and records redacted evidence under the KAH run directory.
 - The smoke evidence covers stream replay, bounded follow, stream ack/status, invalid cursor fail-closed behavior, unsupported option fail-closed behavior, first `delegate.submit`, exact retry dedupe, and same `command_id` conflict structured error handling.
 - The control repo remains the only mutated repo for this task. Plugin `LTRAN` may use this as the control-side prerequisite after the committed run closes, but plugin work still requires its own task contract, verification, and review.
 
@@ -137,9 +137,9 @@ This table mirrors the plugin SOT in control terms. `control/LTRAN-002` adds exp
 
 ### RUNFIX: Council runner, activation, and discussion-quality remediation
 
-Exit: KAN can be installed and activated for an approved live-local Discord discussion only after explicit control dependency checks, eligible participant profiles, bot-to-bot-free channel policy, parent-channel allow-listing, selected-speaker runner evidence, canonical speech linkage, visible-surface evidence, fallback disclosure, and ARGUE quality diagnostics have accepted evidence. Visible surface policy is thread-preferred under the approved parent channel, with direct parent-channel fallback allowed only when thread creation/posting is unsupported and explicitly disclosed. Discord-origin council requests default to live visible thread output; unless artifact-only or daemon CLI actor speech mode is explicitly confirmed before `council.new`, bootstrap/preflight must prove a bound thread or disclosed parent-channel fallback, turn-posting path, visible closeout path, real profile/gateway replies, and non-CLI-actor speech path. Until that exit, RUNFIX work must not be described as live council readiness.
+Exit: HUN can be installed and activated for an approved live-local Discord discussion only after explicit control dependency checks, eligible participant profiles, bot-to-bot-free channel policy, parent-channel allow-listing, selected-speaker runner evidence, canonical speech linkage, visible-surface evidence, fallback disclosure, and ARGUE quality diagnostics have accepted evidence. Visible surface policy is thread-preferred under the approved parent channel, with direct parent-channel fallback allowed only when thread creation/posting is unsupported and explicitly disclosed. Discord-origin council requests default to live visible thread output; unless artifact-only or daemon CLI actor speech mode is explicitly confirmed before `council.new`, bootstrap/preflight must prove a bound thread or disclosed parent-channel fallback, turn-posting path, visible closeout path, real profile/gateway replies, and non-CLI-actor speech path. Until that exit, RUNFIX work must not be described as live council readiness.
 
-The dogfood issue report showed that fallback-visible messages and lifecycle counts are not sufficient evidence of a working KAN council. RUNFIX therefore separates canonical evidence labels. Operator reports must use the snake_case label; the parenthetical prose label is display text only:
+The dogfood issue report showed that fallback-visible messages and lifecycle counts are not sufficient evidence of a working HUN council. RUNFIX therefore separates canonical evidence labels. Operator reports must use the snake_case label; the parenthetical prose label is display text only:
 
 - `lifecycle_pass` (**lifecycle pass**): daemon events can complete a nominal council flow;
 - `fallback_profile_pass` (**manual/fallback profile pass**): an operator obtained participant-like text through a manual profile or fallback route;
@@ -147,7 +147,9 @@ The dogfood issue report showed that fallback-visible messages and lifecycle cou
 - `visible_surface_pass` (**visible-surface pass**): daemon events were rendered to the approved visible surface with reconstructable delivery/projection evidence;
 - `discussion_quality_pass` (**discussion-quality pass**): non-opening speech preserves ARGUE relation evidence or a justified `new_axis`, with orphan/repetition diagnostics exposed.
 
-Transcript/export success must not be reported as visible discussion completion by itself. Final reports must separate `KAN lifecycle finalized`, `Discord visible turns posted: N/expected`, `real profile/gateway replies`, and `CLI actor speech only` so a daemon-only CLI actor run cannot be mistaken for live visible Discord output.
+Transcript/export success must not be reported as visible discussion completion by itself. Final reports must separate `HUN lifecycle finalized`, `Discord visible turns posted: N/expected`, `real profile/gateway replies`, and `CLI actor speech only` so a daemon-only CLI actor run cannot be mistaken for live visible Discord output.
+
+Legacy `kan-*`, `kan_discussion_*`, `sess_kan_*`, and `kan/` artifact path fragments in older RUNFIX rows are historical/provenance labels from pre-HUN evidence. They are not current public HUN aliases.
 
 | Global Order | Repo | Task ID | Task Status | Task Description |
 |---:|---|---|---|---|
@@ -160,7 +162,7 @@ Transcript/export success must not be reported as visible discussion completion 
 | 7 | plugin | RUNFIX-007 | local implementation proof | Plugin KAH run `run-20260618T081811Z-23d10e2a4634` extends the existing pure/local activation planner for effective Discord eligibility evidence, eligible-only allow-list targets, excluded/blocked profile remediation, parent-channel proof state, thread-only/current-channel/manual proof rejection, and fallback audit while keeping `live_readiness: false`. No live Discord delivery, daemon startup/discovery, profile/gateway/provider/auth/token/model mutation, production activation, commit, push, or broad rollout is claimed. |
 | 8 | plugin | RUNFIX-008 | local implementation proof | Plugin KAH run `run-20260618T092359Z-401d6e5bedc0` extends the pure/local activation planner, packaged operator guide, and bundled skill guidance for participant ARGUE response evidence, `claims[]`, `stance_links[]`, `contribution_type`, `new_axis_reason`, optional `evidence[]`, ARGUE counts, selected-runner evidence, canonical `speaker_selected -> speech` linkage, and diagnostic-only fallback disclosure while keeping `live_readiness: false`. Red `t_30b22678` and Orange `t_381805a1` accepted the bounded local plugin scope; Gray `t_6cb777d2` requested cross-repo status reconciliation and focused Gray `t_d65b0a83` accepted that reconciliation. No live Discord delivery, daemon startup/discovery, profile/gateway/provider/auth/token/model mutation, production activation, commit, push, or broad rollout is claimed. |
 | 9 | control | RUNFIX-009 | local implementation proof | Control KAH run `run-20260618T102752Z-7d8ccfa584e4` adds an integrated daemon smoke fixture and transcript summary fix proving runner invocation, canonical `speaker_selected -> speech` linkage, ARGUE `quality_warn` diagnostics/hard-warning exposure, and transcript/export/projection closeout evidence from deterministic local events. Verification passed focused RUNFIX-009 daemon smoke, related selected-speaker/export tests, storage package tests, `git diff --check`, `make docs-guardrails`, `make check-plugin-contract`, `make test-prepare`, and `make test`; Red plan review `t_3e1a6ecd` accepted the bounded local-control scope. No live Discord delivery, production daemon activation, profile/gateway/provider/auth/token mutation, plugin/RUNFIX-010 execution, commit, push, or broad rollout is claimed. |
-| 10 | plugin | RUNFIX-010 | completed/PASS_WITH_RISK | Ran the approved bounded visible-local activation pilot and published the final operator package/readiness classification, including Discord-origin live-visible defaults, artifact-only/daemon-CLI confirmation guardrails, and final-report separation of lifecycle/visible-turn/profile-gateway/CLI-only evidence. Bounded parent-channel visible evidence exists under plugin KAH run `run-20260618T112843Z-40b023a5d9c8`; final gate passed with carried risks. Real selected-speaker runner readiness, full KAN roster coverage, no-restart thread readiness, and always-on participant runtime readiness remain unproven. |
+| 10 | plugin | RUNFIX-010 | completed/PASS_WITH_RISK | Ran the approved bounded visible-local activation pilot and published the final operator package/readiness classification, including Discord-origin live-visible defaults, artifact-only/daemon-CLI confirmation guardrails, and final-report separation of lifecycle/visible-turn/profile-gateway/CLI-only evidence. Bounded parent-channel visible evidence exists under plugin KAH run `run-20260618T112843Z-40b023a5d9c8`; final gate passed with carried risks. Real selected-speaker runner readiness, full HUN roster coverage, no-restart thread readiness, and always-on participant runtime readiness remain unproven. |
 | 11 | control | RUNFIX-011 | local implementation proof | Control KAH run `run-20260618T162156Z-419f3769f2cc` implements derived participant runtime readiness and Discord-thread attendance/preparation preflight after `sess_rename_hun_20260618T152054Z` showed `attendance_requested` with no member cursors/subscribers. Control now derives readiness from durable subscriber presence, valid/fresh cursor ack, fresh heartbeat, attendance/preparation success or timeout/failure evidence, and selected-runner prerequisites; prepare/poll/grant fail closed with diagnostics when evidence is missing or stale. This is control-local repository proof only and does not claim live Discord delivery, production daemon activation, profile/gateway/provider/auth/token/model mutation, plugin/RUNFIX-012 consumption, or live readiness. |
 | 12 | plugin | RUNFIX-012 | local implementation proof | Plugin KAH run `run-20260618T231811Z-ee5c6394d1fe` consumes the explicit `control/RUNFIX-011` local control proof dependency in plugin-owned activation planner/operator guardrails and reconciles plugin RUNFIX docs so gateway liveness, transcript/export artifacts, and parent-channel visible fallback cannot be reported as participant-runtime/live discussion readiness. Plugin consumption is explicit-only: this control SOT records cross-repo traceability but does not claim control implementation for plugin/RUNFIX-012, live Discord delivery, production/live readiness, profile/provider/gateway/auth/token/model mutation, commit, push, broad rollout, or plugin/RUNFIX-013 implementation. |
 | 13 | plugin | RUNFIX-013 | local implementation proof | Plugin KAH run `run-20260619T001719Z-9c41001040ef` adds bundled/operator council moderation hard rules from 주유's moderation-skill-gap report: lifecycle-first prerequisites, no predeclared complete live speaker order, per-turn poll/hand-raise evaluation, justified daemon `speaker_selected`, `relevance` default with per-turn justified `targeted`, `random`, `moderator_direct`, and `role_order`, daemon `speech` event authority, moderator-opinion participant-style turns, and cancel/restart versus repair-forward guidance. This control SOT records cross-repo traceability only and does not claim live daemon/runtime activation, Discord delivery, production/live readiness, profile/provider/gateway/auth/token/model mutation, commit, push, broad rollout, or control implementation for plugin/RUNFIX-013. |
@@ -170,7 +172,7 @@ Transcript/export success must not be reported as visible discussion completion 
 | 17 | plugin | RUNFIX-017 | local implementation proof | Plugin-owned local implementation proof under plugin KAH run `run-20260619T101255Z-189d01ba8b8f` after official color review, Blue synthesis, and final KAH gate. ARGUE quality-required prompt and runner contract hardening provides compact prior claim graph targets to selected participants, preserves `claims[]`, `stance_links[]`, `contribution_type`, `new_axis_reason`, and `evidence[]`, and fails `discussion_quality_pass` on the first orphan non-opening speech in `quality_required` pilots while exposing repeated-orphan counts without synthetic relation inference. This control SOT records cross-repo traceability only and does not claim final local implementation proof, live readiness, production readiness, Discord delivery, install, commit, push, rollout, daemon activation, or profile/provider/gateway/auth/token mutation for plugin/RUNFIX-017. |
 | 18 | control | RUNFIX-018 | local implementation proof | Control KAH run `run-20260619T214003Z-8a2afe33923f` adds daemon-owned registry reconciliation for `council.new`: when the approved council roster is explicit, each missing principal id is syntactically valid/non-reserved, and a same-named Hermes wrapper resolves through the loaded registry allow-list, the daemon writes the missing member to `registry.yaml`, reloads it, snapshots it into the session, and returns `registry_reconcile` evidence. Ambiguous principals, unresolved wrappers, disabled existing principals, invalid ids, or missing registry evidence fail closed before session creation. Registry membership is persistent identity authority; subscription/heartbeat remains session-scoped runtime evidence. |
 
-Control-owned RUNFIX implementation must fail closed on missing selected-speaker dispatch evidence, missing participant runtime subscriber/ack/heartbeat readiness, stale cursor ack, invalid cursor, attendance/preparation timeout or missing response evidence, adapter response-generation mismatch, registry/profile identity mismatch, cursor gap, orphan speech in quality-required mode, stale runner phase, or fallback-only evidence mislabeled as KAN success.
+Control-owned RUNFIX implementation must fail closed on missing selected-speaker dispatch evidence, missing participant runtime subscriber/ack/heartbeat readiness, stale cursor ack, invalid cursor, attendance/preparation timeout or missing response evidence, adapter response-generation mismatch, registry/profile identity mismatch, cursor gap, orphan speech in quality-required mode, stale runner phase, or fallback-only evidence mislabeled as HUN success.
 
 
 ### RUNFIX2 discussion-runtime hardening contract
@@ -216,7 +218,7 @@ Selected first pilot mode:
 - Record durable runner/session evidence from selection through terminal outcome.
 - Do not replace a missing or unsafe participant with a simulated role prompt.
 
-Long-lived member runtimes remain the target model because participant agents ultimately need replay-first stream observation, cursor ownership, real profile/session continuity, and typed participant-originated KAN writes. They are not the first proof mode because `control/MEMBR-002` needs a smaller local proof: one selected participant invocation through a real profile/wrapper boundary with durable success or failure evidence before always-on runtime loops are introduced.
+Long-lived member runtimes remain the target model because participant agents ultimately need replay-first stream observation, cursor ownership, real profile/session continuity, and typed participant-originated HUN writes. They are not the first proof mode because `control/MEMBR-002` needs a smaller local proof: one selected participant invocation through a real profile/wrapper boundary with durable success or failure evidence before always-on runtime loops are introduced.
 
 Minimum runner/session evidence:
 
@@ -226,7 +228,7 @@ Minimum runner/session evidence:
 - wrapper, backend, and session handle, or redacted equivalent sufficient to prove real invocation;
 - started timestamp and terminal timestamp/status;
 - stdout, stderr, log, and artifact pointers as redacted evidence pointers only;
-- produced typed KAN event on success, for example `council.speak` when applicable;
+- produced typed HUN event on success, for example `council.speak` when applicable;
 - durable failure event on failure, timeout, or unsafe setup.
 
 Failure policy:
@@ -247,7 +249,7 @@ KAH lane contract:
 - Run/evidence rule: every proof run must have a stable run id, command/session/request ids, and a runner invocation id preserved across start and terminal outcome.
 - Gate/schema rule: registry snapshot binding, wrapper/backend/session evidence, cursor continuity, supported transport, and known schema version are mandatory.
 - Artifact rule: stdout, stderr, logs, and artifacts are stored as redacted pointers; secret-bearing inline output is not evidence.
-- Event rule: success produces a typed KAN event such as `council.speak` when applicable; failure produces durable failure evidence.
+- Event rule: success produces a typed HUN event such as `council.speak` when applicable; failure produces durable failure evidence.
 - Failure policy: missing or inconsistent evidence fails the run closed and must not be rewritten as progress.
 
 ### SURFD: Surface delivery evidence contract
@@ -301,7 +303,7 @@ Exit: control identifies the canonical daemon event semantics and evidence split
 
 Control tasks must preserve these invariants:
 
-- `kkachi-agent-networkd` is the only lifecycle state authority.
+- `hund` is the only lifecycle state authority.
 - `channel.jsonl` remains canonical for ordering and phase transitions.
 - CLI commands are canonical for main-agent/operator control and diagnostics.
 - Plugin compatibility is through protocol/conformance, not shared source code.

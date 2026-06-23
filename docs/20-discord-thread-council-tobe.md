@@ -3,21 +3,21 @@
 ## Status
 
 - Status: TOBE source plus alignment record; canonical implementation rules now live in the main protocol, CLI, state-machine, storage, policy, operational-contract, acceptance-test, and epic docs.
-- Scope: `kkachi-agent-network` council UX on Discord threads
+- Scope: `hun` council UX on Discord threads
 - Source request, preserved as SOT: `discord에서는 이런 토론이 하나의 쓰레드 안에서 진행되었으면 좋겠어. 내가 "토론을 시작해줘"하면 네가 쓰레드에 장수들을 한명씩 불러서 출석 체크를 한 다음에 토론이 진행되면서 공명이 발언권을 주고 토론을 체계적으로 수향하는거지.`
 - Operating language: user-facing reports to 주군 are Korean; agent-facing docs and implementation notes remain English while preserving fixed Korean labels such as `17번째 지구`, `주군`, and member names.
-- Governance correction: KAN is the Kkachi Agent Network project, but prior Hwangchung-routed work is draft/spec-prep evidence only, not durable KAN ownership. Until 주군 assigns formal KAN Blue/Red/Orange/Gray roles, Jooyoo and Samaui are the current main owner-side reviewers, while Gongmyeong/wolong may coordinate Kanban routing without becoming KAN Blue.
+- Governance correction: HUN is the public product/repository naming for the bounded KAN control/plugin lane. Prior Hwangchung-routed work is historical draft/spec-prep evidence only, not durable current ownership. Current KAN lane ownership is 마초/서황/종회/만총 for Blue/Red/Orange/Gray respectively; Gongmyeong/wolong may coordinate Kanban routing without becoming HUN/KAN Blue.
 
 
 ## Spec alignment record
 
-This document preserves the original Discord-thread council TOBE request and the decisions that were folded into the canonical KAN docs. Implementers should treat this file as UX/background context; when details differ, the canonical implementation spec is `03-protocol-spec.md`, `04-cli-spec.md`, `05-storage-schema.md`, `06-state-machine.md`, `07-moderator-policy.md`, `08-acceptance-tests.md`, `09-implementation-epics.md`, and `13-operational-contracts.md`. The first-class alignment is additive:
+This document preserves the original Discord-thread council TOBE request and the decisions that were folded into the canonical HUN docs. Implementers should treat this file as UX/background context; when details differ, the canonical implementation spec is `03-protocol-spec.md`, `04-cli-spec.md`, `05-storage-schema.md`, `06-state-machine.md`, `07-moderator-policy.md`, `08-acceptance-tests.md`, `09-implementation-epics.md`, and `13-operational-contracts.md`. The first-class alignment is additive:
 
 1. Keep `channel.jsonl` as the canonical council SOT and Discord thread as the human-visible surface only.
 2. Add optional council `surface` and `linked_authority` metadata to `session_created.payload` and session projections.
 3. Represent attendance and agenda lock as typed council events while the session remains in `created`, rather than adding a new `attendance` phase for the first pass.
 4. Extend `speaker_selected.payload.selection_mode` with `moderator_direct` and `role_order` so Gongmyeong can grant floor explicitly in a Discord-thread council.
-5. Keep Discord delivery outside `kkachi-agent-networkd`; the moderator runtime posts to Discord through Hermes plugin/gateway capability and records delivery evidence as metadata or follow-up delivery audit.
+5. Keep Discord delivery outside `hund`; the moderator runtime posts to Discord through Hermes plugin/gateway capability and records delivery evidence as metadata or follow-up delivery audit.
 6. If `linked_authority.kanban_card_id` is present, final council outcome must be returned to the Kanban card; Vault decision-note recording remains a Gray/Gongmyeong workflow when the topic is durable architecture/process/command knowledge.
 
 Aligned spec sections:
@@ -25,7 +25,7 @@ Aligned spec sections:
 - `docs/README.md`: add source-of-truth and decision-log entries for Discord-thread council surface binding.
 - `docs/00-overview.md`: describe Discord-thread council as an optional surface, not a replacement architecture.
 - `docs/01-product-requirements.md`: add council requirements for surface binding, attendance, agenda lock, floor grants, and Kanban/Vault return path.
-- `docs/02-architecture.md`: preserve Clean Architecture by keeping Discord transport outside engine/domain and outside `kkachi-agent-networkd` delivery responsibility.
+- `docs/02-architecture.md`: preserve Clean Architecture by keeping Discord transport outside engine/domain and outside `hund` delivery responsibility.
 - `docs/03-protocol-spec.md`: add `surface`/`linked_authority` metadata, `attendance_requested`, `member_attended`, `agenda_locked`, and final outcome linkage fields.
 - `docs/04-cli-spec.md`: add additive flags/commands and event-to-command rows.
 - `docs/05-storage-schema.md`: add optional projected session fields for `surface` and `linked_authority`.
@@ -36,19 +36,19 @@ Aligned spec sections:
 - `docs/12-security.md`: state token/thread validation boundary and forbid raw Discord tokens in daemon/event payloads.
 - `docs/13-operational-contracts.md`: state replay/idempotency behavior for surface metadata and final return-path evidence.
 
-Resolved for first implementation: attendance remains a typed subflow inside `created`; a later true `attendance` phase would require a coordinated spec/replay/storage migration. Do not infer formal KAN Blue/Red/Orange/Gray role assignments from unrelated Kkachi ownership tracks.
+Resolved for first implementation: attendance remains a typed subflow inside `created`; a later true `attendance` phase would require a coordinated spec/replay/storage migration. KAN Blue/Red/Orange/Gray ownership is the current internal review lane assignment; it is not a public HUN product alias.
 
 ## Executive summary
 
-The current KAN documentation defines an event-sourced daemon, KAN protocol client/contract, minimal canonical CLI, preferred Hermes plugin integration layer, `council` sessions, durable event streams, real Hermes profile participants, and a strict non-goal of modifying Hermes core. The Discord-thread TOBE should therefore **not replace the core KAN architecture**. It should add a first-class **Discord thread council surface** on top of the existing event-sourced session model; Discord is not a state authority.
+The current HUN documentation defines an event-sourced daemon, HUN protocol client/contract, minimal canonical CLI, preferred Hermes plugin integration layer, `council` sessions, durable event streams, real Hermes profile participants, and a strict non-goal of modifying Hermes core. The Discord-thread TOBE should therefore **not replace the core HUN architecture**. It should add a first-class **Discord thread council surface** on top of the existing event-sourced session model; Discord is not a state authority.
 
 Target model:
 
 ```text
 Discord thread = human-visible council room
 channel.jsonl = canonical session SOT
-kkachi-agent-networkd = state machine, event log, locks, replay, transcript/export
-Hermes plugin = preferred agent-facing KAN tools/slash commands and Discord visible-post helper
+hund = state machine, event log, locks, replay, transcript/export
+Hermes plugin = preferred agent-facing HUN tools/slash commands and Discord visible-post helper
 Gongmyeong/wolong = possible moderator runtime and user-facing Korean reporter when assigned
 member profiles = real 장수 participants
 Kanban/Vault = task authority, final decision, traceability
@@ -66,10 +66,10 @@ Do not let free-form multi-agent Discord replies drive state directly.
 
 The existing docs define these reusable foundations:
 
-- `kkachi-agent-network` CLI and `kkachi-agent-networkd` daemon.
+- `hun` CLI and `hund` daemon.
 - `session_type: council` with preparation, hand-raise discussion, draft conclusion, consensus vote, and finalized/unresolved states.
 - `channel.jsonl` as durable source of truth, SQLite as projection.
-- `kkachi-agent-network stream` as the stable member runtime observation interface.
+- `hun stream` as the stable member runtime observation interface.
 - Real Hermes member profiles, not simulated prompt personas.
 - No Hermes core modification.
 - External delivery to Telegram/Slack/Discord/origin is currently the moderator runtime's responsibility, not the daemon's direct responsibility.
@@ -82,11 +82,11 @@ When 주군 writes in a Discord thread:
 
 ```text
 공명, 토론을 시작해줘.
-참여: 주유, 사마의, 추후 지정될 KAN 담당자
+참여: 마초, 서황, 종회, 만총
 안건: 이 Kanban 카드의 다음 행동을 결정하자.
 ```
 
-Gongmyeong starts a KAN council bound to that exact thread.
+Gongmyeong starts a HUN council bound to that exact thread.
 
 Expected visible flow:
 
@@ -104,7 +104,7 @@ Expected visible flow:
 [11] Final summary is written back to Kanban and/or Vault when configured.
 ```
 
-The Discord thread should feel like a real council, but every meaningful transition must be represented by typed KAN events.
+The Discord thread should feel like a real council, but every meaningful transition must be represented by typed HUN events.
 
 ## Non-goals
 
@@ -113,7 +113,7 @@ The Discord thread should feel like a real council, but every meaningful transit
 - Do not use Discord message order as the authoritative state machine.
 - Do not require Hermes core patches.
 - Do not make MCP or the Hermes plugin a state authority; the Hermes plugin is now the preferred integration surface, but canonical CLI diagnostics/recovery/manual paths must still work.
-- Do not give `kkachi-agent-networkd` broad Discord bot-token responsibility; use Hermes plugin/gateway capability for first-pass visible posting unless a later design explicitly approves a Discord bridge component and its security model.
+- Do not give `hund` broad Discord bot-token responsibility; use Hermes plugin/gateway capability for first-pass visible posting unless a later design explicitly approves a Discord bridge component and its security model.
 - Do not bypass Kanban review and traceability rules when a council is tied to a work item.
 
 ## Surface binding model
@@ -183,7 +183,7 @@ Purpose: Gongmyeong begins thread attendance check.
 {
   "type": "attendance_requested",
   "from": "wolong",
-  "to": ["jooyoo", "samaui", "han-reviewer-a", "han-reviewer-b"],
+  "to": ["macho", "seohwang", "jonghoe", "manchong"],
   "payload": {
     "surface_kind": "discord_thread",
     "thread_id": "1507515847227215932",
@@ -200,7 +200,7 @@ Purpose: A member confirms participation.
 ```json
 {
   "type": "member_attended",
-  "from": "jooyoo",
+  "from": "macho",
   "to": ["wolong"],
   "payload": {
     "status": "present",
@@ -227,7 +227,7 @@ Purpose: The moderator freezes the decision question and prevents topic drift.
 {
   "type": "agenda_locked",
   "from": "wolong",
-  "to": ["jooyoo", "samaui", "han-reviewer-a", "han-reviewer-b"],
+  "to": ["macho", "seohwang", "jonghoe", "manchong"],
   "payload": {
     "decision_question": "Decide the next action for Kanban card t_xxxxx.",
     "out_of_scope_policy": "New topics become follow-up card candidates, not current-thread expansion.",
@@ -274,8 +274,8 @@ Rules:
 For the role-ordered council UX, add or document a `grant` mode:
 
 ```bash
-kkachi-agent-network council grant <session_id> \
-  --to jooyoo \
+hun council grant <session_id> \
+  --to macho \
   --mode moderator_direct \
   --round 1 \
   --reason "Round 1 owner-side spec governance boundary"
@@ -298,43 +298,43 @@ role_order       # deterministic round-robin by declared role order
 Minimal additive CLI changes:
 
 ```bash
-kkachi-agent-network council new "<topic>" \
-  --members jooyoo,samaui,han-reviewer-a,han-reviewer-b \
+hun council new "<topic>" \
+  --members macho,seohwang,jonghoe,manchong \
   --moderator wolong \
   --surface discord-thread \
   --thread-id 1507515847227215932 \
   --kanban-card t_xxxxx \
   --turn-mode role_order
 
-kkachi-agent-network council attend <session_id> \
-  --from jooyoo \
+hun council attend <session_id> \
+  --from macho \
   --status present \
   --summary "Present. Owner-side spec governance perspective ready."
 
-kkachi-agent-network council lock-agenda <session_id> \
+hun council lock-agenda <session_id> \
   --decision-question "Decide next action for Kanban card t_xxxxx" \
   --max-rounds 2
 
-kkachi-agent-network council grant <session_id> \
-  --to jooyoo \
+hun council grant <session_id> \
+  --to macho \
   --mode role_order \
   --round 1 \
   --reason "Owner-side spec governance first pass"
 
-kkachi-agent-network council speak <session_id> \
-  --from jooyoo \
+hun council speak <session_id> \
+  --from macho \
   --stdin
 
 # Optional future UX, not part of the minimal first-pass alignment unless
 # separately added to the protocol/CLI spec:
-# kkachi-agent-network council close-round <session_id> \
+# hun council close-round <session_id> \
 #   --round 1 \
 #   --summary-file unresolved-issues.md
 
-kkachi-agent-network council propose <session_id> --stdin
-kkachi-agent-network council request-vote <session_id>
-kkachi-agent-network council vote <session_id> --from jooyoo --vote approve
-kkachi-agent-network council finalize <session_id>
+hun council propose <session_id> --stdin
+hun council request-vote <session_id>
+hun council vote <session_id> --from macho --vote approve
+hun council finalize <session_id>
 ```
 
 Existing commands should remain backward compatible. The new flags are additive.
@@ -344,7 +344,7 @@ Existing commands should remain backward compatible. The new flags are additive.
 Recommended Release v1-compatible approach:
 
 ```text
-kkachi-agent-networkd records typed events.
+hund records typed events.
 Moderator runtime observes events and posts human-visible messages to the Discord thread through Hermes gateway capability.
 Member runtimes emit typed events after they act.
 Discord delivery audit is recorded as metadata or delivery events when needed.
@@ -373,7 +373,7 @@ When `--kanban-card` is set:
 Recommended final Kanban comment shape:
 
 ```text
-KAN council finalized in Discord thread <thread link>.
+HUN council finalized in Discord thread <thread link>.
 Decision: ...
 Consensus: approve / approve_with_conditions / unresolved
 Participants: ...
@@ -386,7 +386,7 @@ Vault note: <path if created>
 
 ## Divergence control
 
-This is the core difference between a simple round-robin moderator and KAN.
+This is the core difference between a simple round-robin moderator and HUN.
 
 Mandatory controls:
 
@@ -420,8 +420,8 @@ Please choose one:
 
 ### Phase B: Core/plugin bootstrap split
 
-- Core bootstrap follows `19-tooling.md`: create `go.mod`, `cmd/kkachi-agent-network`, `cmd/kkachi-agent-networkd`, `internal/`, `tests/`, and help smoke tests.
-- Plugin bootstrap follows `../../kkachi-agent-network-plugin/docs/06-implementation-epics-tasks.md`: create `pyproject.toml`, `plugin.yaml`, `src/kkachi_agent_network_plugin/`, fake daemon tests, and Hermes plugin smoke tests.
+- Core bootstrap follows `19-tooling.md`: create `go.mod`, `cmd/hun`, `cmd/hund`, `internal/`, `tests/`, and help smoke tests.
+- Plugin bootstrap follows `../../kkachi-agent-network-plugin/docs/06-implementation-epics-tasks.md`: create `pyproject.toml`, `plugin.yaml`, `src/hun_plugin/`, fake daemon tests, and Hermes plugin smoke tests.
 - Do not start with Discord API integration.
 
 ### Phase C: Core council engine with surface metadata
@@ -475,7 +475,7 @@ A minimal successful Discord-thread council should prove:
 
 1. First-pass alignment keeps attendance as typed events inside `created`; a later true `attendance` phase would require a coordinated spec/replay/storage migration.
 2. First-pass alignment splits optional session-level `turn_mode` as intended/default policy from per-turn `speaker_selected.payload.selection_mode` as durable audit evidence.
-3. Member speech may come from long-lived member runtimes or bounded runner invocations, but every durable speech event must still be a typed KAN event with the runner/accounting fields required by `03-protocol-spec.md` and `13-operational-contracts.md`.
+3. Member speech may come from long-lived member runtimes or bounded runner invocations, but every durable speech event must still be a typed HUN event with the runner/accounting fields required by `03-protocol-spec.md` and `13-operational-contracts.md`.
 4. Discord message IDs are evidence pointers. Opening/final delivery evidence is required when it proves visible-post or linked-authority return completion; additional per-post IDs are allowed but must not become ordering or lifecycle authority.
 5. Kanban/Vault binding uses generic `linked_authority` metadata on `session_created.payload` and `linked_authority_result` on final/unresolved council outcomes.
 6. Follow-up topic candidates must not be auto-created as Kanban cards by the daemon. They should be listed for Gongmyeong/user approval or created by the appropriate moderator/Gray workflow with explicit evidence.
@@ -502,12 +502,12 @@ Owner-side direction now reflected in canonical docs:
 
 ## Historical next-assignment note
 
-The following was the historical next assignment before the alignment patches were applied. It is retained only to explain the review sequence. Do not route KAN implementation planning to Hwangchung or unrelated Kkachi ownership tracks unless 주군 later assigns that explicitly. Do not claim durable KAN Blue/Red/Orange/Gray structure until 주군 assigns it.
+The following was the historical next assignment before the alignment patches were applied. It is retained only to explain the review sequence. Do not route HUN implementation planning to Hwangchung or unrelated Kkachi ownership tracks unless 주군 later assigns that explicitly. Current KAN Blue/Red/Orange/Gray review ownership is 마초/서황/종회/만총; those internal lane labels are not public HUN product aliases.
 
 Historical first Kanban task:
 
 ```text
-Goal: Update the KAN documentation set so Discord thread council is a first-class TOBE surface while preserving existing event-sourced daemon/protocol/plugin/CLI architecture.
+Goal: Update the HUN documentation set so Discord thread council is a first-class TOBE surface while preserving existing event-sourced daemon/protocol/plugin/CLI architecture.
 Scope: docs only.
 No code implementation.
 Expected output: proposed patches to protocol, CLI, state machine, moderator policy, implementation epics, and acceptance tests.

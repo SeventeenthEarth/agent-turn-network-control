@@ -1,26 +1,26 @@
-# kkachi-agent-network-control Documentation
+# hun-control Documentation
 
-This directory is the source of truth for the **KAN control/runtime repo**: the Go daemon, Go CLI, protocol, event log, state machine, storage, security, operations, and release plan.
+This directory is the source of truth for the **HUN control/runtime repo**: the Go daemon, Go CLI, protocol, event log, state machine, storage, security, operations, and release plan.
 
-The Python Hermes plugin has its own repository and documentation at `../../kkachi-agent-network-plugin/docs/`. This repo may repeat plugin-facing compatibility rules, but it must not own plugin implementation details beyond the daemon contract the plugin must obey.
+The Python Hermes plugin has its own public-facing repository label `hun-plugin`; local cross-repo checks currently resolve its workspace documentation at `../../kkachi-agent-network-plugin/docs/` until HUN-014 handles hosted/local repository rename compatibility. This repo may repeat plugin-facing compatibility rules, but it must not own plugin implementation details beyond the daemon contract the plugin must obey.
 
 ## Terminology
 
-- **Release v1** — the first product release target for KAN control/runtime plus the matching plugin adapter.
+- **Release v1** — the first product release target for HUN control/runtime plus the matching plugin adapter.
 - **Implementation Phase N** — build sequencing bucket, not a product version.
-- **Control repo** — this repository, `kkachi-agent-network-control`, containing daemon/CLI authority.
-- **Plugin repo** — `kkachi-agent-network-plugin`, containing the Python Hermes plugin adapter.
+- **Control repo** — this repository, `hun-control`, containing daemon/CLI authority.
+- **Plugin repo** — `hun-plugin`, containing the Python Hermes plugin adapter.
 - **Protocol contract** — command envelopes, stream frames, structured errors, version compatibility, and schema fixtures used by both repos.
 
 ## Repository split contract
 
 | Concern | Owning repo | Notes |
 | --- | --- | --- |
-| Daemon state, locks, event append, replay | `kkachi-agent-network-control` | `channel.jsonl` is SOT. |
-| Go CLI diagnostics/recovery/manual operation | `kkachi-agent-network-control` | Must work without Hermes plugin; CLI binary remains `kkachi-agent-network`. |
-| Protocol schemas and conformance fixtures | `kkachi-agent-network-control` | Plugin consumes and tests against them. |
-| Hermes plugin tools/slash commands/skill | `kkachi-agent-network-plugin` | Adapter only; no direct SOT mutation. |
-| Discord visible surface helpers | `kkachi-agent-network-plugin` | Uses Hermes gateway/send_message and records delivery evidence through daemon commands. |
+| Daemon state, locks, event append, replay | `hun-control` | `channel.jsonl` is SOT. |
+| Go CLI diagnostics/recovery/manual operation | `hun-control` | Must work without Hermes plugin; CLI binary remains `hun`. |
+| Protocol schemas and conformance fixtures | `hun-control` | Plugin consumes and tests against them. |
+| Hermes plugin tools/slash commands/skill | `hun-plugin` | Adapter only; no direct SOT mutation. |
+| Discord visible surface helpers | `hun-plugin` | Uses Hermes gateway/send_message and records delivery evidence through daemon commands. |
 | End-user UX summaries | both | May duplicate, but authority labels must be explicit. |
 
 ## Documents
@@ -40,7 +40,7 @@ The Python Hermes plugin has its own repository and documentation at `../../kkac
 13. `12-security.md` — registry, subprocess, workspace, and secret safety
 14. `13-operational-contracts.md` — stream, idempotency, cost, timeouts, schema migration
 15. `14-streaming-member-runtime.md` — member runtime rationale
-16. `15-hermes-agent-runtime-context.md` — Hermes Agent context for KAN implementers
+16. `15-hermes-agent-runtime-context.md` — Hermes Agent context for HUN implementers
 17. `16-observability.md` — health, metrics, SLO/SLI, structured diagnostics
 18. `17-disaster-recovery.md` — backup, restore, corruption handling, replay rebuild
 19. `18-testing-strategy.md` — test layers and Makefile target contract
@@ -88,7 +88,7 @@ The control repo Makefile owns Go checks, control docs guardrails, and RELIA-001
 14. `24-live-transport-control-sot.md` when planning post-Release `LTRAN`, `MEMBR`, `SURFD`, or `ENSOT` live-local / visible-closeout work
 15. `25-council-argument-graph-sot.md` when planning `ARGUE` discussion-quality argument graph work; `control/ARGUE-001` is accepted docs-only, and `control/ARGUE-002` is accepted for bounded local static protocol/fixture scope under KAS/KAH run `run-20260615T145822Z-caab064cf550`
 16. `26-hermes-unified-network-control-naming-sot.md` when planning `HUN` public rename work
-17. plugin docs in `../../kkachi-agent-network-plugin/docs/`
+17. plugin docs in the local workspace path `../../kkachi-agent-network-plugin/docs/` while the public repo label remains `hun-plugin` until HUN-014 rename compatibility closes
 
 ## Current implementation state
 

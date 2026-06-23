@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document defines how an operator backs up, restores, and recovers `kkachi-agent-network` state. It covers `channel.jsonl` corruption, SQLite projection corruption, registry snapshot loss, active-session lock mismatch, and unsafe data home permissions. The goal is to bring the daemon back to a verifiable state without inventing events, replacing real member runtimes, or weakening the security model.
+This document defines how an operator backs up, restores, and recovers `hun` state. It covers `channel.jsonl` corruption, SQLite projection corruption, registry snapshot loss, active-session lock mismatch, and unsafe data home permissions. The goal is to bring the daemon back to a verifiable state without inventing events, replacing real member runtimes, or weakening the security model.
 
 The normative SOT documents that disaster recovery depends on:
 
@@ -33,24 +33,24 @@ The normative SOT documents that disaster recovery depends on:
 | `raw_logs/`                            |        Optional | Operational artifact, short retention           |
 | `runtime/<member>/stream_cursor`       |        Optional | Recoverable from `stream_cursor_acknowledged`   |
 | `active_session.lock` / runtime lock artifacts |              No | Recoverable from session lifecycle events       |
-| `run/kkachi-agent-networkd.sock`              |              No | Process socket; recreated by daemon start       |
+| `run/hund.sock`              |              No | Process socket; recreated by daemon start       |
 
-Backups should preserve file mode and ownership where possible. After restore, ownership and modes must satisfy the rules in `12-security.md`; `kkachi-agent-network doctor` (with `--repair-permissions`) or `kkachi-agent-network init` may correct them with explicit reporting.
+Backups should preserve file mode and ownership where possible. After restore, ownership and modes must satisfy the rules in `12-security.md`; `hun doctor` (with `--repair-permissions`) or `hun init` may correct them with explicit reporting.
 
 ## What can be rebuilt
 
-- `network.sqlite` and every projection table — rebuilt by `kkachi-agent-network storage rebuild-projection`.
+- `network.sqlite` and every projection table — rebuilt by `hun storage rebuild-projection`.
 - `transcript.md` and `brief.md` — regenerated from `channel.jsonl` (`05-storage-schema.md#retention`).
 - `event_recipients`, `runner_invocations`, `escalation_batches`, `escalation_batch_items`, `commands_seen`, `artifacts` projections — rebuilt by replay.
 - `stream_cursor` files — rebuilt from `stream_cursor_acknowledged` events.
 
 ## Backup procedure
 
-1. Stop the daemon (`kkachi-agent-network daemon stop`) before copying files. This avoids racing with appends.
+1. Stop the daemon (`hun daemon stop`) before copying files. This avoids racing with appends.
 2. Copy `<data_home>` recursively, preserving permissions and ownership.
-3. Verify the copy by running `kkachi-agent-network storage verify --data-home <backup_path>` against the copy (when supported by the implementation) or by inspecting `channel.jsonl` parseability.
+3. Verify the copy by running `hun storage verify --data-home <backup_path>` against the copy (when supported by the implementation) or by inspecting `channel.jsonl` parseability.
 4. Encrypt the backup if the destination is not on the same trust boundary as `<data_home>`. Backups inherit the same secret hygiene rules: artifacts may carry redacted user content, and `registry_snapshot.yaml` carries member identity.
-5. Restart the daemon (`kkachi-agent-network daemon start`).
+5. Restart the daemon (`hun daemon start`).
 
 A live backup (without stopping the daemon) is acceptable only when the implementation provides a snapshot mechanism that guarantees a consistent `channel.jsonl` view; otherwise prefer a brief stop-and-copy.
 
@@ -58,11 +58,11 @@ A live backup (without stopping the daemon) is acceptable only when the implemen
 
 1. Stop the daemon if it is running.
 2. Place the backup at the desired `<data_home>` path.
-3. Verify file ownership and permissions match the rules in `12-security.md` (data home `0700` recommended, registry `0600` recommended, owner is the daemon user). Use `kkachi-agent-network doctor` to inspect; use `kkachi-agent-network doctor --repair-permissions` or `kkachi-agent-network init` to fix with explicit reporting.
-4. Run `kkachi-agent-network storage verify`.
-5. Run `kkachi-agent-network storage rebuild-projection` if any projection is missing or fails verification.
+3. Verify file ownership and permissions match the rules in `12-security.md` (data home `0700` recommended, registry `0600` recommended, owner is the daemon user). Use `hun doctor` to inspect; use `hun doctor --repair-permissions` or `hun init` to fix with explicit reporting.
+4. Run `hun storage verify`.
+5. Run `hun storage rebuild-projection` if any projection is missing or fails verification.
 6. Start the daemon.
-7. Run `kkachi-agent-network doctor` and `kkachi-agent-network status` to confirm the active session and phase match expectations.
+7. Run `hun doctor` and `hun status` to confirm the active session and phase match expectations.
 
 ## Projection rebuild
 
@@ -70,10 +70,10 @@ Projection rebuild is the most common recovery operation. It is replay applied t
 
 ```text
 1. Stop the daemon.
-2. Run `kkachi-agent-network storage verify`.
-3. If verification reports only a missing, corrupt, or mismatched projection, run `kkachi-agent-network storage rebuild-projection`; rebuild performs its own event-log preflight before replacement.
+2. Run `hun storage verify`.
+3. If verification reports only a missing, corrupt, or mismatched projection, run `hun storage rebuild-projection`; rebuild performs its own event-log preflight before replacement.
 4. Start the daemon.
-5. Run `kkachi-agent-network doctor`.
+5. Run `hun doctor`.
 6. Confirm active session status and phase.
 ```
 
@@ -89,7 +89,7 @@ If verification fails because `channel.jsonl` is corrupt, schema migration is mi
 
 ## channel.jsonl corruption
 
-Symptoms: `kkachi-agent-network storage verify` reports parse error, duplicate `event_id`, schema gap, or `migration_required`.
+Symptoms: `hun storage verify` reports parse error, duplicate `event_id`, schema gap, or `migration_required`.
 
 Procedure:
 
@@ -97,21 +97,21 @@ Procedure:
 2. Copy the corrupted `channel.jsonl` to a quarantine path before any repair attempt; do not overwrite it.
 3. Inspect the failing line(s) and the surrounding context. Determine whether corruption is at the tail (truncated final line) or in the middle.
 4. Tail truncation: if the final line is partial JSON, truncate the file at the last newline-terminated valid line. Document the action in `operational.log` manually (operator action, not a session event).
-5. Mid-file corruption: do not silently delete events. Restore from the most recent verified backup, then replay any events that arrived after the backup point only if they exist as a separate, verifiable record (rare). If no verifiable record exists, mark the affected session as unrecoverable through `kkachi-agent-network cancel <session_id>` after restoring from backup.
-6. Run `kkachi-agent-network storage verify` and `kkachi-agent-network storage rebuild-projection`.
+5. Mid-file corruption: do not silently delete events. Restore from the most recent verified backup, then replay any events that arrived after the backup point only if they exist as a separate, verifiable record (rare). If no verifiable record exists, mark the affected session as unrecoverable through `hun cancel <session_id>` after restoring from backup.
+6. Run `hun storage verify` and `hun storage rebuild-projection`.
 7. Start the daemon and verify session state.
 
 The daemon must never auto-skip events to keep replay alive.
 
 ## SQLite corruption
 
-Symptoms: `kkachi-agent-network status` returns inconsistent values, projection queries fail, or `kkachi-agent-network storage verify` reports projection mismatch.
+Symptoms: `hun status` returns inconsistent values, projection queries fail, or `hun storage verify` reports projection mismatch.
 
 Procedure:
 
 1. Stop the daemon.
 2. Move the corrupted `network.sqlite` aside (do not delete until rebuild succeeds).
-3. Run `kkachi-agent-network storage rebuild-projection` to rebuild from `channel.jsonl`.
+3. Run `hun storage rebuild-projection` to rebuild from `channel.jsonl`.
 4. Start the daemon and verify status.
 
 Because SQLite is a projection, a clean rebuild is always safe as long as `channel.jsonl` is intact.
@@ -127,19 +127,19 @@ Procedure:
 3. If lifecycle events show a terminal phase, remove stale runtime lock artifacts and trust replay-derived terminal state.
 4. If lifecycle events show a non-terminal phase but the runtime lock is missing, recreate the lock from the recorded session id during daemon start. Replay-derived active-session discovery uses the latest durable event rather than stale `session.yaml` phase/status.
 5. Start the daemon.
-6. Run `kkachi-agent-network status` to confirm the lock matches the recorded state.
+6. Run `hun status` to confirm the lock matches the recorded state.
 
 ## registry_snapshot.yaml missing or corrupt
 
-Symptoms: dispatch fails with a session-scoped registry violation; `kkachi-agent-network storage verify` reports replay failure for a missing, unsafe, empty, or corrupt session snapshot.
+Symptoms: dispatch fails with a session-scoped registry violation; `hun storage verify` reports replay failure for a missing, unsafe, empty, or corrupt session snapshot.
 
 Procedure:
 
 1. Stop the daemon.
 2. Restore `sessions/<session_id>/registry_snapshot.yaml` from the most recent backup.
 3. If no backup exists, the session cannot be rebuilt as valid local release evidence. Replay must not regenerate the snapshot from the live `registry.yaml` (per `12-security.md` and `13-operational-contracts.md` §2).
-4. Run `kkachi-agent-network storage verify` and start the daemon.
-5. Cancel the session through `kkachi-agent-network cancel <session_id>` if the snapshot cannot be restored.
+4. Run `hun storage verify` and start the daemon.
+5. Cancel the session through `hun cancel <session_id>` if the snapshot cannot be restored.
 
 ## Unsafe data home or registry permissions
 
@@ -148,9 +148,9 @@ Symptoms: daemon refuses to start with a category from `12-security.md` (e.g. `r
 Procedure:
 
 1. Stop the daemon (if running).
-2. Run `kkachi-agent-network doctor` to enumerate the unsafe paths and recommended fixes.
-3. Run `kkachi-agent-network doctor --repair-permissions` or `kkachi-agent-network init` to apply fixes; both must report every change.
-4. Re-run `kkachi-agent-network doctor` to confirm.
+2. Run `hun doctor` to enumerate the unsafe paths and recommended fixes.
+3. Run `hun doctor --repair-permissions` or `hun init` to apply fixes; both must report every change.
+4. Re-run `hun doctor` to confirm.
 5. Start the daemon.
 
 Daemon start must not silently chmod or chown anything.
@@ -163,9 +163,9 @@ Procedure:
 
 1. Stop the daemon.
 2. Copy `<data_home>` to the new path with permissions preserved.
-3. Set `$KKACHI_AGENT_NETWORK_HOME` to the new path or leave the resolution order alone if the new path follows `$XDG_DATA_HOME/kkachi-agent-network` or `~/.kkachi-agent-network/`.
-4. Run `kkachi-agent-network doctor` against the new path.
-5. Run `kkachi-agent-network storage verify` and `kkachi-agent-network storage rebuild-projection` if needed.
+3. Set `$HUN_HOME` to the new path or leave the resolution order alone if the new path follows `$XDG_DATA_HOME/hermes-unified-network` or `~/.hun/`.
+4. Run `hun doctor` against the new path.
+5. Run `hun storage verify` and `hun storage rebuild-projection` if needed.
 6. Start the daemon.
 
 Per-session `registry_snapshot.yaml` is portable; the live `registry.yaml` may need adjustment if member workspace paths changed.
@@ -174,11 +174,11 @@ Per-session `registry_snapshot.yaml` is portable; the live `registry.yaml` may n
 
 After any recovery operation, verify:
 
-- [ ] `kkachi-agent-network doctor` reports no unsafe paths.
-- [ ] `kkachi-agent-network daemon status` reports ready.
-- [ ] `kkachi-agent-network storage verify` passes.
-- [ ] `kkachi-agent-network status` matches the expected active session and phase.
-- [ ] `kkachi-agent-network limits show <session_id>` returns sane runner accounting and escalation counters.
+- [ ] `hun doctor` reports no unsafe paths.
+- [ ] `hun daemon status` reports ready.
+- [ ] `hun storage verify` passes.
+- [ ] `hun status` matches the expected active session and phase.
+- [ ] `hun limits show <session_id>` returns sane runner accounting and escalation counters.
 - [ ] No `security_violation` events were created during recovery.
 - [ ] `operational.log` records the recovery action (manual entry by the operator if no automated event exists).
 

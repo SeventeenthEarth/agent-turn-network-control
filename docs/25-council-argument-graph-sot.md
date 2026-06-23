@@ -1,17 +1,17 @@
 # Council Argument Graph SOT
 
-Status: Accepted/completed docs-only SOT for `control/ARGUE-001`. Official KAN review passed with Red card `t_4a2e735f`, Orange card `t_9f4b2b9c`, and Gray card `t_b196d630`; this closeout records Blue synthesis as satisfied for ARGUE-001. This document is the first durable SOT for KAN council discussion-quality work. ARGUE-001 did not start or authorize `control/ARGUE-002`; `control/ARGUE-002` was separately accepted for bounded local static protocol/fixture scope under KAS/KAH run `run-20260615T145822Z-caab064cf550` after Red `t_e2ced3fc`, Orange `t_fd35e83a`, Gray `t_c9e20348`, Blue synthesis `t_ade91c69`, and final gate `evt-001437`. This SOT does not enable live/default/production runtime behavior by itself.
+Status: Accepted/completed docs-only SOT for `control/ARGUE-001`. Official KAN review passed with Red card `t_4a2e735f`, Orange card `t_9f4b2b9c`, and Gray card `t_b196d630`; this closeout records Blue synthesis as satisfied for ARGUE-001. This document is the first durable SOT for HUN council discussion-quality work. ARGUE-001 did not start or authorize `control/ARGUE-002`; `control/ARGUE-002` was separately accepted for bounded local static protocol/fixture scope under KAS/KAH run `run-20260615T145822Z-caab064cf550` after Red `t_e2ced3fc`, Orange `t_fd35e83a`, Gray `t_c9e20348`, Blue synthesis `t_ade91c69`, and final gate `evt-001437`. This SOT does not enable live/default/production runtime behavior by itself.
 
 Date: 2026-06-15
-Owner: 마초 / `macho` for the bounded KAN control/plugin lanes
+Owner: 마초 / `macho` for the bounded HUN control/plugin lanes
 Companion repos:
 
-- Control authority: `kkachi-agent-network-control`
-- Plugin adapter: `kkachi-agent-network-plugin`
+- Control authority: `hun-control`
+- Plugin adapter: `hun-plugin`
 
 ## 1. Purpose
 
-KAN council discussions must be more than mechanically valid turn logs. A successful council must preserve evidence that participants engaged each other's claims: supporting, challenging, refining, extending, questioning, synthesizing, or deliberately opening a new axis.
+HUN council discussions must be more than mechanically valid turn logs. A successful council must preserve evidence that participants engaged each other's claims: supporting, challenging, refining, extending, questioning, synthesizing, or deliberately opening a new axis.
 
 The failed quality pattern this SOT prevents is:
 
@@ -21,17 +21,19 @@ but every speaker only says an independent mini-essay,
 with no durable relation to prior claims.
 ```
 
-KAN therefore models discussion quality as an **argument graph layered over the event sequence**. The event log remains ordered and append-only; the argument graph records semantic links between claims inside that log.
+HUN therefore models discussion quality as an **argument graph layered over the event sequence**. The event log remains ordered and append-only; the argument graph records semantic links between claims inside that log.
 
 ## 2. Authority and boundary
 
-### 2.1 KAN independence
+### 2.1 HUN independence
 
-KAN is independent of KAS. KAS does not install, own, or activate KAN control, KAN plugin, KAN bundled operator guidance, or KAN participant profile state.
+HUN is independent of KAS. KAS does not install, own, or activate HUN control, HUN plugin, HUN bundled operator guidance, or HUN participant profile state.
+
+The legacy `kan_selected_participant_response` tool name below is a historical/provenance reference from the pre-HUN plugin surface, not a current public HUN alias.
 
 ### 2.2 Control authority
 
-`kkachi-agent-network-control` owns:
+`hun-control` owns:
 
 - daemon event/state authority;
 - protocol shape and conformance fixtures;
@@ -41,13 +43,13 @@ KAN is independent of KAS. KAS does not install, own, or activate KAN control, K
 
 ### 2.3 Plugin authority
 
-`kkachi-agent-network-plugin` owns:
+`hun-plugin` owns:
 
 - Hermes participant-agent tool surface;
 - plugin schemas and handler validation before command submission;
 - participant response framing for `kan_selected_participant_response`;
 - visible surface rendering of relation evidence;
-- packaged KAN operator guidance bundled inside the plugin package.
+- packaged HUN operator guidance bundled inside the plugin package.
 
 The plugin must not become a second lifecycle state authority, must not infer council state from Discord order, and must not hide CLI/daemon fallback behavior.
 
@@ -375,7 +377,7 @@ The plugin implementation must:
 - fail closed when participant output contains runtime warning prefixes, max-iteration noise, or malformed relation payloads that would become visible speech;
 - preserve profile/session/provenance evidence separately from speech text;
 - render visible transcript relation summaries without claiming lifecycle authority;
-- update packaged operator guidance as a KAN plugin artifact, not as a KAS install claim.
+- update packaged operator guidance as a HUN plugin artifact, not as a KAS install claim.
 
 ## 10. Conformance fixture requirements
 
@@ -425,7 +427,7 @@ control/ARGUE-001  Council argument graph SOT and roadmap/index links
 
 A future live-local pilot may claim discussion-quality success only when evidence shows:
 
-- actual named participant profiles had KAN plugin/tool visibility before the run;
+- actual named participant profiles had HUN plugin/tool visibility before the run;
 - daemon/CLI event stream is authoritative and replayable;
 - each non-opening speech in quality-required mode has valid relation evidence or justified `new_axis`;
 - at least one relation targets a claim more than one turn earlier;
@@ -440,7 +442,7 @@ This SOT does not:
 
 - enable production/live readiness;
 - authorize gateway, provider, token, profile, Discord, or daemon runtime mutation;
-- require KAS to install or own KAN artifacts;
+- require KAS to install or own HUN artifacts;
 - force direct reply to the immediately previous turn;
 - require automatic natural-language claim extraction in the first implementation slice;
 - authorize hidden fallback from plugin to CLI or from visible surface to lifecycle state.

@@ -1,14 +1,14 @@
-# kkachi-agent-network-control
+# hun-control
 
-`kkachi-agent-network-control` is the Go control/runtime repository for KAN. It owns the daemon, canonical CLI, protocol contracts, event log, state machine, storage projection, recovery paths, and control test gates. The user-facing product and binaries remain `kkachi-agent-network` / `kkachi-agent-networkd` unless a later release decision changes them.
+`hun-control` is the Go control/runtime repository for Hermes Unified Network (HUN). It owns the daemon, canonical CLI, protocol contracts, event log, state machine, storage projection, recovery paths, and control test gates. The public product is Hermes Unified Network; the current control binaries are `hun` and `hund`.
 
-The companion Python Hermes plugin adapter lives in `../kkachi-agent-network-plugin`.
+The companion Python Hermes plugin adapter is public-facing as `hun-plugin`; the local sibling workspace still resolves as `../kkachi-agent-network-plugin` until the hosted/local repository rename is handled in HUN-014.
 
 ## Repository boundary
 
-- This repo: `kkachi-agent-network-control`, plus the `kkachi-agent-networkd` daemon, `kkachi-agent-network` CLI, `channel.jsonl` SOT, SQLite projection, protocol/conformance fixtures, security and recovery docs.
+- This repo: `hun-control`, plus the `hund` daemon, `hun` CLI, `channel.jsonl` SOT, SQLite projection, protocol/conformance fixtures, security and recovery docs.
 - Plugin repo: Hermes plugin manifest/tools/slash commands/skill, Python daemon client, Discord visible-surface helper.
-- The plugin is not the source of truth. Discord is not the source of truth. `kkachi-agent-networkd` owns state mutation.
+- The plugin is not the source of truth. Discord is not the source of truth. `hund` owns state mutation.
 
 ## Documentation
 
@@ -29,13 +29,13 @@ The Go control runtime implements the local daemon/CLI spine, deterministic `cha
 ## Build and local operation
 
 ```bash
-go build -o ./kkachi-agent-network ./cmd/kkachi-agent-network
-go build -o ./kkachi-agent-networkd ./cmd/kkachi-agent-networkd
-export KKACHI_AGENT_NETWORK_HOME=/path/to/local/data-home
-./kkachi-agent-network init
-./kkachi-agent-network daemon start
-./kkachi-agent-network daemon status
-./kkachi-agent-network doctor
+go build -o ./hun ./cmd/hun
+go build -o ./hund ./cmd/hund
+export HUN_HOME=/path/to/local/data-home
+./hun init
+./hun daemon start
+./hun daemon status
+./hun doctor
 ```
 
 The CLI creates a sample disabled registry only when missing. Edit `registry.yaml` with local member wrappers before creating real sessions.
@@ -43,26 +43,26 @@ The CLI creates a sample disabled registry only when missing. Edit `registry.yam
 ## Session examples
 
 ```bash
-kkachi-agent-network delegate new sess_example_delegation --moderator agent-mod --assignee agent-1 --title "Implement task A" --task "Implement task A"
-kkachi-agent-network delegate submit sess_example_delegation --actor agent-1 --summary "Done" --command-id cmd_submit_example
-kkachi-agent-network delegate review sess_example_delegation --actor agent-mod --command-id cmd_review_example
-kkachi-agent-network council new "Decide release gate" --members agent-mod,agent-1,agent-2 --moderator agent-mod --session-id sess_example_council
+hun delegate new sess_example_delegation --moderator agent-mod --assignee agent-1 --title "Implement task A" --task "Implement task A"
+hun delegate submit sess_example_delegation --actor agent-1 --summary "Done" --command-id cmd_submit_example
+hun delegate review sess_example_delegation --actor agent-mod --command-id cmd_review_example
+hun council new "Decide release gate" --members agent-mod,agent-1,agent-2 --moderator agent-mod --session-id sess_example_council
 ```
 
 Transcript and export commands are deterministic and do not append session events:
 
 ```bash
-kkachi-agent-network transcript sess_example_delegation --format md --output transcript.md
-kkachi-agent-network transcript sess_example_delegation --format jsonl
-kkachi-agent-network export sess_example_delegation --bundle
-kkachi-agent-network tail sess_example_delegation --limit 20 --format ndjson
+hun transcript sess_example_delegation --format md --output transcript.md
+hun transcript sess_example_delegation --format jsonl
+hun export sess_example_delegation --bundle
+hun tail sess_example_delegation --limit 20 --format ndjson
 ```
 
 Export bundles are local directories containing `transcript.md`, `transcript.jsonl`, `brief.md`, `session.json`, `channel.jsonl`, `registry_snapshot.yaml`, and `bundle_manifest.json`.
 
 ## Plugin handoff
 
-The companion plugin is contract-checked/tested locally from `../kkachi-agent-network-plugin`. It consumes this repo's protocol schemas, version/features response, and `testdata/conformance/manifest.json`; it must continue to fail closed on unsupported protocol versions, missing feature groups, malformed fake-daemon responses, or any live-service configuration that has not been separately proven.
+The companion plugin is contract-checked/tested locally from the current workspace path `../kkachi-agent-network-plugin` while public docs and status labels refer to the repo as `hun-plugin`. It consumes this repo's protocol schemas, version/features response, and `testdata/conformance/manifest.json`; it must continue to fail closed on unsupported protocol versions, missing feature groups, malformed fake-daemon responses, or any live-service configuration that has not been separately proven. HUN-011 does not claim hosted/local repository rename readiness.
 
 ## Test targets
 

@@ -4,9 +4,9 @@
 
 The data root (`<data_home>`) resolves in this order:
 
-1. `$KKACHI_AGENT_NETWORK_HOME` if set,
-2. `$XDG_DATA_HOME/kkachi-agent-network` if `$XDG_DATA_HOME` is set,
-3. `~/.kkachi-agent-network/` otherwise.
+1. `$HUN_HOME` if set,
+2. `$XDG_DATA_HOME/hermes-unified-network` if `$XDG_DATA_HOME` is set,
+3. `~/.hun/` otherwise.
 
 Layout under `<data_home>`:
 
@@ -17,7 +17,7 @@ Layout under `<data_home>`:
   registry.yaml                 # user-edited registry SOT
   operational.log               # daemon operational log; see 12-security.md
   run/
-    kkachi-agent-networkd.sock         # daemon Unix socket (HTTP transport)
+    hund.sock         # daemon Unix socket (HTTP transport)
   runtime/
     <member>/
       stream_cursor             # member runtime's last acknowledged cursor
@@ -59,7 +59,7 @@ Security-sensitive files within `<data_home>`:
 - `<data_home>/network.sqlite`
 - `<data_home>/active_session.lock`
 - `<data_home>/operational.log`
-- `<data_home>/run/kkachi-agent-networkd.sock`
+- `<data_home>/run/hund.sock`
 - `<data_home>/sessions/<session_id>/registry_snapshot.yaml` (recommended mode `0600`)
 
 The normative permission rules for registry and wrapper validation live in `12-security.md`.
@@ -103,7 +103,7 @@ members:
 - `network.sqlite` is a query and status projection.
 - `transcript.md` and `brief.md` are generated renderings.
 
-`kkachi-agent-network storage rebuild-projection` (defined in `04-cli-spec.md`) rebuilds `network.sqlite` and other projections from `channel.jsonl`. It is an operational command and must not append events, invoke runners, deliver escalations, or invent timer-driven events. Detailed disaster-recovery procedure lives in `17-disaster-recovery.md`.
+`hun storage rebuild-projection` (defined in `04-cli-spec.md`) rebuilds `network.sqlite` and other projections from `channel.jsonl`. It is an operational command and must not append events, invoke runners, deliver escalations, or invent timer-driven events. Detailed disaster-recovery procedure lives in `17-disaster-recovery.md`.
 
 Release v1 schema implementation creates all named projection tables plus `projection_metadata`. Metadata records `schema_version`, `source_session_count`, `source_event_count`, and deterministic `source_hash`. Empty event-specific tables mean no matching durable event was replayed; they are not deferred schema.
 

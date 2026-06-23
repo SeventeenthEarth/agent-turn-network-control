@@ -2,7 +2,7 @@
 
 ## Goal
 
-Enable `kkachi-agent-network-control` and `kkachi-agent-network-plugin` to develop independently while checking each other's milestones through an explicit protocol/conformance contract.
+Enable `hun-control` and `hun-plugin` to develop independently while checking each other's milestones through an explicit protocol/conformance contract.
 
 This document is the control-side SOT for cross-repo development. The plugin-side companion is `../../kkachi-agent-network-plugin/docs/07-core-compatibility.md`.
 
@@ -106,7 +106,7 @@ Control publishes conformance fixtures and plugin runs parser/client tests again
 
 ### Live local mode
 
-Plugin runs against a locally built `kkachi-agent-networkd` with a disposable data home. Good for integration and isolated E2E once control commands exist.
+Plugin runs against a locally built `hund` with a disposable data home. Good for integration and isolated E2E once control commands exist.
 
 ### External E2E mode
 

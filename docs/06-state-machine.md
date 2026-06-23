@@ -247,7 +247,7 @@ Runner budget breach examples that can enter `blocked`: `session_budget_exceeded
 Exit conditions:
 
 - `limits_extended` with user authorization → return to the recorded `resume_phase` when the block was a budget or limit breach.
-- `session_resumed` (recorded by `kkachi-agent-network resume`) → return to the recorded `resume_phase` for explicit moderator blocks, external-dependency blocks, scope-conflict blocks, or policy/process blocks. `session_resumed` may also lift verified security blocks where the security model defines the violation as remediable.
+- `session_resumed` (recorded by `hun resume`) → return to the recorded `resume_phase` for explicit moderator blocks, external-dependency blocks, scope-conflict blocks, or policy/process blocks. `session_resumed` may also lift verified security blocks where the security model defines the violation as remediable.
 - the moderator cancels the session → `cancelled`.
 
 `limits_extended` lifts only budget or limit blocks. `session_resumed` lifts manual or external-dependency blocks; it must not be used for budget or limit blocks recorded by `session_budget_exceeded`.

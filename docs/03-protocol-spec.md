@@ -60,8 +60,8 @@ Field rules (full contract in `13-operational-contracts.md`):
 The event envelope deliberately does **not** include `status`. `status` is a derived roll-up projection (allowed values `open`/`blocked`/`terminal`) defined in `05-storage-schema.md` and `13-operational-contracts.md` §5; it is stored only in `session.yaml` and the SQLite `sessions.status` column for query, UI, and active-session lock checks. The durable lifecycle source is `phase`.
 - `session_type`: `delegation` or `council`. Other values fail closed.
 - `turn`: integer turn counter; required for council events that occur inside a turn (`hand_raise_requested`, `hand_raise`, `speaker_selected`, `speech`, `moderator_intervention`), null otherwise.
-- `from`: required string. The single principal that originated the event. Allowed values are registry member ids plus the reserved principals `user` and `kkachi-agent-networkd`. `from` is never an array; if multiple actors are relevant (e.g. an `escalation_batched` that summarizes multiple source members), the originator stays a single string and the related actors are listed in `payload`.
-- `to`: required `array<string>`. The semantic recipients of the event. A single recipient is represented as a one-element array (e.g. `["agent-mod"]`, never `"agent-mod"`). Broadcast is represented by an explicit recipient list (e.g. `["agent-1", "agent-2", "agent-3"]`); special values such as `"all"`, `["all"]`, or `"*"` are forbidden. `to: []` is allowed only for unaddressed session audit events. Recipients must be unique within a single event; duplicates are normalized away or rejected before append. Recipient order has no semantic meaning; the daemon stores recipients in canonical order for deterministic projection and transcript rendering. Allowed recipient values are registry member ids and the reserved principal `user`; `kkachi-agent-networkd` is not a normal recipient.
+- `from`: required string. The single principal that originated the event. Allowed values are registry member ids plus the reserved principals `user` and `hund`. `from` is never an array; if multiple actors are relevant (e.g. an `escalation_batched` that summarizes multiple source members), the originator stays a single string and the related actors are listed in `payload`.
+- `to`: required `array<string>`. The semantic recipients of the event. A single recipient is represented as a one-element array (e.g. `["agent-mod"]`, never `"agent-mod"`). Broadcast is represented by an explicit recipient list (e.g. `["agent-1", "agent-2", "agent-3"]`); special values such as `"all"`, `["all"]`, or `"*"` are forbidden. `to: []` is allowed only for unaddressed session audit events. Recipients must be unique within a single event; duplicates are normalized away or rejected before append. Recipient order has no semantic meaning; the daemon stores recipients in canonical order for deterministic projection and transcript rendering. Allowed recipient values are registry member ids and the reserved principal `user`; `hund` is not a normal recipient.
 
 `to` is **semantic addressing**, not stream access control. A valid session participant may observe events not addressed to it; the runtime decides whether to act by inspecting `type`, `from`, `to`, role, phase, and policy. Stream read permissions are governed by `12-security.md`.
 
@@ -98,22 +98,22 @@ Coverage rules (cross-document invariants):
 The envelope `from` and `to` fields carry principal identifiers. Most principals are registry member ids. The reserved principals are:
 
 - `user`
-- `kkachi-agent-networkd`
+- `hund`
 
 `from` is always a single string. `to` is always an array of strings.
 
-Role information (`moderator`, `assignee`, `reviewer`, `participant`, `observer`) is resolved out-of-band via the registry and projected into `session_participants.role`. The protocol does not derive permissions from role strings; semantic intent comes from the event `type`, `from`, `to`, session phase, and policy. Reserved principal collision in the registry (`members.user`, `members.kkachi-agent-networkd`) is rejected at registry load time per `12-security.md`.
+Role information (`moderator`, `assignee`, `reviewer`, `participant`, `observer`) is resolved out-of-band via the registry and projected into `session_participants.role`. The protocol does not derive permissions from role strings; semantic intent comes from the event `type`, `from`, `to`, session phase, and policy. Reserved principal collision in the registry (`members.user`, `members.hund`) is rejected at registry load time per `12-security.md`.
 
 ## Stream delivery contract
 
-The daemon exposes events to the KAN protocol client/contract and canonical CLI stream as an ordered cursor sequence. The cursor is a daemon-issued opaque value, normally derived from the append offset plus `event_id`. It is not interpreted by member runtimes.
+The daemon exposes events to the HUN protocol client/contract and canonical CLI stream as an ordered cursor sequence. The cursor is a daemon-issued opaque value, normally derived from the append offset plus `event_id`. It is not interpreted by member runtimes.
 
 Rules:
 
 - `channel.jsonl` append is the source of truth; a stream event must not be visible before the append succeeds.
 - Stream consumers, whether Hermes plugin tools or the canonical CLI, emit replayed events from `--since` before live events.
 - Every stream frame includes `cursor`, the full event envelope, and an `is_replay` boolean.
-- Member runtimes acknowledge processed cursors through the KAN protocol client/contract; `kkachi-agent-network stream ack` is the canonical CLI fallback.
+- Member runtimes acknowledge processed cursors through the HUN protocol client/contract; `hun stream ack` is the canonical CLI fallback.
 - If the daemon cannot satisfy a cursor because of retention, corruption, or unknown schema, it emits a stream error and refuses silent skip.
 - Direct daemon connections are implementation details. Agent-facing readers use Hermes plugin stream tools when available and the canonical CLI stream for diagnostics, recovery, tests, and manual fallback.
 
@@ -140,12 +140,12 @@ Example stream frame:
 ### session_created
 
 Origin class: `daemon_after_cli`.
-Created by: `kkachi-agent-network delegate new` or `kkachi-agent-network council new`.
+Created by: `hun delegate new` or `hun council new`.
 
 ```json
 {
   "type": "session_created",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": ["agent-mod", "agent-1"],
   "payload": {
     "session_type": "delegation",
@@ -162,7 +162,7 @@ Council variant has `to` listing every council member:
 ```json
 {
   "type": "session_created",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": ["agent-mod", "agent-1", "agent-2", "agent-3"],
   "payload": {
     "session_type": "council",
@@ -202,7 +202,7 @@ The expected visible turn total is `max_discussion_turns + participant_count + 2
 
 ### Surface rendering evidence contract
 
-Visible rooms such as Discord threads are projections of durable KAN events. They help humans follow a council, but they are not lifecycle state authority. A renderer, transcript command, export command, or plugin-visible helper must build its view from cursor-ordered `channel.jsonl` events and may attach external message ids only as evidence pointers.
+Visible rooms such as Discord threads are projections of durable HUN events. They help humans follow a council, but they are not lifecycle state authority. A renderer, transcript command, export command, or plugin-visible helper must build its view from cursor-ordered `channel.jsonl` events and may attach external message ids only as evidence pointers.
 
 Minimum event inputs for the visible surface contract:
 
@@ -236,7 +236,7 @@ The daemon, replay, transcript, export, and projection rebuild must stay side-ef
 ### session_cancelled
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network cancel`.
+Canonical command: `hun cancel`.
 
 ```json
 {
@@ -251,9 +251,9 @@ Canonical command: `kkachi-agent-network cancel`.
 
 Origin class: `participant_cli`.
 
-Canonical command: `kkachi-agent-network block`.
+Canonical command: `hun block`.
 
-Compatibility command path: `kkachi-agent-network delegate block` for delegation sessions.
+Compatibility command path: `hun delegate block` for delegation sessions.
 
 `session_blocked` is the common manual block event used by both delegation and council sessions. It is distinct from daemon-originated operational events (`session_budget_exceeded`, `escalation_timeout`, session-scoped `security_violation`) which may also move a session into a blocked state per `13-operational-contracts.md`. Manual `session_blocked` transitions the session to `blocked`; the envelope `phase` is `blocked` and the payload records both `prior_phase` and `resume_phase`, even when they are the same value.
 
@@ -287,7 +287,7 @@ Allowed `category` values:
 
 Origin class: `participant_cli`.
 
-Canonical command: `kkachi-agent-network resume`.
+Canonical command: `hun resume`.
 
 `session_resumed` lifts a recoverable manual, external-dependency, policy, or council block and returns the session to the `resume_phase` recorded by the blocking event. It must not be used to lift budget or limit blocks that require `limits_extended`.
 
@@ -322,7 +322,7 @@ Rules:
 ### task_assigned
 
 Origin class: `daemon_after_cli`.
-Created by: `kkachi-agent-network delegate new`.
+Created by: `hun delegate new`.
 
 ```json
 {
@@ -341,7 +341,7 @@ Created by: `kkachi-agent-network delegate new`.
 ### assignee_acknowledged
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network delegate ack`.
+Canonical command: `hun delegate ack`.
 
 ```json
 {
@@ -359,7 +359,7 @@ Canonical command: `kkachi-agent-network delegate ack`.
 ### clarification_requested
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network delegate clarify`.
+Canonical command: `hun delegate clarify`.
 
 ```json
 {
@@ -376,7 +376,7 @@ Canonical command: `kkachi-agent-network delegate clarify`.
 ### clarification_answered
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network delegate answer-clarification`.
+Canonical command: `hun delegate answer-clarification`.
 
 `clarification_answered` must reference the clarification request it answers through `causation_event_id`.
 
@@ -395,7 +395,7 @@ Canonical command: `kkachi-agent-network delegate answer-clarification`.
 ### delegation_message
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network delegate message`.
+Canonical command: `hun delegate message`.
 
 General delegation message that is **not** a direct answer to a specific `clarification_requested` event. Use `clarification_answered` for direct clarification answers.
 
@@ -422,7 +422,7 @@ Allowed `kind` values:
 ### assignee_update_requested
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network delegate request-update`.
+Canonical command: `hun delegate request-update`.
 
 ```json
 {
@@ -442,18 +442,18 @@ Origin class: `mixed`.
 
 Allowed origins:
 
-- `participant_cli`: emitted by `kkachi-agent-network delegate escalate` when the escalation is immediate and not batched.
-- `daemon_after_cli`: emitted by the daemon as the deterministic result of `kkachi-agent-network delegate escalation-flush`.
+- `participant_cli`: emitted by `hun delegate escalate` when the escalation is immediate and not batched.
+- `daemon_after_cli`: emitted by the daemon as the deterministic result of `hun delegate escalation-flush`.
 - `daemon_internal`: emitted by daemon runtime policy when a pending batch is flushed by timer expiry, higher-urgency pressure, startup reconciliation, or phase-change pressure.
 
 Command paths:
 
-- `kkachi-agent-network delegate escalate`
-- `kkachi-agent-network delegate escalation-flush`
+- `hun delegate escalate`
+- `hun delegate escalation-flush`
 
 Daemon-internal flushes do not require a public write command but must include `causation_event_id` pointing to the pending batch or policy-triggering event.
 
-When `user_escalation_requested` is emitted by a daemon-internal or daemon-after-CLI batch flush, `from` may be `kkachi-agent-networkd`. When it is emitted by an immediate moderator escalation, `from` is the authorized participant principal, normally `agent-mod`.
+When `user_escalation_requested` is emitted by a daemon-internal or daemon-after-CLI batch flush, `from` may be `hund`. When it is emitted by an immediate moderator escalation, `from` is the authorized participant principal, normally `agent-mod`.
 
 ```json
 {
@@ -484,7 +484,7 @@ Batch example (multiple low-urgency questions flushed into one user-facing escal
 ```json
 {
   "type": "user_escalation_requested",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": ["user"],
   "phase": "waiting_user",
   "payload": {
@@ -528,11 +528,11 @@ Rules:
 ### user_escalation_delivered
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network delegate escalation-delivered`.
+Canonical command: `hun delegate escalation-delivered`.
 
 `causation_event_id` points to the originating `user_escalation_requested` event.
 
-Emitted by the moderator runtime (not by the daemon) after the Hermes plugin/gateway helper or equivalent Hermes gateway skill has actually delivered the escalation to the user. The daemon records this event through the normal typed KAN command path, with the CLI as the canonical fallback; the daemon itself never opens an outbound notification channel.
+Emitted by the moderator runtime (not by the daemon) after the Hermes plugin/gateway helper or equivalent Hermes gateway skill has actually delivered the escalation to the user. The daemon records this event through the normal typed HUN command path, with the CLI as the canonical fallback; the daemon itself never opens an outbound notification channel.
 
 ```json
 {
@@ -554,7 +554,7 @@ Emitted by the moderator runtime (not by the daemon) after the Hermes plugin/gat
 ### user_escalation_resolved
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network delegate resolve-escalation`.
+Canonical command: `hun delegate resolve-escalation`.
 
 ```json
 {
@@ -601,7 +601,7 @@ This event may be recorded through a CLI command executed by the moderator runti
 ### assignee_update
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network delegate update`.
+Canonical command: `hun delegate update`.
 
 When this event is the terminal result of a bounded runner invocation (e.g. the daemon resumed the assignee's wrapper to capture progress), it carries the originating `runner.invocation_id` plus a `cost` field. `runner_calls_total` was already incremented by the corresponding `runner_invocation_started`; if `cost` is `null`, `missing_cost_runner_calls_total` increments instead of token/USD totals. Direct CLI-originated updates that do not pass through the runner adapter omit both `runner` and `cost`.
 
@@ -646,7 +646,7 @@ Allowed `progress_status` values:
 ### work_submitted
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network delegate submit`.
+Canonical command: `hun delegate submit`.
 
 ```json
 {
@@ -675,7 +675,7 @@ CLI commands may accept source artifact paths, but persisted `work_submitted` ev
 ### review_requested
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network delegate review`.
+Canonical command: `hun delegate review`.
 
 ```json
 {
@@ -699,7 +699,7 @@ Canonical command: `kkachi-agent-network delegate review`.
 ### review_clarification_requested
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network delegate review-question`.
+Canonical command: `hun delegate review-question`.
 
 Reviewer asks the assignee a question inside the delegation session. The moderator coordinates delivery and records the exchange.
 
@@ -720,7 +720,7 @@ Reviewer asks the assignee a question inside the delegation session. The moderat
 ### review_clarification_answered
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network delegate review-answer`.
+Canonical command: `hun delegate review-answer`.
 
 ```json
 {
@@ -738,7 +738,7 @@ Canonical command: `kkachi-agent-network delegate review-answer`.
 ### review_submitted
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network delegate review-submit`.
+Canonical command: `hun delegate review-submit`.
 
 ```json
 {
@@ -758,7 +758,7 @@ Canonical command: `kkachi-agent-network delegate review-submit`.
 ### revision_requested
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network delegate revise`.
+Canonical command: `hun delegate revise`.
 
 ```json
 {
@@ -775,7 +775,7 @@ Canonical command: `kkachi-agent-network delegate revise`.
 ### work_accepted
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network delegate accept`.
+Canonical command: `hun delegate accept`.
 
 ```json
 {
@@ -797,7 +797,7 @@ Canonical command: `kkachi-agent-network delegate accept`.
 
 ## Operational events
 
-These events are emitted by `kkachi-agent-networkd` itself rather than by a participant (origin class `daemon_internal` unless noted), but they remain session-scoped: every operational event carries the `session_id`, `session_type`, and `phase` of the affected session. Pre-session failures (registry load failure, daemon start failure) are recorded in the daemon operational log, not in `channel.jsonl`.
+These events are emitted by `hund` itself rather than by a participant (origin class `daemon_internal` unless noted), but they remain session-scoped: every operational event carries the `session_id`, `session_type`, and `phase` of the affected session. Pre-session failures (registry load failure, daemon start failure) are recorded in the daemon operational log, not in `channel.jsonl`.
 
 ### session_budget_exceeded
 
@@ -810,7 +810,7 @@ For `max_runner_calls`, this event is emitted **before** launching the next runn
 ```json
 {
   "type": "session_budget_exceeded",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": ["agent-mod"],
   "phase": "blocked",
   "payload": {
@@ -829,7 +829,7 @@ For `max_runner_calls`, this event is emitted **before** launching the next runn
 ```json
 {
   "type": "session_budget_exceeded",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": ["agent-mod"],
   "phase": "blocked",
   "payload": {
@@ -846,7 +846,7 @@ For `max_runner_calls`, this event is emitted **before** launching the next runn
 ### limits_extended
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network limits extend`.
+Canonical command: `hun limits extend`.
 
 ```json
 {
@@ -869,7 +869,7 @@ Origin class: `daemon_internal`.
 ```json
 {
   "type": "runner_retry_attempted",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": ["agent-mod"],
   "payload": {
     "attempt": 2,
@@ -884,12 +884,12 @@ Origin class: `daemon_internal`.
 
 Origin class: `daemon_internal`.
 
-Emitted by `kkachi-agent-networkd` immediately before launching a bounded runner adapter subprocess. This is the durable accounting root for `runner_calls_total`.
+Emitted by `hund` immediately before launching a bounded runner adapter subprocess. This is the durable accounting root for `runner_calls_total`.
 
 ```json
 {
   "type": "runner_invocation_started",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": ["agent-mod"],
   "phase": "working",
   "runner": {
@@ -925,7 +925,7 @@ Emitted when a runner invocation cannot produce a semantic participant event.
 ```json
 {
   "type": "runner_invocation_failed",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": ["agent-mod"],
   "phase": "working",
   "runner": {
@@ -962,7 +962,7 @@ Allowed `payload.reason` values:
 ### user_escalation_delivery_failed
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network delegate escalation-delivery-failed`.
+Canonical command: `hun delegate escalation-delivery-failed`.
 
 `causation_event_id` points to the originating `user_escalation_requested` event.
 
@@ -1000,7 +1000,7 @@ This event does not enter `waiting_user`, does not increment `user_escalations_t
 ```json
 {
   "type": "escalation_deduplicated",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": ["agent-mod"],
   "payload": {
     "duplicate_of_event_id": "evt_01HV...",
@@ -1023,7 +1023,7 @@ This event blocks further escalation delivery but does **not** transition the se
 ```json
 {
   "type": "escalation_rate_limited",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": ["agent-mod"],
   "phase": "working",
   "payload": {
@@ -1044,7 +1044,7 @@ A session-scoped violation that transitions the session to `blocked` carries env
 ```json
 {
   "type": "security_violation",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": ["agent-mod"],
   "phase": "blocked",
   "payload": {
@@ -1062,7 +1062,7 @@ A session-scoped violation that transitions the session to `blocked` carries env
 ```json
 {
   "type": "redaction_applied",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": [],
   "payload": {
     "pattern_class": "anthropic_api_key",
@@ -1078,7 +1078,7 @@ Origin class: `mixed`.
 
 Allowed origins:
 
-- `daemon_after_cli`: emitted when `kkachi-agent-network delegate escalate --urgency low` is accepted into a pending batch.
+- `daemon_after_cli`: emitted when `hun delegate escalate --urgency low` is accepted into a pending batch.
 - `daemon_internal`: emitted when daemon policy updates, flushes, cancels, or rate-limits an existing batch.
 
 `escalation_batched` is never a user-facing escalation and never enters `waiting_user`.
@@ -1086,7 +1086,7 @@ Allowed origins:
 ```json
 {
   "type": "escalation_batched",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": ["agent-mod"],
   "phase": "working",
   "payload": {
@@ -1118,7 +1118,7 @@ This event transitions the session to `blocked`; the envelope `phase` is `blocke
 ```json
 {
   "type": "escalation_timeout",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": ["agent-mod"],
   "phase": "blocked",
   "payload": {
@@ -1138,7 +1138,7 @@ This event transitions the session to `blocked`; the envelope `phase` is `blocke
 ```json
 {
   "type": "runner_result_discarded",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": ["agent-mod"],
   "phase": "cancelled",
   "runner": {
@@ -1164,7 +1164,7 @@ This event transitions the session to `blocked`; the envelope `phase` is `blocke
 ```json
 {
   "type": "session_handle_rotated",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": ["agent-mod"],
   "payload": {
     "member": "agent-1",
@@ -1181,7 +1181,7 @@ Important stream event types and origin classes:
 
 - `stream_subscriber_connected` — `daemon_internal`
 - `stream_subscriber_heartbeat` — `daemon_internal`
-- `stream_cursor_acknowledged` — `daemon_after_cli` (created by `kkachi-agent-network stream ack`)
+- `stream_cursor_acknowledged` — `daemon_after_cli` (created by `hun stream ack`)
 - `stream_subscriber_stale` — `daemon_internal`
 
 Stream subscriber stale payload:
@@ -1220,7 +1220,7 @@ Council events use the same envelope with `session_type: council`.
 ### attendance_requested
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network council request-attendance`.
+Canonical command: `hun council request-attendance`.
 
 For the first Discord-thread council pass, attendance is a typed subflow inside the `created` phase. It does not introduce a new lifecycle phase unless a later reviewed decision changes the state machine. When `surface.kind` is `discord_thread`, this event is mandatory before `preparation_requested`.
 
@@ -1245,7 +1245,7 @@ Origin class: `mixed`.
 
 Allowed origins:
 
-- `participant_cli`: the member records attendance explicitly through `kkachi-agent-network council attend`.
+- `participant_cli`: the member records attendance explicitly through `hun council attend`.
 - `daemon_internal`: attendance timeout records `no_response_timeout` for a missing member.
 
 ```json
@@ -1264,7 +1264,7 @@ Allowed origins:
 
 Allowed `status` values: `present`, `partial`, `unavailable`, `no_response_timeout`.
 
-When the daemon emits timeout attendance, the event uses `from: "kkachi-agent-networkd"`, `to: ["agent-mod"]`, and `payload.member` records the affected member. Timeout payloads must preserve `status: "no_response_timeout"` and timeout source evidence so they remain distinguishable from participant success or partial-success records.
+When the daemon emits timeout attendance, the event uses `from: "hund"`, `to: ["agent-mod"]`, and `payload.member` records the affected member. Timeout payloads must preserve `status: "no_response_timeout"` and timeout source evidence so they remain distinguishable from participant success or partial-success records.
 
 For `surface.kind=discord_thread`, `preparation_requested` is valid only after one terminal `member_attended` record exists for every required participant named by the council membership/attendance request. Terminal attendance status is one of `present`, `partial`, `unavailable`, or `no_response_timeout`. Missing attendance records, duplicate unresolved attendance state, or attendance for only a subset of required participants must fail closed at append time for `preparation_requested`.
 
@@ -1278,7 +1278,7 @@ durable `member_attended` events.
 ### agenda_locked
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network council lock-agenda`.
+Canonical command: `hun council lock-agenda`.
 
 `agenda_locked` freezes the decision question before substantive preparation/discussion. Topic-drift policy, final summaries, and Kanban/Vault return paths must refer back to this locked agenda. When `surface.kind` is `discord_thread`, this event is mandatory before `preparation_requested`.
 
@@ -1299,7 +1299,7 @@ Canonical command: `kkachi-agent-network council lock-agenda`.
 ### preparation_requested
 
 Origin class: `daemon_after_cli`.
-Created by: `kkachi-agent-network council prepare`.
+Created by: `hun council prepare`.
 
 For `surface.kind=discord_thread`, `preparation_requested` is fail-closed unless the session is still in `created` and the prior event log contains, in order, `attendance_requested`, one terminal `member_attended` record for each required participant, and `agenda_locked`. Rejection must leave the session in `created` and must not append a partial `preparation_requested` event.
 
@@ -1318,7 +1318,7 @@ For `surface.kind=discord_thread`, `preparation_requested` is fail-closed unless
 ### member_ready
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network council ready`.
+Canonical command: `hun council ready`.
 
 ```json
 {
@@ -1341,7 +1341,7 @@ Allowed origins:
 - `participant_cli`: the member records partial preparation explicitly.
 - `daemon_internal`: preparation timeout expires before the member marks ready.
 
-Canonical command for participant-originated partial preparation: `kkachi-agent-network council prepared-partial`.
+Canonical command for participant-originated partial preparation: `hun council prepared-partial`.
 
 Participant-originated example:
 
@@ -1363,7 +1363,7 @@ Daemon-timeout example:
 ```json
 {
   "type": "member_prepared_partial",
-  "from": "kkachi-agent-networkd",
+  "from": "hund",
   "to": ["agent-mod"],
   "payload": {
     "member": "agent-1",
@@ -1377,13 +1377,13 @@ Daemon-timeout example:
 Rules:
 
 - When a member runtime explicitly records partial preparation, `from` is the member id and `payload.reason` is normally `member_reported_partial`.
-- When the daemon emits `member_prepared_partial` because the preparation timeout expired, the event originator is `kkachi-agent-networkd`, the affected member is recorded in `payload.member`, and `payload.reason` is `timeout`.
+- When the daemon emits `member_prepared_partial` because the preparation timeout expired, the event originator is `hund`, the affected member is recorded in `payload.member`, and `payload.reason` is `timeout`.
 - Before appending `hand_raise_requested` for a Discord-thread council, the daemon must apply expired preparation timeouts and then fail closed unless required participant runtime readiness remains explicit and every required participant has preparation success or partial/failure evidence. Timeout diagnostics remain durable `member_prepared_partial` events and must not be rewritten as success.
 
 ### hand_raise_requested
 
 Origin class: `daemon_after_cli`.
-Created by: `kkachi-agent-network council poll`.
+Created by: `hun council poll`.
 
 ```json
 {
@@ -1401,7 +1401,7 @@ Created by: `kkachi-agent-network council poll`.
 ### hand_raise
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network council hand-raise`.
+Canonical command: `hun council hand-raise`.
 
 ```json
 {
@@ -1433,7 +1433,7 @@ ARGUE-002 adds optional `target_links[]` for argument-graph-aware hand raises. E
 ### speaker_selected
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network council grant`.
+Canonical command: `hun council grant`.
 
 ```json
 {
@@ -1456,7 +1456,7 @@ For Discord-thread councils, `selection_mode` may also be `moderator_direct` or 
 ### speech
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network council speak`.
+Canonical command: `hun council speak`.
 
 ```json
 {
@@ -1502,7 +1502,7 @@ ARGUE-002 adds optional argument-graph fields to `speech.payload` without changi
 ### moderator_intervention
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network council intervene`.
+Canonical command: `hun council intervene`.
 
 ```json
 {
@@ -1522,8 +1522,8 @@ Origin class: `participant_cli`.
 
 Command paths:
 
-- `kkachi-agent-network council propose`
-- `kkachi-agent-network council revise`
+- `hun council propose`
+- `hun council revise`
 
 ```json
 {
@@ -1544,7 +1544,7 @@ First proposal omits `revision_reason` and `supersedes_draft_version`. Subsequen
 ### consensus_vote_requested
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network council request-vote`.
+Canonical command: `hun council request-vote`.
 
 Stream-visible event that tells member runtimes a consensus vote is open. Member runtimes should not vote until they observe this event (or its replay).
 
@@ -1563,7 +1563,7 @@ Stream-visible event that tells member runtimes a consensus vote is open. Member
 ### consensus_vote
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network council vote`.
+Canonical command: `hun council vote`.
 
 ```json
 {
@@ -1582,7 +1582,7 @@ Canonical command: `kkachi-agent-network council vote`.
 ### council_finalized
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network council finalize`.
+Canonical command: `hun council finalize`.
 
 
 ```json
@@ -1625,4 +1625,4 @@ The daemon/replay must not create Kanban comments, Vault notes, or visible-room 
 ### council_unresolved
 
 Origin class: `participant_cli`.
-Canonical command: `kkachi-agent-network council unresolved`.
+Canonical command: `hun council unresolved`.

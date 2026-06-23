@@ -1,6 +1,6 @@
 # CLI Specification
 
-Official CLI: `kkachi-agent-network`. The Hermes plugin is the preferred agent-facing integration layer, but this CLI is the canonical diagnostics, recovery, test, and manual-operation contract.
+Official CLI: `hun`. The Hermes plugin is the preferred agent-facing integration layer, but this CLI is the canonical diagnostics, recovery, test, and manual-operation contract.
 
 ## Principles
 
@@ -8,11 +8,11 @@ Official CLI: `kkachi-agent-network`. The Hermes plugin is the preferred agent-f
 - Commands are explicit and auditable.
 - Status commands are concise by default and verbose on request.
 - The CLI should be usable by the moderator agent through terminal tool calls and should remain available when the Hermes plugin is absent, disabled, or broken.
-- Hermes plugin tools and slash commands must map to the same typed command models and daemon validations as the CLI. The plugin should call the KAN protocol client/contract directly, not shell out, except as a compatibility fallback or for operator-equivalent diagnostics.
+- Hermes plugin tools and slash commands must map to the same typed command models and daemon validations as the CLI. The plugin should call the HUN protocol client/contract directly, not shell out, except as a compatibility fallback or for operator-equivalent diagnostics.
 
 ## Global write command rules
 
-Every state-mutating CLI command accepts an optional `--command-id cmd_...`. If `--command-id` is omitted, the CLI generates one. Hermes plugin tool calls that mutate state must provide or obtain the same command-id semantics through the KAN protocol client/contract. The daemon uses `command_id` for idempotency per `13-operational-contracts.md` §2; retrying the same logical command must reuse the same `command_id`.
+Every state-mutating CLI command accepts an optional `--command-id cmd_...`. If `--command-id` is omitted, the CLI generates one. Hermes plugin tool calls that mutate state must provide or obtain the same command-id semantics through the HUN protocol client/contract. The daemon uses `command_id` for idempotency per `13-operational-contracts.md` §2; retrying the same logical command must reuse the same `command_id`.
 
 Every state-mutating command must declare the protocol event type or event sequence it emits. A command may emit more than one event only when this document explicitly lists the emitted sequence (e.g. `delegate new` emits `session_created` followed by `task_assigned`).
 
@@ -35,34 +35,34 @@ Recipient flags:
 - `--to <principal>` is repeatable where multi-recipient commands are supported.
 - Comma-separated input may be accepted by commands that already use comma-separated member lists (e.g. `--members`), but the daemon must normalize to the same array form.
 - Unknown recipients are rejected unless the value is the reserved principal `user`.
-- `kkachi-agent-networkd` is not accepted as a normal participant-supplied recipient.
+- `hund` is not accepted as a normal participant-supplied recipient.
 
 `to` is **semantic addressing**, not stream access control. Stream read permissions are governed by `12-security.md`.
 
 ## Daemon commands
 
 ```bash
-kkachi-agent-network daemon start
-kkachi-agent-network daemon stop
-kkachi-agent-network daemon status
+hun daemon start
+hun daemon stop
+hun daemon status
 ```
 
-`kkachi-agent-network daemon start` validates `<data_home>` and `registry.yaml` before reporting ready. If validation fails, the daemon does not accept session creation or dispatch commands; the failure is written to `<data_home>/operational.log` per `12-security.md`.
+`hun daemon start` validates `<data_home>` and `registry.yaml` before reporting ready. If validation fails, the daemon does not accept session creation or dispatch commands; the failure is written to `<data_home>/operational.log` per `12-security.md`.
 
 The daemon protocol also exposes plugin-facing read-only compatibility commands `version.read`, `status.read`, and `diagnostics.read`. These are not replacements for concise operator `daemon status` / `health` output; they provide explicit protocol version, daemon version, minimum plugin protocol version, feature groups/features, capability state, and readiness/diagnostic categories for fail-closed plugin negotiation.
 
 ## Setup and diagnostic commands
 
 ```bash
-kkachi-agent-network init
-kkachi-agent-network doctor
-kkachi-agent-network storage verify
-kkachi-agent-network storage rebuild-projection
+hun init
+hun doctor
+hun storage verify
+hun storage rebuild-projection
 ```
 
 These commands cover first-run setup, environment validation, and storage recovery. They are operational tools and are not part of the session protocol.
 
-### `kkachi-agent-network init`
+### `hun init`
 
 Rules:
 
@@ -72,7 +72,7 @@ Rules:
 - Must report every filesystem change it makes.
 - Does not start the daemon and does not create sessions.
 
-### `kkachi-agent-network doctor`
+### `hun doctor`
 
 Rules:
 
@@ -81,9 +81,9 @@ Rules:
 - May read and summarize operational log records, but must not expose secret values; any displayed payload passes through the same redaction rules as `channel.jsonl`.
 - May support an explicit `--repair-permissions` flag.
 - Without an explicit repair flag, it must not chmod, chown, rewrite, or delete anything.
-- Daemon start must not silently repair unsafe ownership or permissions; permission repair is allowed only through `kkachi-agent-network init` or `kkachi-agent-network doctor --repair-permissions`, both of which must report what they changed.
+- Daemon start must not silently repair unsafe ownership or permissions; permission repair is allowed only through `hun init` or `hun doctor --repair-permissions`, both of which must report what they changed.
 
-### `kkachi-agent-network storage verify`
+### `hun storage verify`
 
 Rules:
 
@@ -94,7 +94,7 @@ Rules:
 - Does not append events.
 - Exit codes are storage-specific: `0` valid logs and projection; `1` bad storage CLI arguments; `3` unsafe registry/data-home; `6` log, replay, migration, SQLite, missing projection, corrupt projection, or projection mismatch failure; `70` unexpected internal failure.
 
-### `kkachi-agent-network storage rebuild-projection`
+### `hun storage rebuild-projection`
 
 Rules:
 
@@ -109,13 +109,13 @@ Rules:
 ## Registry commands
 
 ```bash
-kkachi-agent-network registry validate
-kkachi-agent-network registry show
+hun registry validate
+hun registry show
 ```
 
 ### Validate registry
 
-`kkachi-agent-network registry validate` is read-only and validates:
+`hun registry validate` is read-only and validates:
 
 - `<data_home>` safety;
 - `registry.yaml` file safety (regular non-symlink file, owner, permissions);
@@ -130,33 +130,33 @@ It does not start a session.
 
 ### Show registry summary
 
-`kkachi-agent-network registry show` prints enabled members, display names, roles, adapter kinds, wrapper resolution status, and workspaces. It must not print secret values.
+`hun registry show` prints enabled members, display names, roles, adapter kinds, wrapper resolution status, and workspaces. It must not print secret values.
 
-See `kkachi-agent-network init` and `kkachi-agent-network doctor` under Setup and diagnostic commands above for first-run setup, permission diagnostics, and the explicit repair flow.
+See `hun init` and `hun doctor` under Setup and diagnostic commands above for first-run setup, permission diagnostics, and the explicit repair flow.
 
 ## Common session commands
 
 ```bash
-kkachi-agent-network status
-kkachi-agent-network status <session_id> --verbose
-kkachi-agent-network cancel <session_id> --reason "..."
-kkachi-agent-network block <session_id> --category external_dependency --reason "..."
-kkachi-agent-network resume <session_id> --blocked-event evt_01HV... --reason "..."
-kkachi-agent-network transcript <session_id> --format md --output transcript.md
-kkachi-agent-network transcript <session_id> --format jsonl
-kkachi-agent-network export <session_id> --bundle
-kkachi-agent-network tail <session_id>
+hun status
+hun status <session_id> --verbose
+hun cancel <session_id> --reason "..."
+hun block <session_id> --category external_dependency --reason "..."
+hun resume <session_id> --blocked-event evt_01HV... --reason "..."
+hun transcript <session_id> --format md --output transcript.md
+hun transcript <session_id> --format jsonl
+hun export <session_id> --bundle
+hun tail <session_id>
 ```
 
-`kkachi-agent-network cancel` emits `session_cancelled`. `status`, `transcript`, `export`, and `tail` are read-only with respect to session events and emit no events.
+`hun cancel` emits `session_cancelled`. `status`, `transcript`, `export`, and `tail` are read-only with respect to session events and emit no events.
 
 ### Transcript, export, and tail
 
 ```bash
-kkachi-agent-network transcript <session_id> --format md [--output transcript.md]
-kkachi-agent-network transcript <session_id> --format jsonl [--output transcript.jsonl]
-kkachi-agent-network export <session_id> --bundle [--output export-directory]
-kkachi-agent-network tail <session_id> [--limit 20] --format ndjson
+hun transcript <session_id> --format md [--output transcript.md]
+hun transcript <session_id> --format jsonl [--output transcript.jsonl]
+hun export <session_id> --bundle [--output export-directory]
+hun tail <session_id> [--limit 20] --format ndjson
 ```
 
 Rules:
@@ -171,24 +171,24 @@ Rules:
 ### Block and resume
 
 ```bash
-kkachi-agent-network block <session_id> \
+hun block <session_id> \
   --category external_dependency \
   --reason "External dependency is unavailable."
 
-kkachi-agent-network resume <session_id> \
+hun resume <session_id> \
   --blocked-event evt_01HV... \
   --reason "External dependency is now available."
 ```
 
 Rules:
 
-- `kkachi-agent-network block` emits `session_blocked` with envelope `phase: blocked`. The emitted event payload includes `prior_phase` and `resume_phase` (both required, even when equal). It applies to both delegation and council sessions.
-- `kkachi-agent-network resume` emits `session_resumed` and returns the session to the recorded `resume_phase`. `--blocked-event` must reference the originating `session_blocked` event for that session.
-- `kkachi-agent-network delegate block` remains a delegation-specific compatibility path for `session_blocked`, but the common command is canonical for new documentation.
-- Budget and limit blocks are lifted by `kkachi-agent-network limits extend`, not by `kkachi-agent-network resume`. Attempting `kkachi-agent-network resume` against a `session_budget_exceeded`-originated block must fail with a clear error pointing to `kkachi-agent-network limits extend`.
-- Security blocks may be resumed through `kkachi-agent-network resume` only when the security model defines the violation category as remediable and the remediation has been verified.
+- `hun block` emits `session_blocked` with envelope `phase: blocked`. The emitted event payload includes `prior_phase` and `resume_phase` (both required, even when equal). It applies to both delegation and council sessions.
+- `hun resume` emits `session_resumed` and returns the session to the recorded `resume_phase`. `--blocked-event` must reference the originating `session_blocked` event for that session.
+- `hun delegate block` remains a delegation-specific compatibility path for `session_blocked`, but the common command is canonical for new documentation.
+- Budget and limit blocks are lifted by `hun limits extend`, not by `hun resume`. Attempting `hun resume` against a `session_budget_exceeded`-originated block must fail with a clear error pointing to `hun limits extend`.
+- Security blocks may be resumed through `hun resume` only when the security model defines the violation category as remediable and the remediation has been verified.
 
-Allowed `--category` values for `kkachi-agent-network block`:
+Allowed `--category` values for `hun block`:
 
 - `external_dependency`
 - `user_decision_required`
@@ -197,9 +197,9 @@ Allowed `--category` values for `kkachi-agent-network block`:
 - `budget_or_limit`
 - `other`
 
-`budget_or_limit` is allowed for manual moderator blocks but is unusual; daemon-originated budget breaches use `session_budget_exceeded` and are recovered through `kkachi-agent-network limits extend`, not through `kkachi-agent-network resume`.
+`budget_or_limit` is allowed for manual moderator blocks but is unusual; daemon-originated budget breaches use `session_budget_exceeded` and are recovered through `hun limits extend`, not through `hun resume`.
 
-`kkachi-agent-network status` shows both `status` (derived roll-up: `open`/`blocked`/`terminal`) and `phase` (exact lifecycle phase). Example:
+`hun status` shows both `status` (derived roll-up: `open`/`blocked`/`terminal`) and `phase` (exact lifecycle phase). Example:
 
 ```text
 session_id: sess_20260425_0130_a
@@ -215,10 +215,10 @@ participants: agent-mod, agent-1
 These commands are the public real-time interface for moderator and member runtimes. The CLI may implement them over local SSE, WebSocket, Unix socket, or local HTTP, but that transport is private. The stable contract is newline-delimited JSON on stdout.
 
 ```bash
-kkachi-agent-network stream <session_id> --member agent-1 --since cursor_... --follow --format ndjson
-kkachi-agent-network stream <session_id> --member agent-1 --from-start --format ndjson
-kkachi-agent-network stream ack <session_id> --member agent-1 --cursor cursor_...
-kkachi-agent-network stream status <session_id>
+hun stream <session_id> --member agent-1 --since cursor_... --follow --format ndjson
+hun stream <session_id> --member agent-1 --from-start --format ndjson
+hun stream ack <session_id> --member agent-1 --cursor cursor_...
+hun stream status <session_id>
 ```
 
 Rules:
@@ -240,7 +240,7 @@ If a session is already active, creating another session must fail.
 ### Extend session limits
 
 ```bash
-kkachi-agent-network limits extend <session_id> \
+hun limits extend <session_id> \
   --key max_usd --value 50.00 \
   --authorized-by user \
   --reason "Approved additional budget to finish review."
@@ -264,7 +264,7 @@ Multiple keys can be extended in one command by repeating `--key` and `--value`.
 ### Show current limits and usage
 
 ```bash
-kkachi-agent-network limits show <session_id>
+hun limits show <session_id>
 ```
 
 Reports each limit, observed usage, and remaining headroom. Output includes runner accounting:
@@ -289,7 +289,7 @@ warnings:
 - 3 runner calls have missing measured cost. Token and USD totals may be incomplete.
 ```
 
-`kkachi-agent-network status <session_id> --verbose` includes the same runner accounting block (`runner_calls_total`, `missing_cost_runner_calls_total`, current token and USD totals, any unresolved budget block, and recent runner invocation failures), plus pending escalation batches and waiting-user state.
+`hun status <session_id> --verbose` includes the same runner accounting block (`runner_calls_total`, `missing_cost_runner_calls_total`, current token and USD totals, any unresolved budget block, and recent runner invocation failures), plus pending escalation batches and waiting-user state.
 
 Pending batch example:
 
@@ -318,7 +318,7 @@ waiting_on:
   response_timeout_at: 2026-04-26T00:00:00Z
 ```
 
-`kkachi-agent-network limits show` adds an escalation usage block:
+`hun limits show` adds an escalation usage block:
 
 ```text
 escalations:
@@ -334,7 +334,7 @@ escalations:
 ### Start delegation
 
 ```bash
-kkachi-agent-network delegate new "Implement task A" \
+hun delegate new "Implement task A" \
   --to agent-1 \
   --context task.md \
   --acceptance acceptance.md
@@ -345,7 +345,7 @@ Emits: `session_created` followed by `task_assigned`.
 ### Member acknowledges assignment
 
 ```bash
-kkachi-agent-network delegate ack <session_id> \
+hun delegate ack <session_id> \
   --from agent-1 \
   --understanding "I understand that A is the priority." \
   --plan plan.md \
@@ -364,7 +364,7 @@ Rules:
 ### Send general delegation message
 
 ```bash
-kkachi-agent-network delegate message <session_id> \
+hun delegate message <session_id> \
   --from agent-mod \
   --to agent-1 \
   --kind scope_correction \
@@ -373,14 +373,14 @@ kkachi-agent-network delegate message <session_id> \
 
 Emits: `delegation_message`.
 
-This command is **not** used to answer a specific `clarification_requested` event. Use `kkachi-agent-network delegate answer-clarification` for direct clarification answers.
+This command is **not** used to answer a specific `clarification_requested` event. Use `hun delegate answer-clarification` for direct clarification answers.
 
 Allowed `--kind` values: `note`, `instruction`, `scope_correction`, `priority_update`, `process_guidance`.
 
 ### Member asks clarification
 
 ```bash
-kkachi-agent-network delegate clarify <session_id> \
+hun delegate clarify <session_id> \
   --from agent-1 \
   --question "Requirement A conflicts with B. Which wins?" \
   --urgency blocked
@@ -391,7 +391,7 @@ Emits: `clarification_requested`.
 ### Answer assignee clarification
 
 ```bash
-kkachi-agent-network delegate answer-clarification <session_id> \
+hun delegate answer-clarification <session_id> \
   --to agent-1 \
   --in-reply-to evt_01HV... \
   --answer "Prioritize A and split B into follow-up scope." \
@@ -401,7 +401,7 @@ kkachi-agent-network delegate answer-clarification <session_id> \
 User-derived answer example:
 
 ```bash
-kkachi-agent-network delegate answer-clarification <session_id> \
+hun delegate answer-clarification <session_id> \
   --to agent-1 \
   --in-reply-to evt_01HV... \
   --answer "A is the priority. Split B into follow-up scope." \
@@ -419,7 +419,7 @@ Rules:
 ### Member records progress update
 
 ```bash
-kkachi-agent-network delegate update <session_id> \
+hun delegate update <session_id> \
   --from agent-1 \
   --progress-status working \
   --summary "Implementation is halfway done." \
@@ -428,14 +428,14 @@ kkachi-agent-network delegate update <session_id> \
 
 Emits: `assignee_update`.
 
-`--progress-status` is the assignee's self-reported work status; it is **not** the session lifecycle `phase` and does not directly change the session phase. To move the session phase to `blocked`, use `kkachi-agent-network delegate block` (or wait for a daemon-internal blocking event such as `session_budget_exceeded`).
+`--progress-status` is the assignee's self-reported work status; it is **not** the session lifecycle `phase` and does not directly change the session phase. To move the session phase to `blocked`, use `hun delegate block` (or wait for a daemon-internal blocking event such as `session_budget_exceeded`).
 
 Allowed `--progress-status` values: `working`, `blocked`, `partial`, `testing`, `ready_to_submit`.
 
 ### Escalate a member question to the user
 
 ```bash
-kkachi-agent-network delegate escalate <session_id> \
+hun delegate escalate <session_id> \
   --from agent-1 \
   --source-event evt_01HV... \
   --question "Requirements A and B conflict. Which should be prioritized?" \
@@ -460,7 +460,7 @@ Allowed `--batch-policy` values: `auto`, `never`, `force-low-only`.
 
 If the daemon batches the escalation, the command emits `escalation_batched`, not `user_escalation_requested`, and the session phase remains the prior phase. If the daemon records a user-facing escalation, the command emits `user_escalation_requested` and the session enters `waiting_user`.
 
-`--delivery` is a **hint to the moderator's Hermes plugin/gateway helper or equivalent gateway skill**, not an instruction to the daemon. The daemon records the value in the `user_escalation_requested` payload and stops there; it never opens an outbound channel itself. The moderator runtime reads the hint, decides how to actually reach the user (Telegram/Slack/Discord/the origin Hermes session/etc.), performs the delivery through Hermes gateway capability, and writes back `user_escalation_delivered` (or `user_escalation_delivery_failed` followed by a fallback delivery) through a typed KAN command. The CLI command remains the canonical fallback for recording the same event.
+`--delivery` is a **hint to the moderator's Hermes plugin/gateway helper or equivalent gateway skill**, not an instruction to the daemon. The daemon records the value in the `user_escalation_requested` payload and stops there; it never opens an outbound channel itself. The moderator runtime reads the hint, decides how to actually reach the user (Telegram/Slack/Discord/the origin Hermes session/etc.), performs the delivery through Hermes gateway capability, and writes back `user_escalation_delivered` (or `user_escalation_delivery_failed` followed by a fallback delivery) through a typed HUN command. The CLI command remains the canonical fallback for recording the same event.
 
 Recognized hint values:
 
@@ -474,7 +474,7 @@ These names are conventional. The moderator skill may understand additional gate
 ### Record user escalation delivery
 
 ```bash
-kkachi-agent-network delegate escalation-delivered <session_id> \
+hun delegate escalation-delivered <session_id> \
   --escalation evt_01HV... \
   --delivery-target origin \
   --platform hermes-session \
@@ -491,7 +491,7 @@ Rules:
 ### Record user escalation delivery failure
 
 ```bash
-kkachi-agent-network delegate escalation-delivery-failed <session_id> \
+hun delegate escalation-delivery-failed <session_id> \
   --escalation evt_01HV... \
   --target telegram \
   --reason gateway_unreachable \
@@ -509,7 +509,7 @@ Rules:
 ### Flush a pending escalation batch
 
 ```bash
-kkachi-agent-network delegate escalation-flush <session_id> \
+hun delegate escalation-flush <session_id> \
   --batch-id escbatch_01HV... \
   --reason "User is available now."
 ```
@@ -525,7 +525,7 @@ Rules:
 ### Inspect pending escalation batches
 
 ```bash
-kkachi-agent-network delegate escalation-batches <session_id>
+hun delegate escalation-batches <session_id>
 ```
 
 Read-only command. Output example:
@@ -543,7 +543,7 @@ pending escalation batches:
 ### Resolve a user escalation
 
 ```bash
-kkachi-agent-network delegate resolve-escalation <session_id> \
+hun delegate resolve-escalation <session_id> \
   --escalation evt_user_escalation_requested_01 \
   --answer "A is the priority. Split B into follow-up scope."
 ```
@@ -551,7 +551,7 @@ kkachi-agent-network delegate resolve-escalation <session_id> \
 Batch answer example:
 
 ```bash
-kkachi-agent-network delegate resolve-escalation <session_id> \
+hun delegate resolve-escalation <session_id> \
   --escalation evt_user_escalation_requested_01 \
   --answer-file user_answers.json
 ```
@@ -576,7 +576,7 @@ Rules:
 ### Moderator requests an update
 
 ```bash
-kkachi-agent-network delegate request-update <session_id> \
+hun delegate request-update <session_id> \
   --to agent-1 \
   --reason "No progress update has been recorded recently." \
   --requested-detail progress \
@@ -589,7 +589,7 @@ Emits: `assignee_update_requested`.
 ### Submit or record artifacts manually
 
 ```bash
-kkachi-agent-network delegate submit <session_id> \
+hun delegate submit <session_id> \
   --from agent-1 \
   --summary "Implemented the storage projection and replay path." \
   --artifact result.md \
@@ -612,7 +612,7 @@ Rules:
 ### Request review gate
 
 ```bash
-kkachi-agent-network delegate review <session_id> \
+hun delegate review <session_id> \
   --by agent-2 \
   --focus risk,missing-constraints
 ```
@@ -622,7 +622,7 @@ Emits: `review_requested`.
 ### Reviewer asks assignee clarification
 
 ```bash
-kkachi-agent-network delegate review-question <session_id> \
+hun delegate review-question <session_id> \
   --from agent-2 \
   --to agent-1 \
   --question "Why did the implementation choose this retry boundary?" \
@@ -634,7 +634,7 @@ Emits: `review_clarification_requested`.
 ### Assignee answers reviewer clarification
 
 ```bash
-kkachi-agent-network delegate review-answer <session_id> \
+hun delegate review-answer <session_id> \
   --from agent-1 \
   --to agent-2 \
   --answer "The boundary follows the existing timeout policy." \
@@ -646,7 +646,7 @@ Emits: `review_clarification_answered`.
 ### Reviewer submits verdict
 
 ```bash
-kkachi-agent-network delegate review-submit <session_id> \
+hun delegate review-submit <session_id> \
   --from agent-2 \
   --verdict changes_requested \
   --findings findings.json \
@@ -666,7 +666,7 @@ Rules:
 ### Request revision
 
 ```bash
-kkachi-agent-network delegate revise <session_id> \
+hun delegate revise <session_id> \
   --to agent-1 \
   --changes changes.md
 ```
@@ -676,7 +676,7 @@ Emits: `revision_requested`.
 ### Accept
 
 ```bash
-kkachi-agent-network delegate accept <session_id>
+hun delegate accept <session_id>
 ```
 
 Emits: `work_accepted`.
@@ -684,7 +684,7 @@ Emits: `work_accepted`.
 ### Block (delegation compatibility path)
 
 ```bash
-kkachi-agent-network delegate block <session_id> \
+hun delegate block <session_id> \
   --category external_dependency \
   --reason "External dependency is unavailable."
 ```
@@ -695,14 +695,14 @@ Allowed `--category` values: `external_dependency`, `user_decision_required`, `s
 
 This is a manual block, distinct from daemon-originated `session_budget_exceeded`/`escalation_timeout` which may also move a session into a blocked state per `13-operational-contracts.md`.
 
-`kkachi-agent-network delegate block` is retained as a delegation-specific compatibility path. The canonical common command for both delegation and council sessions is `kkachi-agent-network block` (see Common session commands above). Both paths emit the same `session_blocked` event; new documentation should prefer the common command.
+`hun delegate block` is retained as a delegation-specific compatibility path. The canonical common command for both delegation and council sessions is `hun block` (see Common session commands above). Both paths emit the same `session_blocked` event; new documentation should prefer the common command.
 
 ## Council commands
 
 ### Start council
 
 ```bash
-kkachi-agent-network council new "Discuss topic A" \
+hun council new "Discuss topic A" \
   --members agent-1,agent-2,agent-3 \
   --moderator agent-mod
 ```
@@ -715,7 +715,7 @@ Emits: `session_created`.
 Optional Discord-thread council binding flags:
 
 ```bash
-kkachi-agent-network council new "Discuss topic A" \
+hun council new "Discuss topic A" \
   --members agent-1,agent-2,agent-3 \
   --moderator agent-mod \
   --surface discord-thread \
@@ -725,14 +725,14 @@ kkachi-agent-network council new "Discuss topic A" \
   --turn-mode role_order
 ```
 
-These flags populate optional `session_created.payload.surface`, `session_created.payload.linked_authority`, and `session_created.payload.turn_mode`. They do not authorize Discord API access by `kkachi-agent-networkd`, and they do not make Discord the source of truth. `--turn-mode` is the session-level intended/default floor policy only; each actual floor grant still records `speaker_selected.payload.selection_mode` as the per-turn audit fact.
+These flags populate optional `session_created.payload.surface`, `session_created.payload.linked_authority`, and `session_created.payload.turn_mode`. They do not authorize Discord API access by `hund`, and they do not make Discord the source of truth. `--turn-mode` is the session-level intended/default floor policy only; each actual floor grant still records `speaker_selected.payload.selection_mode` as the per-turn audit fact.
 
 ### Attendance and agenda lock
 
 ```bash
-kkachi-agent-network council request-attendance <session_id> --timeout 5m
-kkachi-agent-network council attend <session_id> --from agent-1 --status present --summary "Present."
-kkachi-agent-network council lock-agenda <session_id> \
+hun council request-attendance <session_id> --timeout 5m
+hun council attend <session_id> --from agent-1 --status present --summary "Present."
+hun council lock-agenda <session_id> \
   --decision-question "Decide next action for Kanban card t_xxxxx" \
   --max-rounds 2
 ```
@@ -748,7 +748,7 @@ First-pass rule: these commands operate while the council is in `created`. `coun
 ### Preparation
 
 ```bash
-kkachi-agent-network council prepare <session_id> --timeout 10m
+hun council prepare <session_id> --timeout 10m
 ```
 
 Emits: `preparation_requested`.
@@ -758,7 +758,7 @@ For Discord-thread-bound councils, this command validates the attendance/agenda 
 ### Member marks preparation ready
 
 ```bash
-kkachi-agent-network council ready <session_id> \
+hun council ready <session_id> \
   --from agent-1 \
   --summary "Found three relevant constraints." \
   --notes notes.md
@@ -774,7 +774,7 @@ Rules:
 ### Member records partial preparation
 
 ```bash
-kkachi-agent-network council prepared-partial <session_id> \
+hun council prepared-partial <session_id> \
   --from agent-1 \
   --reason timeout \
   --summary "Partial notes are available." \
@@ -791,12 +791,12 @@ Rules:
 ### Poll and grant turns
 
 ```bash
-kkachi-agent-network council poll <session_id> --research-timeout 10m
-kkachi-agent-network council hand-raise <session_id> --from agent-3 --intent rebuttal --relevance 5 --urgency 4 --reason "This changes the risk decision."
-kkachi-agent-network council grant <session_id> --auto
-kkachi-agent-network council grant <session_id> --to agent-3
-kkachi-agent-network council grant <session_id> --to agent-3 --mode role_order --round 1 --reason "Round 1 risk review"
-kkachi-agent-network council speak <session_id> --from agent-3 --stdin
+hun council poll <session_id> --research-timeout 10m
+hun council hand-raise <session_id> --from agent-3 --intent rebuttal --relevance 5 --urgency 4 --reason "This changes the risk decision."
+hun council grant <session_id> --auto
+hun council grant <session_id> --to agent-3
+hun council grant <session_id> --to agent-3 --mode role_order --round 1 --reason "Round 1 risk review"
+hun council speak <session_id> --from agent-3 --stdin
 ```
 
 Emits:
@@ -811,7 +811,7 @@ Emits:
 ### Intervene
 
 ```bash
-kkachi-agent-network council intervene <session_id> \
+hun council intervene <session_id> \
   --to agent-2 \
   --reason "topic drift" \
   --message "Tie this back to the decision criteria or withdraw it."
@@ -822,15 +822,15 @@ Emits: `moderator_intervention`.
 ### Propose, vote, revise, finish
 
 ```bash
-kkachi-agent-network council propose <session_id> --from-file draft.md
-kkachi-agent-network council request-vote <session_id> --draft-version 1 --timeout 10m
-kkachi-agent-network council vote <session_id> --from agent-3 --vote approve_with_conditions --reason "..." --required-change "..."
-kkachi-agent-network council revise <session_id> --from-file draft_v2.md --reason "Addressed agent-2 block vote."
-kkachi-agent-network council finalize <session_id> \
+hun council propose <session_id> --from-file draft.md
+hun council request-vote <session_id> --draft-version 1 --timeout 10m
+hun council vote <session_id> --from agent-3 --vote approve_with_conditions --reason "..." --required-change "..."
+hun council revise <session_id> --from-file draft_v2.md --reason "Addressed agent-2 block vote."
+hun council finalize <session_id> \
   --authority-return-status posted \
   --kanban-comment-id kc_123 \
   --vault-decision-note docs/decisions/topic-a.md
-kkachi-agent-network council unresolved <session_id> --reason "persistent blocking objection"
+hun council unresolved <session_id> --reason "persistent blocking objection"
 ```
 
 Emits:
@@ -858,81 +858,81 @@ Every state-mutating CLI command must declare the event type or event sequence i
 
 | Event | Origin class | Command path |
 |---|---|---|
-| `session_blocked` | `participant_cli` | `kkachi-agent-network block ...`; `kkachi-agent-network delegate block ...` for delegation compatibility |
-| `session_resumed` | `participant_cli` | `kkachi-agent-network resume ...` |
-| `session_cancelled` | `participant_cli` | `kkachi-agent-network cancel ...` |
+| `session_blocked` | `participant_cli` | `hun block ...`; `hun delegate block ...` for delegation compatibility |
+| `session_resumed` | `participant_cli` | `hun resume ...` |
+| `session_cancelled` | `participant_cli` | `hun cancel ...` |
 
 ### Delegation matrix
 
 | Event | Origin class | Command path |
 |---|---|---|
-| `session_created` | `daemon_after_cli` | `kkachi-agent-network delegate new ...` |
-| `task_assigned` | `daemon_after_cli` | `kkachi-agent-network delegate new ...` |
-| `assignee_acknowledged` | `participant_cli` | `kkachi-agent-network delegate ack ...` |
-| `clarification_requested` | `participant_cli` | `kkachi-agent-network delegate clarify ...` |
-| `clarification_answered` | `participant_cli` | `kkachi-agent-network delegate answer-clarification ...` |
-| `delegation_message` | `participant_cli` | `kkachi-agent-network delegate message ...` |
-| `assignee_update_requested` | `participant_cli` | `kkachi-agent-network delegate request-update ...` |
-| `assignee_update` | `participant_cli` | `kkachi-agent-network delegate update ...` |
-| `user_escalation_requested` | `mixed` | `kkachi-agent-network delegate escalate ...`; `kkachi-agent-network delegate escalation-flush ...`; daemon runtime batch flush |
-| `user_escalation_delivered` | `participant_cli` | `kkachi-agent-network delegate escalation-delivered ...` |
-| `user_escalation_delivery_failed` | `participant_cli` | `kkachi-agent-network delegate escalation-delivery-failed ...` |
-| `user_escalation_resolved` | `participant_cli` | `kkachi-agent-network delegate resolve-escalation ...` (semantic originator is the user; `from: "user"`) |
-| `work_submitted` | `participant_cli` | `kkachi-agent-network delegate submit ...` |
-| `review_requested` | `participant_cli` | `kkachi-agent-network delegate review ...` |
-| `review_clarification_requested` | `participant_cli` | `kkachi-agent-network delegate review-question ...` |
-| `review_clarification_answered` | `participant_cli` | `kkachi-agent-network delegate review-answer ...` |
-| `review_submitted` | `participant_cli` | `kkachi-agent-network delegate review-submit ...` |
-| `revision_requested` | `participant_cli` | `kkachi-agent-network delegate revise ...` |
-| `work_accepted` | `participant_cli` | `kkachi-agent-network delegate accept ...` |
-| `session_blocked` | `participant_cli` | `kkachi-agent-network block ...`; `kkachi-agent-network delegate block ...` (delegation compatibility) |
-| `session_resumed` | `participant_cli` | `kkachi-agent-network resume ...` |
-| `session_cancelled` | `participant_cli` | `kkachi-agent-network cancel ...` |
+| `session_created` | `daemon_after_cli` | `hun delegate new ...` |
+| `task_assigned` | `daemon_after_cli` | `hun delegate new ...` |
+| `assignee_acknowledged` | `participant_cli` | `hun delegate ack ...` |
+| `clarification_requested` | `participant_cli` | `hun delegate clarify ...` |
+| `clarification_answered` | `participant_cli` | `hun delegate answer-clarification ...` |
+| `delegation_message` | `participant_cli` | `hun delegate message ...` |
+| `assignee_update_requested` | `participant_cli` | `hun delegate request-update ...` |
+| `assignee_update` | `participant_cli` | `hun delegate update ...` |
+| `user_escalation_requested` | `mixed` | `hun delegate escalate ...`; `hun delegate escalation-flush ...`; daemon runtime batch flush |
+| `user_escalation_delivered` | `participant_cli` | `hun delegate escalation-delivered ...` |
+| `user_escalation_delivery_failed` | `participant_cli` | `hun delegate escalation-delivery-failed ...` |
+| `user_escalation_resolved` | `participant_cli` | `hun delegate resolve-escalation ...` (semantic originator is the user; `from: "user"`) |
+| `work_submitted` | `participant_cli` | `hun delegate submit ...` |
+| `review_requested` | `participant_cli` | `hun delegate review ...` |
+| `review_clarification_requested` | `participant_cli` | `hun delegate review-question ...` |
+| `review_clarification_answered` | `participant_cli` | `hun delegate review-answer ...` |
+| `review_submitted` | `participant_cli` | `hun delegate review-submit ...` |
+| `revision_requested` | `participant_cli` | `hun delegate revise ...` |
+| `work_accepted` | `participant_cli` | `hun delegate accept ...` |
+| `session_blocked` | `participant_cli` | `hun block ...`; `hun delegate block ...` (delegation compatibility) |
+| `session_resumed` | `participant_cli` | `hun resume ...` |
+| `session_cancelled` | `participant_cli` | `hun cancel ...` |
 
 ### Council matrix
 
 | Event | Origin class | Command path |
 |---|---|---|
-| `session_created` | `daemon_after_cli` | `kkachi-agent-network council new ...` |
-| `attendance_requested` | `participant_cli` | `kkachi-agent-network council request-attendance ...` |
-| `member_attended` | `mixed` | `kkachi-agent-network council attend ...` when participant-originated (`from: <member>`); daemon-internal on timeout (`from: "kkachi-agent-networkd"`, `payload.member` records the affected member) |
-| `agenda_locked` | `participant_cli` | `kkachi-agent-network council lock-agenda ...` |
-| `preparation_requested` | `daemon_after_cli` | `kkachi-agent-network council prepare ...` |
-| `member_ready` | `participant_cli` | `kkachi-agent-network council ready ...` |
-| `member_prepared_partial` | `mixed` | `kkachi-agent-network council prepared-partial ...` when participant-originated (`from: <member>`); daemon-internal on timeout (`from: "kkachi-agent-networkd"`, `payload.member` records the affected member) |
-| `hand_raise_requested` | `daemon_after_cli` | `kkachi-agent-network council poll ...` |
-| `hand_raise` | `participant_cli` | `kkachi-agent-network council hand-raise ...` |
-| `speaker_selected` | `participant_cli` | `kkachi-agent-network council grant ...` |
-| `speech` | `participant_cli` | `kkachi-agent-network council speak ...` |
-| `moderator_intervention` | `participant_cli` | `kkachi-agent-network council intervene ...` |
-| `draft_conclusion` | `participant_cli` | `kkachi-agent-network council propose ...` or `kkachi-agent-network council revise ...` |
-| `consensus_vote_requested` | `participant_cli` | `kkachi-agent-network council request-vote ...` |
-| `consensus_vote` | `participant_cli` | `kkachi-agent-network council vote ...` |
-| `council_finalized` | `participant_cli` | `kkachi-agent-network council finalize ...` |
-| `council_unresolved` | `participant_cli` | `kkachi-agent-network council unresolved ...` |
-| `session_blocked` | `participant_cli` | `kkachi-agent-network block ...` (council uses the common block path) |
-| `session_resumed` | `participant_cli` | `kkachi-agent-network resume ...` |
-| `session_cancelled` | `participant_cli` | `kkachi-agent-network cancel ...` |
+| `session_created` | `daemon_after_cli` | `hun council new ...` |
+| `attendance_requested` | `participant_cli` | `hun council request-attendance ...` |
+| `member_attended` | `mixed` | `hun council attend ...` when participant-originated (`from: <member>`); daemon-internal on timeout (`from: "hund"`, `payload.member` records the affected member) |
+| `agenda_locked` | `participant_cli` | `hun council lock-agenda ...` |
+| `preparation_requested` | `daemon_after_cli` | `hun council prepare ...` |
+| `member_ready` | `participant_cli` | `hun council ready ...` |
+| `member_prepared_partial` | `mixed` | `hun council prepared-partial ...` when participant-originated (`from: <member>`); daemon-internal on timeout (`from: "hund"`, `payload.member` records the affected member) |
+| `hand_raise_requested` | `daemon_after_cli` | `hun council poll ...` |
+| `hand_raise` | `participant_cli` | `hun council hand-raise ...` |
+| `speaker_selected` | `participant_cli` | `hun council grant ...` |
+| `speech` | `participant_cli` | `hun council speak ...` |
+| `moderator_intervention` | `participant_cli` | `hun council intervene ...` |
+| `draft_conclusion` | `participant_cli` | `hun council propose ...` or `hun council revise ...` |
+| `consensus_vote_requested` | `participant_cli` | `hun council request-vote ...` |
+| `consensus_vote` | `participant_cli` | `hun council vote ...` |
+| `council_finalized` | `participant_cli` | `hun council finalize ...` |
+| `council_unresolved` | `participant_cli` | `hun council unresolved ...` |
+| `session_blocked` | `participant_cli` | `hun block ...` (council uses the common block path) |
+| `session_resumed` | `participant_cli` | `hun resume ...` |
+| `session_cancelled` | `participant_cli` | `hun cancel ...` |
 
 ### Operational matrix
 
 | Event | Origin class | Public write command needed? |
 |---|---|---|
 | `session_budget_exceeded` | `daemon_internal` | No |
-| `limits_extended` | `participant_cli` | Yes — `kkachi-agent-network limits extend ...` |
+| `limits_extended` | `participant_cli` | Yes — `hun limits extend ...` |
 | `runner_retry_attempted` | `daemon_internal` | No |
 | `escalation_deduplicated` | `mixed` | No — CLI escalation attempts may cause it; daemon-internal reconciliation may also cause it |
 | `escalation_rate_limited` | `mixed` | No — CLI escalation or flush attempts may cause it; daemon-internal timer flush may also cause it |
 | `security_violation` | `daemon_internal` | No |
 | `redaction_applied` | `daemon_internal` | No |
-| `escalation_batched` | `mixed` | No — `kkachi-agent-network delegate escalate ...` may cause it; daemon-internal batch updates do not require a public command |
+| `escalation_batched` | `mixed` | No — `hun delegate escalate ...` may cause it; daemon-internal batch updates do not require a public command |
 | `escalation_timeout` | `daemon_internal` | No |
 | `runner_invocation_started` | `daemon_internal` | No |
 | `runner_invocation_failed` | `daemon_internal` | No |
 | `runner_result_discarded` | `daemon_internal` | No |
 | `session_handle_rotated` | `daemon_internal` | No |
 | `stream_subscriber_connected` | `daemon_internal` | No |
-| `stream_cursor_acknowledged` | `daemon_after_cli` | Yes — `kkachi-agent-network stream ack ...` |
+| `stream_cursor_acknowledged` | `daemon_after_cli` | Yes — `hun stream ack ...` |
 | `stream_subscriber_stale` | `daemon_internal` | No |
 
 ## Structured output and exit codes
@@ -954,9 +954,9 @@ All commands that can fail must support `--format text` and `--format json`. The
       "blocked_by_event_id": "evt_..."
     },
     "next": [
-      "kkachi-agent-network status sess_... --verbose",
-      "kkachi-agent-network resume sess_... --blocked-event evt_...",
-      "kkachi-agent-network cancel sess_... --reason ..."
+      "hun status sess_... --verbose",
+      "hun resume sess_... --blocked-event evt_...",
+      "hun cancel sess_... --reason ..."
     ]
   }
 }
@@ -998,9 +998,9 @@ session_type: delegation
 status: open
 phase: working
 next:
-- kkachi-agent-network status sess_20260425_0130_a
-- kkachi-agent-network delegate accept sess_20260425_0130_a
-- kkachi-agent-network cancel sess_20260425_0130_a
+- hun status sess_20260425_0130_a
+- hun delegate accept sess_20260425_0130_a
+- hun cancel sess_20260425_0130_a
 ```
 
 ### Active session exists (blocked)
@@ -1016,10 +1016,10 @@ phase: blocked
 blocked_by_event_id: evt_01HV...
 resume_phase: under_review
 next:
-- kkachi-agent-network status sess_20260425_0130_a --verbose
-- kkachi-agent-network limits show sess_20260425_0130_a
-- kkachi-agent-network limits extend sess_20260425_0130_a --key max_usd --value 50.00 --authorized-by user --reason "Approved additional budget."
-- kkachi-agent-network cancel sess_20260425_0130_a --reason "User cancelled blocked session."
+- hun status sess_20260425_0130_a --verbose
+- hun limits show sess_20260425_0130_a
+- hun limits extend sess_20260425_0130_a --key max_usd --value 50.00 --authorized-by user --reason "Approved additional budget."
+- hun cancel sess_20260425_0130_a --reason "User cancelled blocked session."
 ```
 
 ### Registry missing
@@ -1050,7 +1050,7 @@ member: user
 reason: reserved principal name
 reserved_principals:
 - user
-- kkachi-agent-networkd
+- hund
 ```
 
 ### Session budget exceeded
@@ -1064,9 +1064,9 @@ limit: 500
 status: blocked
 phase: blocked
 next:
-- kkachi-agent-network limits show sess_20260425_0130_a
-- kkachi-agent-network limits extend sess_20260425_0130_a --key max_runner_calls --value 750 --authorized-by user --reason "Approved additional runner calls."
-- kkachi-agent-network cancel sess_20260425_0130_a --reason "Budget exhausted."
+- hun limits show sess_20260425_0130_a
+- hun limits extend sess_20260425_0130_a --key max_runner_calls --value 750 --authorized-by user --reason "Approved additional runner calls."
+- hun cancel sess_20260425_0130_a --reason "Budget exhausted."
 ```
 
 ### Runner cost missing warning

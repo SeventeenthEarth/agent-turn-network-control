@@ -2,15 +2,15 @@
 
 ## Architectural principle
 
-KAN control/runtime follows a daemon-authority architecture. Domain policy is separated from adapters. The daemon owns state transitions, event append, locks, replay, and projections. The CLI and plugin are clients of the daemon contract, not alternate authorities.
+HUN control/runtime follows a daemon-authority architecture. Domain policy is separated from adapters. The daemon owns state transitions, event append, locks, replay, and projections. The CLI and plugin are clients of the daemon contract, not alternate authorities.
 
 ## Repository layout target
 
 ```text
-kkachi-agent-network-control/
+hun-control/
   cmd/
-    kkachi-agent-network/       # Go CLI main
-    kkachi-agent-networkd/      # Go daemon main
+    hun/       # Go CLI main
+    hund/      # Go daemon main
   internal/
     daemon/                     # process, local transport, stream hub
     cli/                        # canonical command handlers and stream client
@@ -32,8 +32,8 @@ kkachi-agent-network-control/
 The companion plugin repository targets:
 
 ```text
-kkachi-agent-network-plugin/
-  src/kkachi_agent_network_plugin/
+hun-plugin/
+  src/hun_plugin/
     client/                     # Python daemon client for protocol contract
     tools/                      # Hermes tool handlers
     slash_commands/             # Hermes command bindings when supported
@@ -49,8 +49,8 @@ kkachi-agent-network-plugin/
 ```text
 Moderator/member runtime or operator
   -> CLI or Python plugin client
-    -> KAN command envelope
-      -> kkachi-agent-networkd local transport
+    -> HUN command envelope
+      -> hund local transport
         -> validate registry identity and state transition
         -> append channel.jsonl
         -> update SQLite projection
@@ -64,9 +64,9 @@ Post-Release live-local work is governed by `24-live-transport-control-sot.md`. 
 
 ## Authority boundaries
 
-- `kkachi-agent-networkd` is the only component that mutates `channel.jsonl`, SQLite projections, session locks, cursor state, and replay state.
-- `kkachi-agent-network` CLI is canonical for diagnostics, recovery, manual operation, and plugin-failure fallback.
-- `kkachi-agent-network-plugin` is the preferred Hermes UX surface, but the plugin is not the source of truth.
+- `hund` is the only component that mutates `channel.jsonl`, SQLite projections, session locks, cursor state, and replay state.
+- `hun` CLI is canonical for diagnostics, recovery, manual operation, and plugin-failure fallback.
+- `hun-plugin` is the preferred Hermes UX surface, but the plugin is not the source of truth.
 - Discord is a visible room/evidence pointer, never a state authority.
 - Hermes core is not patched.
 
@@ -101,7 +101,7 @@ Discord-thread council support is a surface binding over the council state machi
 ```text
 Discord thread            # human-visible room
 Hermes plugin/gateway     # posts visible messages
-KAN daemon                # records typed events and delivery evidence
+HUN daemon                # records typed events and delivery evidence
 channel.jsonl             # canonical SOT
 Kanban/Vault              # optional linked authority return path
 ```

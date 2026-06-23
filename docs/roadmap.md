@@ -12,7 +12,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs are derived from the 
 
 | Task ID | Task Title | Task Status | Task Description |
 | --- | --- | --- | --- |
-| BOOTS-001 | Control scaffold and local gates | completed | Create `go.mod`, `cmd/kkachi-agent-network`, `cmd/kkachi-agent-networkd`, `internal/`, Makefile target contract, docs guardrails, and binary help smoke tests that pass without external resources. |
+| BOOTS-001 | Control scaffold and local gates | completed | Create `go.mod`, `cmd/hun`, `cmd/hund`, `internal/`, Makefile target contract, docs guardrails, and binary help smoke tests that pass without external resources. |
 
 ## REGST — Registry/security
 
@@ -31,7 +31,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs are derived from the 
 
 | Task ID | Task Title | Task Status | Task Description |
 | --- | --- | --- | --- |
-| DAEMN-001 | Daemon and CLI commands | completed | Implement `kkachi-agent-networkd` lifecycle, local command transport, canonical `kkachi-agent-network` commands, status/doctor/health, structured JSON errors, and stable exit categories verified through CLI integration tests. |
+| DAEMN-001 | Daemon and CLI commands | completed | Implement `hund` lifecycle, local command transport, canonical `hun` commands, status/doctor/health, structured JSON errors, and stable exit categories verified through CLI integration tests. |
 | DAEMN-002 | Stream and conformance | completed | Implement stream replay/follow/cursor acknowledgement, active-session lock, version/feature endpoint, command/event/error/stream fixtures under `testdata/conformance/`, and plugin-compatible protocol checks. |
 
 ## RUNRT — Runtime/runner
@@ -115,15 +115,17 @@ HUN is a clean public rename. Repository content must converge to HUN-only wordi
 | HUN-003 | Control code and binary rename | completed/local-proof | Local implementation proof renames the Go module/import target to `hun-control`, command entrypoints to `cmd/hun` and `cmd/hund`, command help/version surfaces to `hun`/`hund`, Makefile help smoke paths to the new binaries, and code/runtime data-home/socket behavior to `HUN_HOME`, XDG `hermes-unified-network`, `~/.hun`, and `hund.sock`. Evidence: local gates passed on 2026-06-21 (`git diff --check`, `make test-prepare`, `make docs-guardrails`, `make help-smoke`, `make check-plugin-contract`, `make test-release-acceptance`, and `make test`); MAR coverage passed, Blue MAR disposition recorded `PASS_WITH_FINDINGS_HANDLED`, post-fix verification refresh passed after the final docs mutation, and second color review recorded all lanes `APPROVE_WITH_CONDITIONS` with `final_gate_may_proceed=true`. This does not complete plugin HUN-004, protocol/fixture marker propagation HUN-005, tool schema rename HUN-006, broad docs scrub HUN-011, forbidden-term guardrails HUN-012, hosted repo rename, package publication, live activation, Discord delivery, profile/provider/gateway/auth/token mutation, commit, or push. |
 | HUN-005 | Control protocol, fixtures, and tests rename | completed/local-proof | Renamed the control-owned protocol marker, conformance manifests, fixtures, schemas, CLI test expectations, docs, and plugin-contract checker to `hun-protocol-v1alpha0` with no alias/fallback. Evidence: control HUN-005 local gates passed on 2026-06-22 (`git diff --check`, focused Go tests, `make docs-guardrails`, `make check-plugin-contract`, `make test-prepare`, and `make test`), and sibling plugin companion run `run-20260622T003936Z-0d6e8b285d41` passed `make check-core-contract`, `make test-prepare`, and full tiered tests after synchronizing the plugin protocol marker. This does not complete plugin tool API rename HUN-006, runtime/live readiness, package publication, commit, push, or hosted repository rename. |
 | HUN-007 | HUN vanilla Hermes runtime hardening | completed/local-proof | Local implementation under KAH run `run-20260622T114551Z-2120517080cb` hardens selected-runner evidence so runner-tagged speech without durable `runner_invocation_succeeded` cannot inflate runner success, and rejects unsupported selected-speaker adapters fail-closed before surfaced grant/runner/speech events. Local gates passed after cleanup (`git diff --check`, focused storage/daemon tests, `make test-prepare`, `make test`, docs guardrails, and plugin contract check), MAR and second-color review completed, final gate passed, run closed, and local commit completed. Push, live daemon activation, Discord delivery, package publication, and profile/provider/gateway/auth/token mutation remain non-scope. Companion plugin docs/10 selected-runner taxonomy stale wording remains a plugin-owned follow-up caveat. |
-| HUN-011 | Control public docs scrub | planned | Rewrite control public docs for HUN-only wording and remove private/internal release language while preserving control-owned protocol/runtime authority. |
+| HUN-011 | Control public docs scrub | completed/local-docs-proof | Rewrote control public README/docs/examples and docs-map status text for HUN public names (`Hermes Unified Network`, `HUN`, `hun-control`, `hun`, `hund`, `HUN_HOME`, `~/.hun`, `hund.sock`, and `hun-protocol-v1alpha0`) while preserving control-owned protocol/runtime authority and marking remaining legacy/internal labels as historical/provenance or safety-boundary references. Evidence passed on 2026-06-23: `git diff --check`, stale public-name scans, `make docs-guardrails`, `make check-plugin-contract`, and workflow graph validation. This does not implement HUN-012 forbidden-term guardrails, HUN-014 final compatibility, live readiness, Discord delivery, package publication, hosted repository rename, profile/provider/gateway/auth/token mutation, commit, or push. |
 | HUN-012 | Control HUN guardrails | planned | Add forbidden-term guardrails and docs/test gates so stale legacy and private terms cannot re-enter control repository content. |
 
 Every roadmap item must map to the Makefile target taxonomy in `18-testing-strategy.md` and to the phase dependencies in `09-implementation-epics.md`. For legacy repo-owned epics, active task transfer between this control repo and the plugin repo happens only at an epic boundary. For an accepted cross-repo epic such as RUNFIX, transfer happens at the globally ordered task boundary recorded in both repos' SOT tables. When a task ID is cited outside its repo-local roadmap, qualify it as `control/<task-id>` or `plugin/<task-id>`.
 
 
-## RUNFIX — KAN council runner, activation, and discussion-quality remediation
+## RUNFIX — HUN council runner, activation, and discussion-quality remediation
 
 RUNFIX is a cross-repo remediation epic using a single global task sequence across control and plugin. This control roadmap lists only control-owned rows; plugin-owned rows live in `../../kkachi-agent-network-plugin/docs/06-implementation-epics-tasks.md`.
+
+Legacy `kan-*`, `kan_discussion_*`, and recorded `kan/` artifact path fragments in older RUNFIX rows are historical/provenance labels, not current public HUN aliases.
 
 | Task ID | Task Title | Task Status | Task Description |
 | --- | --- | --- | --- |
@@ -144,7 +146,7 @@ Plugin-owned `plugin/RUNFIX-012` now has local implementation proof under plugin
 | RUNFIX-018 | Explicit council roster registry reconciliation | local implementation proof | Control KAH run `run-20260619T214003Z-8a2afe33923f` adds daemon-owned registry reconciliation before `council.new`. Missing selected moderator/participant principals are persisted to `registry.yaml` only when the roster is explicit, the principal id is valid/non-reserved, and same-named wrapper resolution succeeds through the loaded allow-list. Disabled existing principals, invalid ids, unresolved wrappers, or ambiguous/missing identity evidence fail closed before session creation. The daemon reloads the registry, snapshots it into the session, and returns `registry_reconcile` evidence; subscription/heartbeat/ack readiness remains session-scoped. |
 
 
-## RUNFIX2 — KAN discussion runtime usability hardening
+## RUNFIX2 — HUN discussion runtime usability hardening
 
 RUNFIX2 is a five-task cross-repo epic created from the 2026-06-20 KLM/주유 live discussion dogfood. This control roadmap lists control-owned rows and bounded companion plugin status notes; plugin-owned implementation authority remains in `../../kkachi-agent-network-plugin/docs/06-implementation-epics-tasks.md`. The epic distinguishes production/operator enablement defaults from evidence-derived pass labels and does not authorize production activation, profile/provider/gateway/auth/token mutation, push, broad rollout, live pilot success, or unapproved live Discord delivery.
 

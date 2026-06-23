@@ -1,6 +1,6 @@
 # Engineering Principles
 
-These principles are mandatory for `kkachi-agent-network` design, implementation, review, and future maintenance.
+These principles are mandatory for `hun` design, implementation, review, and future maintenance.
 
 ## Core motto
 
@@ -12,7 +12,7 @@ Build the system correctly, not merely minimally. Problems must be understood at
 
 - Keep domain logic independent from CLI, daemon transport, storage, and member runner details.
 - The debate/delegation state machines belong in the domain layer.
-- SQLite, JSONL, sockets, plugin tools, CLI commands, and subprocess invocation are adapters. (External delivery — Telegram, Slack, Discord, etc. — is not part of the daemon at all; it lives in the Hermes plugin/gateway helper or equivalent moderator runtime gateway skill, which records its results back through typed KAN commands.)
+- SQLite, JSONL, sockets, plugin tools, CLI commands, and subprocess invocation are adapters. (External delivery — Telegram, Slack, Discord, etc. — is not part of the daemon at all; it lives in the Hermes plugin/gateway helper or equivalent moderator runtime gateway skill, which records its results back through typed HUN commands.)
 - Adapters must not own policy decisions.
 
 ### Single Responsibility Principle

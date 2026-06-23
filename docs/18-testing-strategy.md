@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document defines the test layers for KAN control/runtime and the Makefile target contract shared with the plugin repository.
+This document defines the test layers for HUN control/runtime and the Makefile target contract shared with the plugin repository.
 
 ## Makefile target contract
 

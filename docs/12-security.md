@@ -42,7 +42,7 @@ Required directory properties:
 
 Recommended mode: `0700`. If `<data_home>` does not exist, setup/init code may create it with mode `0700`. If `<data_home>` exists with unsafe ownership or permissions, the daemon fails closed and does not automatically `chmod` it during start; permission repair is allowed only through an explicit setup or repair command that reports the action.
 
-`kkachi-agent-network doctor` is read-only by default. Permission repair may be offered only through an explicit `--repair-permissions` flag or through `kkachi-agent-network init`, both of which must report every change they make. Daemon start must not silently repair unsafe ownership or permissions.
+`hun doctor` is read-only by default. Permission repair may be offered only through an explicit `--repair-permissions` flag or through `hun init`, both of which must report every change they make. Daemon start must not silently repair unsafe ownership or permissions.
 
 ### Registry symlink rule
 
@@ -82,9 +82,9 @@ File safety validation runs **before** YAML schema validation; schema validation
 Reserved principal names cannot be used as registry member ids. Reserved principals:
 
 - `user`
-- `kkachi-agent-networkd`
+- `hund`
 
-Examples rejected at registry load time: `members.user`, `members.kkachi-agent-networkd`. The daemon uses these reserved principals in event envelopes; allowing registry members with the same ids would make audit records ambiguous.
+Examples rejected at registry load time: `members.user`, `members.hund`. The daemon uses these reserved principals in event envelopes; allowing registry members with the same ids would make audit records ambiguous.
 
 ## Wrapper execution policy
 
@@ -131,25 +131,25 @@ For every artifact reference:
 
 - CLI arguments and Hermes plugin tool inputs flowing into event payloads and runner prompts are treated as opaque data. No CLI or plugin path interpolates payload content into shell commands.
 - Registry-defined `workspace` is used only as a read reference for artifact source and as `cwd` for the wrapper invocation. It is never used as a base for arbitrary subprocess calls.
-- CLI itself never spawns shells; the Hermes plugin must not spawn shells for normal KAN state mutations; only the daemon runner invokes subprocesses, and only through the adapter interface defined in `13-operational-contracts.md`.
-- CLI-supplied and plugin-supplied `from` and `to` principals are treated as untrusted input. The daemon validates that `from` is an authorized originator for the command, that `to` contains only valid recipients for the session or the reserved external principal `user`, that `to` does not contain duplicates after normalization, and that `kkachi-agent-networkd` is not accepted as a normal participant-supplied recipient. Invalid principal references fail closed.
+- CLI itself never spawns shells; the Hermes plugin must not spawn shells for normal HUN state mutations; only the daemon runner invokes subprocesses, and only through the adapter interface defined in `13-operational-contracts.md`.
+- CLI-supplied and plugin-supplied `from` and `to` principals are treated as untrusted input. The daemon validates that `from` is an authorized originator for the command, that `to` contains only valid recipients for the session or the reserved external principal `user`, that `to` does not contain duplicates after normalization, and that `hund` is not accepted as a normal participant-supplied recipient. Invalid principal references fail closed.
 
 
 ## Hermes plugin security boundary
 
-- The Hermes plugin is not trusted as a state authority. It is an adapter over the KAN protocol client/contract and daemon command transport.
+- The Hermes plugin is not trusted as a state authority. It is an adapter over the HUN protocol client/contract and daemon command transport.
 - The plugin must not append to `channel.jsonl`, write directly to `network.sqlite`, mutate daemon locks, or bypass daemon validation.
 - Plugin load, reload, unload, Hermes gateway restart, or Hermes Agent restart must not mutate, corrupt, truncate, or otherwise alter `channel.jsonl`, SQLite projections, locks, or daemon state. Daemon durability is independent of plugin lifecycle.
-- The plugin must not require KAN daemon access to Hermes profile secrets, gateway credentials, or Discord bot tokens. Gateway credentials remain inside Hermes/gateway configuration.
+- The plugin must not require HUN daemon access to Hermes profile secrets, gateway credentials, or Discord bot tokens. Gateway credentials remain inside Hermes/gateway configuration.
 - Plugin tool inputs are untrusted and must receive the same validation, redaction, command-id/idempotency, and structured-error handling as CLI inputs.
-- If the plugin shells out to `kkachi-agent-network` for a compatibility fallback, argv-only invocation is required and shell interpolation is forbidden. Normal operation should use the KAN protocol client/contract.
+- If the plugin shells out to `hun` for a compatibility fallback, argv-only invocation is required and shell interpolation is forbidden. Normal operation should use the HUN protocol client/contract.
 - Plugin failure must fail closed and direct the operator to canonical CLI diagnostics/recovery; it must not simulate member profiles or continue by writing private state.
 
 ## Discord-thread surface security
 
 For `surface.kind: discord_thread`, Discord ids and message ids are untrusted evidence pointers:
 
-- `kkachi-agent-networkd` must not require or store raw Discord bot tokens for the first-pass surface binding; Discord delivery belongs to Hermes plugin/gateway capability or a separately approved bridge.
+- `hund` must not require or store raw Discord bot tokens for the first-pass surface binding; Discord delivery belongs to Hermes plugin/gateway capability or a separately approved bridge.
 - Raw Discord tokens, webhook secrets, or gateway credentials must never appear in `surface`, `linked_authority`, event payloads, transcripts, exports, `channel.jsonl`, or `operational.log`.
 - If a future Discord bridge is approved, token scope, allowed guild/channel/thread validation, inbound message validation, and redaction must be specified as a separate transport/security design before implementation.
 - Discord message order is not accepted as causality or lifecycle authority. The daemon uses `channel.jsonl` cursor order only.
@@ -158,7 +158,7 @@ For `surface.kind: discord_thread`, Discord ids and message ids are untrusted ev
 ## Stream access policy
 
 - A stream subscriber must identify as a registry member or as the moderator. Unknown member names are rejected.
-- Stream frames are read-only. All writes use typed KAN commands, exposed through plugin tools or canonical CLI fallback, that re-enter normal daemon validation and idempotency.
+- Stream frames are read-only. All writes use typed HUN commands, exposed through plugin tools or canonical CLI fallback, that re-enter normal daemon validation and idempotency.
 - A member runtime may acknowledge only its own cursor. The moderator may inspect all cursors but should not advance a member cursor.
 - Cursor gaps, unknown schema versions, or replay corruption fail closed. The daemon must not silently skip events to keep a stream alive.
 - The event envelope `to` field is **semantic addressing**, not access control. A valid session participant may observe session events even if a specific event is not addressed to that participant. The daemon must not rely on `to` alone to decide stream read permissions; read permissions are based on registry identity, moderator authority, session participation, and the rules in this section.
@@ -241,7 +241,7 @@ Release v1 validates the resolved `<data_home>` directory itself through `regist
 - Retention: 2 days from last activity (matches the raw runner log retention in `05-storage-schema.md`). Older lines are pruned by the daemon's housekeeping pass.
 - Durability: operational, not durable. The system of record for anything that has a session is `channel.jsonl`; the operational log is only authoritative for pre-session events (per the rule above).
 
-`kkachi-agent-network doctor` may read and summarize operational log records, but it must not expose secret values. Any displayed payload must pass through the same redaction rules as `channel.jsonl`.
+`hun doctor` may read and summarize operational log records, but it must not expose secret values. Any displayed payload must pass through the same redaction rules as `channel.jsonl`.
 
 ## Auditability
 

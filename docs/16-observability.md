@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document defines what an operator can see while `kkachi-agent-network` is running: health signals, metrics, structured logs, suggested SLOs/SLIs, alert thresholds, and dashboard organization. It is intended for local single-host deployments. It does not define a metrics export protocol; the metrics names below are stable identifiers that an exporter (Prometheus, OpenTelemetry, or a simple JSON endpoint) can map to its own format.
+This document defines what an operator can see while `hun` is running: health signals, metrics, structured logs, suggested SLOs/SLIs, alert thresholds, and dashboard organization. It is intended for local single-host deployments. It does not define a metrics export protocol; the metrics names below are stable identifiers that an exporter (Prometheus, OpenTelemetry, or a simple JSON endpoint) can map to its own format.
 
 The normative SOT documents that observability depends on:
 
@@ -17,14 +17,14 @@ Each daemon health probe answers one question:
 
 | Question                                                | Answer source                                                            |
 | ------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Is the daemon running and accepting commands?           | `kkachi-agent-network daemon status`                                            |
-| Is the registry safe and parseable?                     | `kkachi-agent-network doctor`                                                   |
-| Is the active session lock consistent?                  | `kkachi-agent-network doctor`, `kkachi-agent-network status`                           |
-| Is `channel.jsonl` parseable and projection-consistent? | `kkachi-agent-network storage verify`                                           |
-| Is replay reproducible?                                 | `kkachi-agent-network storage rebuild-projection` after `storage verify` passes |
-| Are stream subscribers up to date?                      | `kkachi-agent-network status --verbose`                                         |
+| Is the daemon running and accepting commands?           | `hun daemon status`                                            |
+| Is the registry safe and parseable?                     | `hun doctor`                                                   |
+| Is the active session lock consistent?                  | `hun doctor`, `hun status`                           |
+| Is `channel.jsonl` parseable and projection-consistent? | `hun storage verify`                                           |
+| Is replay reproducible?                                 | `hun storage rebuild-projection` after `storage verify` passes |
+| Are stream subscribers up to date?                      | `hun status --verbose`                                         |
 
-`kkachi-agent-network doctor` is the operator-facing aggregate. It is read-only by default and must not chmod, chown, rewrite, or delete anything without an explicit repair flag (per `12-security.md`).
+`hun doctor` is the operator-facing aggregate. It is read-only by default and must not chmod, chown, rewrite, or delete anything without an explicit repair flag (per `12-security.md`).
 
 ## Metrics catalog
 
@@ -32,25 +32,25 @@ The daemon emits a set of stable metric identifiers. Implementations may expose 
 
 | Area       | Metric                                        | Type      | Description                                            |
 | ---------- | --------------------------------------------- | --------- | ------------------------------------------------------ |
-| Daemon     | `kkachi_agent_network_daemon_ready`                  | gauge     | 1 when daemon can accept commands; 0 otherwise         |
-| Daemon     | `kkachi_agent_network_active_sessions`               | gauge     | Active session count (Release v1: 0 or 1)              |
-| Event log  | `kkachi_agent_network_event_append_latency_ms`       | histogram | JSONL append latency                                   |
-| Event log  | `kkachi_agent_network_event_appends_total`           | counter   | Count of appended events, labeled by `type`            |
-| Projection | `kkachi_agent_network_projection_replay_duration_ms` | histogram | SQLite rebuild or replay duration                      |
-| Stream     | `kkachi_agent_network_stream_subscriber_count`       | gauge     | Active stream subscribers                              |
-| Stream     | `kkachi_agent_network_stream_lag_events`             | gauge     | Latest event cursor minus acknowledged cursor          |
-| Stream     | `kkachi_agent_network_stream_subscriber_stale_total` | counter   | Count of `stream_subscriber_stale` emissions           |
-| Runner     | `kkachi_agent_network_runner_invocations_total`      | counter   | Count of `runner_invocation_started`                   |
-| Runner     | `kkachi_agent_network_runner_failures_total`         | counter   | Runner terminal failures, labeled by `reason`          |
-| Runner     | `kkachi_agent_network_runner_missing_cost_total`     | counter   | Terminal runner events with `cost: null`               |
-| Runner     | `kkachi_agent_network_runner_duration_ms`            | histogram | Runner invocation duration                             |
-| Escalation | `kkachi_agent_network_waiting_user_age_seconds`      | gauge     | Age of current `waiting_user` state, 0 when not active |
-| Escalation | `kkachi_agent_network_pending_escalation_batches`    | gauge     | Pending batch count                                    |
-| Escalation | `kkachi_agent_network_user_escalations_total`        | counter   | Count of `user_escalation_requested`                   |
-| Block      | `kkachi_agent_network_blocked_session_age_seconds`   | gauge     | Age of current `blocked` state, 0 when not blocked     |
-| Security   | `kkachi_agent_network_security_violations_total`     | counter   | Security violations, labeled by `category`             |
-| Storage    | `kkachi_agent_network_replay_failures_total`         | counter   | Replay failures, labeled by `reason`                   |
-| Storage    | `kkachi_agent_network_jsonl_bytes`                   | gauge     | Size of the active session's `channel.jsonl`           |
+| Daemon     | `hun_daemon_ready`                  | gauge     | 1 when daemon can accept commands; 0 otherwise         |
+| Daemon     | `hun_active_sessions`               | gauge     | Active session count (Release v1: 0 or 1)              |
+| Event log  | `hun_event_append_latency_ms`       | histogram | JSONL append latency                                   |
+| Event log  | `hun_event_appends_total`           | counter   | Count of appended events, labeled by `type`            |
+| Projection | `hun_projection_replay_duration_ms` | histogram | SQLite rebuild or replay duration                      |
+| Stream     | `hun_stream_subscriber_count`       | gauge     | Active stream subscribers                              |
+| Stream     | `hun_stream_lag_events`             | gauge     | Latest event cursor minus acknowledged cursor          |
+| Stream     | `hun_stream_subscriber_stale_total` | counter   | Count of `stream_subscriber_stale` emissions           |
+| Runner     | `hun_runner_invocations_total`      | counter   | Count of `runner_invocation_started`                   |
+| Runner     | `hun_runner_failures_total`         | counter   | Runner terminal failures, labeled by `reason`          |
+| Runner     | `hun_runner_missing_cost_total`     | counter   | Terminal runner events with `cost: null`               |
+| Runner     | `hun_runner_duration_ms`            | histogram | Runner invocation duration                             |
+| Escalation | `hun_waiting_user_age_seconds`      | gauge     | Age of current `waiting_user` state, 0 when not active |
+| Escalation | `hun_pending_escalation_batches`    | gauge     | Pending batch count                                    |
+| Escalation | `hun_user_escalations_total`        | counter   | Count of `user_escalation_requested`                   |
+| Block      | `hun_blocked_session_age_seconds`   | gauge     | Age of current `blocked` state, 0 when not blocked     |
+| Security   | `hun_security_violations_total`     | counter   | Security violations, labeled by `category`             |
+| Storage    | `hun_replay_failures_total`         | counter   | Replay failures, labeled by `reason`                   |
+| Storage    | `hun_jsonl_bytes`                   | gauge     | Size of the active session's `channel.jsonl`           |
 
 Counters increment monotonically and reset only when the daemon is stopped and storage is rebuilt. Gauges reflect the current state at scrape time.
 
@@ -58,12 +58,12 @@ Counters increment monotonically and reset only when the daemon is stopped and s
 
 Default targets for a single-host deployment. Operators may relax these for development environments.
 
-- Local event append p95 < 100 ms (`kkachi_agent_network_event_append_latency_ms`).
+- Local event append p95 < 100 ms (`hun_event_append_latency_ms`).
 - Stream delivery p95 < 1 s after append (latest event cursor is observed by all live subscribers within 1 s).
 - Stream reconnect replays missed events without silent skip (verified by integration tests; cursor gap fails closed).
 - Projection rebuild from 10,000 events completes within a documented local benchmark target (recorded by `18-testing-strategy.md` load tests).
-- `kkachi_agent_network_daemon_ready` is 1 for ≥ 99% of operator-active hours.
-- `kkachi_agent_network_runner_failures_total` rate over 1 hour is bounded by session budgets and is reported in `kkachi-agent-network status --verbose`.
+- `hun_daemon_ready` is 1 for ≥ 99% of operator-active hours.
+- `hun_runner_failures_total` rate over 1 hour is bounded by session budgets and is reported in `hun status --verbose`.
 
 These are operator-facing targets, not protocol invariants. Failing an SLO is an alert signal, not a daemon fault.
 
@@ -77,13 +77,13 @@ Recommended local alerts. They map to operator action, not to daemon recovery (t
 - `stream_subscriber_stale_total` increases — a member runtime stopped acknowledging cursors.
 - `runner_missing_cost_total` increases — token and USD totals are becoming incomplete.
 - `security_violations_total` increases — investigate immediately; do not suppress.
-- `replay_failures_total` increases — possible storage corruption; run `kkachi-agent-network storage verify` and follow `17-disaster-recovery.md`.
+- `replay_failures_total` increases — possible storage corruption; run `hun storage verify` and follow `17-disaster-recovery.md`.
 
 ## Dashboard guidance
 
 A useful local dashboard groups widgets by concern:
 
-- **Daemon health** — `daemon_ready`, `active_sessions`, daemon uptime, last `kkachi-agent-network doctor` result.
+- **Daemon health** — `daemon_ready`, `active_sessions`, daemon uptime, last `hun doctor` result.
 - **Active session** — current `phase` and `status`, session ID, blocked-session age, waiting-user age, pending escalation batches.
 - **Throughput** — `event_appends_total` over time (rate), `event_append_latency_ms` p50/p95/p99.
 - **Runner accounting** — `runner_invocations_total`, `runner_failures_total`, `runner_missing_cost_total`, current `runner_calls_total`, current token/USD totals.
@@ -116,11 +116,11 @@ Operators should be able to assemble a per-session trace by filtering `channel.j
 
 Observability surfaces the following commands without weakening security:
 
-- `kkachi-agent-network daemon status` — daemon liveness and version.
-- `kkachi-agent-network doctor` — read-only health summary; `--repair-permissions` for explicit fixes.
-- `kkachi-agent-network status` and `kkachi-agent-network status <session_id> --verbose` — session-level summary.
-- `kkachi-agent-network limits show <session_id>` — budget/escalation accounting view.
-- `kkachi-agent-network storage verify` — JSONL parse, schema, and projection consistency check.
+- `hun daemon status` — daemon liveness and version.
+- `hun doctor` — read-only health summary; `--repair-permissions` for explicit fixes.
+- `hun status` and `hun status <session_id> --verbose` — session-level summary.
+- `hun limits show <session_id>` — budget/escalation accounting view.
+- `hun storage verify` — JSONL parse, schema, and projection consistency check.
 
 These commands are part of `04-cli-spec.md`; this document only summarizes their observability role.
 

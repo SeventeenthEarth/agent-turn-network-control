@@ -25,7 +25,7 @@ DELEG-002 updates these control-owned surfaces:
 
 ## Non-scope
 
-- No edits to `kkachi-agent-network-plugin` in this task.
+- No edits to `hun-plugin` in this task.
 - No live Discord, Hermes gateway, KAB, external daemon, auth, token, localhost, socket fallback, or network behavior.
 - No weakening of existing conformance guardrails.
 - No plugin-owned UX/runtime behavior inside control docs; control owns the daemon/protocol/fixture contract and plugin consumes it.
@@ -73,4 +73,4 @@ make check-plugin-contract
 make test
 ```
 
-Full closeout additionally needs downstream plugin `make check-core-contract` from `/Users/draccoon/Workspace/SeventeenthEarth/kkachi/kkachi-agent-network-plugin` and `kkachi-agent-helper gate final run-20260606T081553Z-f394a2b5b90a --json`.
+Full closeout additionally needs downstream plugin `make check-core-contract` from the current local workspace path `/Users/draccoon/Workspace/SeventeenthEarth/kkachi/kkachi-agent-network-plugin` (public repo label `hun-plugin`; hosted/local rename compatibility remains HUN-014) and `kkachi-agent-helper gate final run-20260606T081553Z-f394a2b5b90a --json`.

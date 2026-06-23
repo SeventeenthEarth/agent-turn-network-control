@@ -1,18 +1,18 @@
-# kkachi-agent-network Overview
+# Hermes Unified Network Overview
 
 ## Purpose
 
-`kkachi-agent-network-control` is the control/runtime authority repository for KAN real Hermes team member coordination. The product/runtime surface remains `kkachi-agent-network`. It owns durable sessions for delegation, review, and council discussion through a Go daemon, a minimal Go CLI, typed protocol contracts, an append-only `channel.jsonl` event log, and SQLite projections.
+`hun-control` is the control/runtime authority repository for Hermes Unified Network (HUN) real Hermes team member coordination. The product/runtime surface is `hun`. It owns durable sessions for delegation, review, and council discussion through a Go daemon, a minimal Go CLI, typed protocol contracts, an append-only `channel.jsonl` event log, and SQLite projections.
 
-KAN is not a Discord bot and not a Hermes plugin. Discord and Hermes are important surfaces, but the canonical state remains daemon-owned typed events.
+HUN is not a Discord bot and not a Hermes plugin. Discord and Hermes are important surfaces, but the canonical state remains daemon-owned typed events.
 
 ## Repository boundary
 
 This repository is the **control authority repository**:
 
-- repo: `kkachi-agent-network-control`
+- repo: `hun-control`
 - implementation language for control runtime: Go
-- binaries: `kkachi-agent-networkd` and `kkachi-agent-network`
+- binaries: `hund` and `hun`
 - SOT documents: protocol, state machine, storage, security, operations, testing, and release roadmap
 - companion plugin repository: `../../kkachi-agent-network-plugin`
 
@@ -20,15 +20,15 @@ The companion repository contains the Python Hermes plugin adapter and its own d
 
 ## Primary customer
 
-The first-class runtime user is Hermes Agent: long-lived moderator and member profile processes that can observe a stream, persist cursors, and write typed KAN commands. Reactive terminal tools may be invoked by adapters, but they are not the primary coordination runtime.
+The first-class runtime user is Hermes Agent: long-lived moderator and member profile processes that can observe a stream, persist cursors, and write typed HUN commands. Reactive terminal tools may be invoked by adapters, but they are not the primary coordination runtime.
 
 ## Control model
 
 ```text
 User / external authority
   -> Moderator Hermes runtime or operator
-    -> KAN command contract
-      -> kkachi-agent-networkd
+    -> HUN command contract
+      -> hund
         -> validate identity, command, and state transition
         -> append channel.jsonl
         -> update SQLite projection
@@ -49,7 +49,7 @@ Review is a quality gate inside delegation, not a separate top-level session typ
 
 - Do not modify Hermes core.
 - Do not make the Hermes plugin the source of truth or the only recovery path.
-- Do not require Discord tokens inside `kkachi-agent-networkd`.
+- Do not require Discord tokens inside `hund`.
 - Do not treat Discord message order or transcript text as authoritative state.
 - Do not replace real member profiles with simulated role prompts.
 - Do not run multiple concurrent sessions in Release v1.
