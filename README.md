@@ -62,7 +62,7 @@ Export bundles are local directories containing `transcript.md`, `transcript.jso
 
 ## Plugin handoff
 
-The companion plugin is contract-checked/tested locally from the current workspace path `../agent-turn-network-plugin` while public docs and status labels refer to the repo as `atn-plugin`. It consumes this repo's protocol schemas, version/features response, and `testdata/conformance/manifest.json`; it must continue to fail closed on unsupported protocol versions, missing feature groups, malformed fake-daemon responses, or any live-service configuration that has not been separately proven. ATN-001 locked the rename policy, and ATN-004 remains the pending control code/runtime rename for checked-in module, binary, socket, env, and protocol markers.
+The companion plugin is contract-checked/tested locally from the current workspace path `../agent-turn-network-plugin` while public docs and status labels refer to the repo as `atn-plugin`. It consumes this repo's protocol schemas, version/features response, and `testdata/conformance/manifest.json`; it must continue to fail closed on unsupported protocol versions, missing feature groups, malformed fake-daemon responses, or any live-service configuration that has not been separately proven. ATN-001 locked the rename policy, and ATN-004 is now the completed control code/runtime rename for the checked-in module, binary, socket, env, and protocol markers.
 
 ## Test targets
 

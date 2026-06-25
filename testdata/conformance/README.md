@@ -1,11 +1,11 @@
 # HUN Conformance Fixtures
 
-This directory contains control-owned protocol fixtures consumed by `hun-plugin`.
+This directory contains control-owned protocol fixtures consumed by `atn-plugin`.
 
 Current status: DAEMN-002 plus DELEG-002, COUNC-001, and ARGUE-002 static/local conformance sets. The files here define the shared protocol examples for command envelopes, event envelopes, structured errors, stream frames, version/features, delivery evidence, delegation/review command handoff, council lifecycle handoff, and council argument-graph handoff.
 
 - Manifest: `manifest.json`
-- Protocol version: `hun-protocol-v1alpha0`
+- Protocol version: `atn-protocol-v1alpha0`
 - Schemas: `schemas/*.schema.json`
 - Fixtures: `fixtures/{command,event,error,stream,version}/`
 - Canonical stream command fixture: `stream.replay`

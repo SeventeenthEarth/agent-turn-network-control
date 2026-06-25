@@ -88,8 +88,8 @@ ATN uses one five-task cross-repo sequence. The owning repository is part of the
 | --- | --- | --- | --- |
 | ATN-001 | cross-repo | completed/docs-only | Lock control and plugin ATN naming SOT documents, roadmap entries, and clean no-alias policy. Review consensus: Red `t_d43402f0`, Orange `t_6d6bb8e8`, Gray `t_7ebc9e1e`, Blue synthesis `t_8e348f72`. |
 | ATN-002 | control | planned | Rewrite control public docs, roadmap/index/map surfaces, protocol wording, examples, and operator-facing text to ATN-only wording without binary/code rename. |
-| ATN-003 | plugin | planned | Rewrite plugin public docs, package/docs metadata, operator guide, and bundled skill documentation to ATN-only wording without tool/package code rename. |
-| ATN-004 | control | planned | Rename control code, Go module, CLI binary, daemon binary, data-home/env/socket/protocol markers, fixtures, tests, and Makefile surfaces to ATN names with no aliases. |
+| ATN-003 | plugin | completed/local-docs-proof | Rewrote plugin public docs, package/docs metadata, operator guide, bundled skill documentation, and local sibling workspace references to ATN-only wording ahead of ATN-005 while preserving historical HUN provenance rows separately. |
+| ATN-004 | control | completed/local-proof | Renamed control code, Go module, CLI binary, daemon binary, data-home/env/socket/protocol markers, daemon principal, conformance fixtures, tests, scripts, and Makefile surfaces to ATN names with no aliases. |
 | ATN-005 | plugin | planned | Rename plugin package/import/manifest/tools/bundled skills to ATN names, add/update final no-alias guardrails, and close cross-repo compatibility proof. |
 
 ## Acceptance criteria for ATN-001

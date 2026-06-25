@@ -12,14 +12,14 @@ const (
 	RegistryFileName  = "registry.yaml"
 	SnapshotFileName  = "registry_snapshot.yaml"
 	defaultSchema     = 1
-	defaultDataHome   = ".hun"
-	dataHomeDirectory = "hermes-unified-network"
+	defaultDataHome   = ".atn"
+	dataHomeDirectory = "agent-turn-network"
 )
 
-// ResolveDataHome resolves the deterministic KAN data home.
+// ResolveDataHome resolves the deterministic ATN data home.
 func ResolveDataHome(runtime Runtime) (string, error) {
 	runtime = runtime.withDefaults()
-	if value, ok := runtime.LookupEnv("HUN_HOME"); ok && value != "" {
+	if value, ok := runtime.LookupEnv("ATN_HOME"); ok && value != "" {
 		return filepath.Clean(value), nil
 	}
 	if value, ok := runtime.LookupEnv("XDG_DATA_HOME"); ok && value != "" {

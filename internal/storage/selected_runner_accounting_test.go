@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
 )
 
 func TestUnitRUNFIX014RunnerFailureThenFallbackSpeechDoesNotPassSelectedRunner(t *testing.T) {
@@ -313,7 +313,7 @@ func selectedRunnerAccountingRunnerEvent(metadata *SessionMetadata, eventID, typ
 		SessionType:      metadata.SessionType,
 		Phase:            "discussion",
 		Type:             typ,
-		From:             "kkachi-agent-networkd",
+		From:             "atn-controld",
 		To:               []string{member},
 		CreatedAt:        fixedTranscriptTime().Add(offset),
 		Runner: &RunnerInfo{
@@ -343,7 +343,7 @@ func selectedRunnerAccountingDispatchFailure(metadata *SessionMetadata, eventID,
 		SessionType:      metadata.SessionType,
 		Phase:            "discussion",
 		Type:             "selected_runner_dispatch_failed",
-		From:             "kkachi-agent-networkd",
+		From:             "atn-controld",
 		To:               []string{member},
 		CreatedAt:        fixedTranscriptTime().Add(offset),
 		Payload: map[string]any{

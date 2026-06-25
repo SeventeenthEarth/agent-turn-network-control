@@ -1,4 +1,4 @@
-module hun-control
+module atn-control
 
 go 1.25.0
 

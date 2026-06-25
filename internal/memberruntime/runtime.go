@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/storage"
+	"atn-control/internal/protocol"
+	"atn-control/internal/storage"
 )
 
 var ErrDurableFailureRecorded = errors.New("durable fail event recorded")

@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/registry"
+	"atn-control/internal/registry"
 )
 
 func TestUnitResolveDataHomePrecedence(t *testing.T) {
 	env := map[string]string{
-		"HUN_HOME":      "/tmp/hun-home",
+		"ATN_HOME":      "/tmp/atn-control-home",
 		"XDG_DATA_HOME": "/tmp/xdg",
 	}
 	runtime := testRuntime(env, "/home/tester")
@@ -21,16 +21,16 @@ func TestUnitResolveDataHomePrecedence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveDataHome failed: %v", err)
 	}
-	if got != "/tmp/hun-home" {
+	if got != "/tmp/atn-control-home" {
 		t.Fatalf("expected explicit home, got %q", got)
 	}
 
-	delete(env, "HUN_HOME")
+	delete(env, "ATN_HOME")
 	got, err = registry.ResolveDataHome(runtime)
 	if err != nil {
 		t.Fatalf("ResolveDataHome with XDG failed: %v", err)
 	}
-	if got != "/tmp/xdg/hermes-unified-network" {
+	if got != "/tmp/xdg/agent-turn-network" {
 		t.Fatalf("expected XDG data home, got %q", got)
 	}
 
@@ -39,7 +39,7 @@ func TestUnitResolveDataHomePrecedence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveDataHome fallback failed: %v", err)
 	}
-	if got != "/home/tester/.hun" {
+	if got != "/home/tester/.atn" {
 		t.Fatalf("expected home fallback, got %q", got)
 	}
 }

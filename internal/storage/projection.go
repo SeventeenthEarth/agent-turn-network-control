@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
 
 	"gopkg.in/yaml.v3"
 	_ "modernc.org/sqlite"

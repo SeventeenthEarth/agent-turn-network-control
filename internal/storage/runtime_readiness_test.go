@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/protocol"
+	"atn-control/internal/protocol"
 )
 
 func TestUnitParticipantRuntimeReadinessRequiresSubscriberCursorHeartbeatAttendanceAndPreparation(t *testing.T) {
@@ -59,7 +59,7 @@ func TestUnitParticipantRuntimeReadinessFailsClosedForMissingAndStaleEvidence(t 
 func TestUnitParticipantRuntimeReadinessDistinguishesTimeoutFailureFromPartialSuccess(t *testing.T) {
 	sessionDir, metadata := readinessCouncilForTest(t, "sess_runtime_timeout_distinction", true)
 	appendRawEventForTest(t, sessionDir, metadata, "evt_preparation_requested_timeout_distinction", "cmd_prepare_timeout_distinction", "preparation_requested", "preparation", "agent-mod", []string{"agent-1"}, map[string]any{"timeout_sec": 1}, 30*time.Second)
-	appendRawEventForTest(t, sessionDir, metadata, "evt_member_prepared_partial_timeout_distinction", "cmd_partial_timeout_distinction", "member_prepared_partial", "preparation", "kkachi-agent-networkd", []string{"agent-mod"}, map[string]any{"member": "agent-1", "reason": "timeout", "summary": "timed out"}, 32*time.Second)
+	appendRawEventForTest(t, sessionDir, metadata, "evt_member_prepared_partial_timeout_distinction", "cmd_partial_timeout_distinction", "member_prepared_partial", "preparation", "atn-controld", []string{"agent-mod"}, map[string]any{"member": "agent-1", "reason": "timeout", "summary": "timed out"}, 32*time.Second)
 
 	report, err := ParticipantRuntimeReadinessFromLog(sessionDir, metadata, ParticipantRuntimeReadinessOptions{RequireAttendance: true, RequirePreparation: true, Now: fixedRuntime().Now().Add(33 * time.Second)})
 	if err != nil {
@@ -180,7 +180,7 @@ func appendRunnerEventForRuntimeReadinessTest(t *testing.T, sessionDir string, m
 		SessionType:      metadata.SessionType,
 		Phase:            "discussion",
 		Type:             typ,
-		From:             "kkachi-agent-networkd",
+		From:             "atn-controld",
 		To:               []string{member},
 		CreatedAt:        fixedRuntime().Now().Add(delta),
 		Runner: &RunnerInfo{

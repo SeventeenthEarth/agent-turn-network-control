@@ -10,13 +10,13 @@ import (
 	"syscall"
 	"time"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
 )
 
 const (
 	RuntimeDirName = "run"
-	SocketName     = "hund.sock"
+	SocketName     = "atn-controld.sock"
 )
 
 type SocketState string

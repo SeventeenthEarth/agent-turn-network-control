@@ -5,5 +5,5 @@ const (
 	SchemaVersion = 1
 
 	// ProtocolVersion is the current cross-repo control/plugin protocol compatibility marker.
-	ProtocolVersion = "hun-protocol-v1alpha0"
+	ProtocolVersion = "atn-protocol-v1alpha0"
 )

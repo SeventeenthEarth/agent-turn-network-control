@@ -2,7 +2,7 @@
 project: "atn-control"
 public_plugin_repo: "atn-plugin"
 local_plugin_workspace: "../agent-turn-network-plugin"
-path_note: "ATN-001 locks the public rename and ATN-002 scrubs control docs; the current sibling workspace already resolves at the public `agent-turn-network-*` paths while ATN-004 and ATN-005 remain pending code/runtime/package rename work."
+path_note: "ATN-001 locks the public rename, ATN-002 scrubs control docs, ATN-003 scrubs plugin docs, and ATN-004 now completes the control code/runtime rename while ATN-005 remains the pending plugin package/tool/guardrail rename work."
 roadmap: "docs/roadmap.md"
 sot_docs:
   - "docs/03-protocol-spec.md"

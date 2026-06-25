@@ -160,7 +160,7 @@ func missingCouncilPrincipals(loaded *LoadedRegistry, principals []string) ([]st
 			continue
 		}
 		seen[id] = struct{}{}
-		if id == "user" || id == "kkachi-agent-networkd" {
+		if id == "user" || id == "atn-controld" {
 			issues = append(issues, Issue{Category: CategoryReservedPrincipalCollision, Path: "members." + id, Message: "member id is reserved"})
 			continue
 		}

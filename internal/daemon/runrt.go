@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
-	"hun-control/internal/runner"
-	"hun-control/internal/storage"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
+	"atn-control/internal/runner"
+	"atn-control/internal/storage"
 )
 
 type RunnerDispatchService struct {
@@ -271,7 +271,7 @@ func (s *RunnerDispatchService) appendRetry(req RunnerDispatchRequest, attempt i
 		SessionType:   s.Metadata.SessionType,
 		Phase:         s.Metadata.State.Phase,
 		Type:          "runner_retry_attempted",
-		From:          "kkachi-agent-networkd",
+		From:          "atn-controld",
 		To:            []string{s.Metadata.Moderator},
 		CreatedAt:     s.now(),
 		Payload:       payload,
@@ -338,7 +338,7 @@ func (s *RunnerDispatchService) baseEvent(req RunnerDispatchRequest, typ, invoca
 	from := s.Member.ID
 	to := []string{s.Metadata.Moderator}
 	if strings.HasPrefix(typ, "runner_") {
-		from = "kkachi-agent-networkd"
+		from = "atn-controld"
 		to = []string{s.Metadata.Moderator}
 	}
 	commandID := strings.TrimSpace(sourceCommandID)

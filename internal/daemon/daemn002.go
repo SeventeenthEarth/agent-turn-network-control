@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/storage"
+	"atn-control/internal/protocol"
+	"atn-control/internal/storage"
 )
 
 func (s *Server) handleDAEMN002(request protocol.CommandRequest) (protocol.CommandResponse, bool) {

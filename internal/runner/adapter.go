@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"time"
 
-	"hun-control/internal/registry"
+	"atn-control/internal/registry"
 )
 
 const HermesAgentKind = "hermes-agent"

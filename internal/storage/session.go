@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
 )
 
 func CreateSession(dataHome string, loaded *registry.LoadedRegistry, spec SessionSpec, runtime registry.Runtime) (*SessionMetadata, AppendResult, error) {
@@ -224,7 +224,7 @@ func sessionCreatedEvent(metadata *SessionMetadata, spec SessionSpec, now time.T
 		SessionType:   metadata.SessionType,
 		Phase:         PhaseCreated,
 		Type:          "session_created",
-		From:          "kkachi-agent-networkd",
+		From:          "atn-controld",
 		To:            to,
 		CreatedAt:     now,
 		Payload:       payload,

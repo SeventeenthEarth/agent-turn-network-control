@@ -13,17 +13,17 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/command"
-	"hun-control/internal/daemon"
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
-	"hun-control/internal/storage"
-	"hun-control/internal/transport"
+	"atn-control/internal/command"
+	"atn-control/internal/daemon"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
+	"atn-control/internal/storage"
+	"atn-control/internal/transport"
 )
 
 func TestIntegrationDaemonUnavailableMapsToExitTwo(t *testing.T) {
 	dataHome := commandDaemonFixture(t)
-	t.Setenv("HUN_HOME", dataHome)
+	t.Setenv("ATN_HOME", dataHome)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -82,7 +82,7 @@ func TestUnitRootHelpListsTranscriptExportTailAndCompat(t *testing.T) {
 
 func TestIntegrationDaemonLifecycleStartStatusHealthStopAndAlreadyRunning(t *testing.T) {
 	dataHome := commandDaemonFixture(t)
-	t.Setenv("HUN_HOME", dataHome)
+	t.Setenv("ATN_HOME", dataHome)
 	app, cancel := cliWithInProcessDaemon(t)
 	defer cancel()
 
@@ -128,7 +128,7 @@ func TestIntegrationDaemonLifecycleStartStatusHealthStopAndAlreadyRunning(t *tes
 func TestIntegrationDaemonStartCleansStaleSocketAndFailsClosedOnAmbiguousSocket(t *testing.T) {
 	t.Run("stale socket", func(t *testing.T) {
 		dataHome := commandDaemonFixture(t)
-		t.Setenv("HUN_HOME", dataHome)
+		t.Setenv("ATN_HOME", dataHome)
 		app, cancel := cliWithInProcessDaemon(t)
 		defer cancel()
 		dir, err := transport.EnsureRuntimeDir(dataHome, registry.DefaultRuntime())
@@ -147,7 +147,7 @@ func TestIntegrationDaemonStartCleansStaleSocketAndFailsClosedOnAmbiguousSocket(
 
 	t.Run("ambiguous socket", func(t *testing.T) {
 		dataHome := commandDaemonFixture(t)
-		t.Setenv("HUN_HOME", dataHome)
+		t.Setenv("ATN_HOME", dataHome)
 		app, _ := cliWithInProcessDaemon(t)
 		dir, err := transport.EnsureRuntimeDir(dataHome, registry.DefaultRuntime())
 		if err != nil {
@@ -167,7 +167,7 @@ func TestIntegrationDaemonStartCleansStaleSocketAndFailsClosedOnAmbiguousSocket(
 
 func TestIntegrationDaemonStartUnsafeRegistryMapsToExitThree(t *testing.T) {
 	dataHome := commandDaemonFixture(t)
-	t.Setenv("HUN_HOME", dataHome)
+	t.Setenv("ATN_HOME", dataHome)
 	if err := os.Chmod(registry.RegistryPath(dataHome), 0o666); err != nil {
 		t.Fatalf("chmod unsafe registry: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestIntegrationDaemonStartUnsafeRegistryMapsToExitThree(t *testing.T) {
 
 func TestIntegrationDaemonStartUnsafeDataHomeFailsClosedWithoutOperationalLog(t *testing.T) {
 	dataHome := commandDaemonFixture(t)
-	t.Setenv("HUN_HOME", dataHome)
+	t.Setenv("ATN_HOME", dataHome)
 	if err := os.Chmod(dataHome, 0o777); err != nil {
 		t.Fatalf("chmod unsafe data home: %v", err)
 	}
@@ -271,7 +271,7 @@ func TestIntegrationDaemonRequestsFailClosedBeforeUnsafeDial(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dataHome := commandDaemonFixture(t)
-			t.Setenv("HUN_HOME", dataHome)
+			t.Setenv("ATN_HOME", dataHome)
 			tc.setup(t, dataHome)
 
 			var stdout bytes.Buffer
@@ -288,7 +288,7 @@ func TestIntegrationDaemonRequestsFailClosedBeforeUnsafeDial(t *testing.T) {
 
 func TestIntegrationUnsupportedCLICommandReturnsJSONAndDoesNotWrite(t *testing.T) {
 	dataHome := commandDaemonFixture(t)
-	t.Setenv("HUN_HOME", dataHome)
+	t.Setenv("ATN_HOME", dataHome)
 	before := commandTreeFingerprint(t, dataHome)
 
 	var stdout bytes.Buffer
@@ -309,7 +309,7 @@ func TestIntegrationUnsupportedCLICommandReturnsJSONAndDoesNotWrite(t *testing.T
 
 func TestIntegrationDoctorAndDaemonHealthAreReadOnlyAndRedacted(t *testing.T) {
 	dataHome := commandDaemonFixture(t)
-	t.Setenv("HUN_HOME", dataHome)
+	t.Setenv("ATN_HOME", dataHome)
 	t.Setenv("ANTHROPIC_API_KEY", "secret-value")
 	app, cancel := cliWithInProcessDaemon(t)
 	defer cancel()
@@ -361,7 +361,7 @@ func TestUnitDAEMN002VersionAndConformanceCLIAreLocalJSON(t *testing.T) {
 
 func TestIntegrationDAEMN002CLIStreamAckStatusAndDeliveryEvidence(t *testing.T) {
 	dataHome := commandDaemonFixture(t)
-	t.Setenv("HUN_HOME", dataHome)
+	t.Setenv("ATN_HOME", dataHome)
 	metadata := commandSessionFixture(t, dataHome)
 	app, cancel := cliWithInProcessDaemonAndFollowHook(t, metadata)
 	defer cancel()
@@ -417,7 +417,7 @@ func TestIntegrationDAEMN002CLIStreamAckStatusAndDeliveryEvidence(t *testing.T) 
 
 func TestIntegrationLTRAN003LiveLocalCLIProof(t *testing.T) {
 	dataHome := commandDaemonFixture(t)
-	t.Setenv("HUN_HOME", dataHome)
+	t.Setenv("ATN_HOME", dataHome)
 	app, cancel := cliWithInProcessDaemon(t)
 	defer cancel()
 	var startOut, startErr bytes.Buffer
@@ -496,7 +496,7 @@ func TestIntegrationLTRAN003LiveLocalCLIProof(t *testing.T) {
 
 func TestIntegrationCLIDelegateBlockResumeLimitsAndCancel(t *testing.T) {
 	dataHome := commandDaemonFixture(t)
-	t.Setenv("HUN_HOME", dataHome)
+	t.Setenv("ATN_HOME", dataHome)
 	app, cancel := cliWithInProcessDaemon(t)
 	defer cancel()
 	var startOut, startErr bytes.Buffer
@@ -561,7 +561,7 @@ func TestIntegrationCLIDelegateBlockResumeLimitsAndCancel(t *testing.T) {
 		SessionType:   budgetMeta.SessionType,
 		Phase:         "blocked",
 		Type:          "session_budget_exceeded",
-		From:          "kkachi-agent-networkd",
+		From:          "atn-controld",
 		To:            []string{"agent-mod"},
 		CreatedAt:     commandFixedRuntime().Now().Add(time.Second),
 		Payload:       map[string]any{"limit_kind": "max_runner_calls", "observed": 1, "limit": 1, "prior_phase": "working", "resume_phase": "working", "action": "session_blocked"},

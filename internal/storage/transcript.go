@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"hun-control/internal/registry"
+	"atn-control/internal/registry"
 )
 
 const (

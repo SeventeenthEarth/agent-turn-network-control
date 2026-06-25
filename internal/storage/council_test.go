@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/registry"
+	"atn-control/internal/registry"
 
 	_ "modernc.org/sqlite"
 )
@@ -139,7 +139,7 @@ func TestUnitCouncilCreationRejectsModeratorMemberCollisionsAndReservedPrincipal
 		{name: "moderator collision", moderator: "agent-mod", members: []string{"agent-mod", "agent-1"}},
 		{name: "duplicate member after trim", moderator: "agent-mod", members: []string{"agent-1", " agent-1 "}},
 		{name: "reserved moderator", moderator: "user", members: []string{"agent-1"}},
-		{name: "reserved member", moderator: "agent-mod", members: []string{"kkachi-agent-networkd"}},
+		{name: "reserved member", moderator: "agent-mod", members: []string{"atn-controld"}},
 		{name: "unknown member", moderator: "agent-mod", members: []string{"agent-unknown"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

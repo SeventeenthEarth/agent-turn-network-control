@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"hun-control/internal/registry"
+	"atn-control/internal/registry"
 )
 
 type SessionType string

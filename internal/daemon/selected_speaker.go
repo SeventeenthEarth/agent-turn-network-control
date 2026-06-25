@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"hun-control/internal/memberruntime"
-	"hun-control/internal/registry"
-	"hun-control/internal/runner"
-	"hun-control/internal/storage"
+	"atn-control/internal/memberruntime"
+	"atn-control/internal/registry"
+	"atn-control/internal/runner"
+	"atn-control/internal/storage"
 )
 
 // SelectedSpeakerDispatchHandler is the MEMBR-002 bounded pilot seam: a real
@@ -116,7 +116,7 @@ func (h SelectedSpeakerDispatchHandler) promptFor(event storage.EventEnvelope) s
 		return h.PromptBuilder(event, h.Member)
 	}
 	turn := event.Payload["turn"]
-	return fmt.Sprintf("KAN council selected registered member %s to speak for turn %v. Use the configured participant wrapper boundary and return only a typed speech JSON object. Required shape: {\"type\":\"speech\",\"payload\":{\"speech\":\"visible participant answer\"}}. Do not use payload.message instead of payload.speech. causation_event_id=%s", h.Member.ID, turn, event.EventID)
+	return fmt.Sprintf("ATN council selected registered member %s to speak for turn %v. Use the configured participant wrapper boundary and return only a typed speech JSON object. Required shape: {\"type\":\"speech\",\"payload\":{\"speech\":\"visible participant answer\"}}. Do not use payload.message instead of payload.speech. causation_event_id=%s", h.Member.ID, turn, event.EventID)
 }
 
 func normalizeSelectedRunnerSpeechPayload(payload map[string]any) map[string]any {

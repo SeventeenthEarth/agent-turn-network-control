@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/storage"
+	"atn-control/internal/protocol"
+	"atn-control/internal/storage"
 )
 
 func TestRuntimeReplayFirstThenLiveAckAndPersist(t *testing.T) {
 	frames := []storage.StreamFrame{
-		frame(0, true, "evt_created", "session_created", "kkachi-agent-networkd", []string{"agent-1"}),
+		frame(0, true, "evt_created", "session_created", "atn-controld", []string{"agent-1"}),
 		frame(1, true, "evt_private_to_other", "runner_dispatch_requested", "agent-mod", []string{"agent-2"}),
 		frame(2, false, "evt_live", "assignee_update", "agent-2", []string{}),
 	}
@@ -74,15 +74,15 @@ func TestRuntimeFailsClosedOnMalformedCursorGapCorruptFrameAndUnknownSchema(t *t
 		frames []storage.StreamFrame
 	}{
 		{name: "malformed cursor store", store: &memoryCursorStore{cursor: "bad"}, frames: nil},
-		{name: "cursor gap", store: &memoryCursorStore{}, frames: []storage.StreamFrame{frame(1, true, "evt_gap", "session_created", "kkachi-agent-networkd", []string{"agent-1"})}},
-		{name: "corrupt frame", store: &memoryCursorStore{}, frames: []storage.StreamFrame{{Cursor: "cur_000000000000_evt_a", IsReplay: true, Event: event("evt_b", "session_created", "kkachi-agent-networkd", []string{"agent-1"})}}},
+		{name: "cursor gap", store: &memoryCursorStore{}, frames: []storage.StreamFrame{frame(1, true, "evt_gap", "session_created", "atn-controld", []string{"agent-1"})}},
+		{name: "corrupt frame", store: &memoryCursorStore{}, frames: []storage.StreamFrame{{Cursor: "cur_000000000000_evt_a", IsReplay: true, Event: event("evt_b", "session_created", "atn-controld", []string{"agent-1"})}}},
 		{name: "missing schema", store: &memoryCursorStore{}, frames: []storage.StreamFrame{{Cursor: "cur_000000000000_evt_a", IsReplay: true, Event: func() storage.EventEnvelope {
-			e := event("evt_a", "session_created", "kkachi-agent-networkd", []string{"agent-1"})
+			e := event("evt_a", "session_created", "atn-controld", []string{"agent-1"})
 			e.SchemaVersion = 0
 			return e
 		}()}}},
 		{name: "unknown schema", store: &memoryCursorStore{}, frames: []storage.StreamFrame{{Cursor: "cur_000000000000_evt_a", IsReplay: true, Event: func() storage.EventEnvelope {
-			e := event("evt_a", "session_created", "kkachi-agent-networkd", []string{"agent-1"})
+			e := event("evt_a", "session_created", "atn-controld", []string{"agent-1"})
 			e.SchemaVersion = 99
 			return e
 		}()}}},

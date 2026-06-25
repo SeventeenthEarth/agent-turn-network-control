@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"hun-control/internal/memberruntime"
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
-	"hun-control/internal/runner"
-	"hun-control/internal/storage"
+	"atn-control/internal/memberruntime"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
+	"atn-control/internal/runner"
+	"atn-control/internal/storage"
 )
 
 const defaultSelectedSpeakerDispatchTimeout = 30 * time.Second
@@ -263,7 +263,7 @@ func (s *Server) appendSelectedRunnerPreflightDiagnostic(sessionDir string, meta
 		SessionType:   metadata.SessionType,
 		Phase:         phase,
 		Type:          "selected_runner_dispatch_failed",
-		From:          "kkachi-agent-networkd",
+		From:          "atn-controld",
 		To:            []string{metadata.Moderator},
 		CreatedAt:     s.now(),
 		Payload:       payload,
@@ -451,7 +451,7 @@ func (s *Server) appendSelectedSpeakerDispatchDiagnostic(sessionDir string, meta
 		SessionType:      metadata.SessionType,
 		Phase:            speaker.Phase,
 		Type:             "selected_runner_dispatch_failed",
-		From:             "kkachi-agent-networkd",
+		From:             "atn-controld",
 		To:               []string{metadata.Moderator},
 		CreatedAt:        s.now(),
 		Payload:          payload,

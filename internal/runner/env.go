@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"hun-control/internal/registry"
+	"atn-control/internal/registry"
 )
 
 func EnvForMember(member registry.Member, runtime registry.Runtime) []string {

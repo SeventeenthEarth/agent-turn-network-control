@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"hun-control/internal/protocol"
+	"atn-control/internal/protocol"
 )
 
 var delegationPhases = map[Phase]struct{}{
@@ -218,7 +218,7 @@ func ValidateEnvelope(metadata *SessionMetadata, event *EventEnvelope) error {
 	if len(event.To) > 0 {
 		seen := map[string]struct{}{}
 		for _, to := range event.To {
-			if to == "all" || to == "*" || to == "kkachi-agent-networkd" {
+			if to == "all" || to == "*" || to == "atn-controld" {
 				add(CategoryPrincipalInvalid, "to", "broadcast shortcuts and daemon recipient are forbidden")
 			}
 			if !principalAllowed(metadata, to, false) {
@@ -279,8 +279,8 @@ func validateSessionCreatedPayload(metadata *SessionMetadata, event *EventEnvelo
 	add := func(path, message string) {
 		issues = append(issues, Issue{Category: CategoryInvalidEnvelope, Path: path, Message: message})
 	}
-	if event.From != "kkachi-agent-networkd" {
-		add("from", "session_created must come from kkachi-agent-networkd")
+	if event.From != "atn-controld" {
+		add("from", "session_created must come from atn-controld")
 	}
 	if event.Phase != PhaseCreated {
 		add("phase", "session_created phase must be created")
@@ -377,7 +377,7 @@ func principalAllowed(metadata *SessionMetadata, principal string, allowDaemon b
 	if principal == "user" {
 		return true
 	}
-	if principal == "kkachi-agent-networkd" {
+	if principal == "atn-controld" {
 		return allowDaemon
 	}
 	for _, participant := range metadata.Participants {

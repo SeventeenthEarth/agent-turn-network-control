@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
-	"hun-control/internal/storage"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
+	"atn-control/internal/storage"
 )
 
 func (s *Server) handleDelegateNew(request protocol.CommandRequest) protocol.CommandResponse {

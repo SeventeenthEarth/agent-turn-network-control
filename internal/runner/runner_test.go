@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/registry"
+	"atn-control/internal/registry"
 )
 
 func TestUnitRegistryWhitelistsOnlyHermesAgent(t *testing.T) {

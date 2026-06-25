@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
-	"hun-control/internal/transport"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
+	"atn-control/internal/transport"
 )
 
 func TestIntegrationSocketPathAndRuntimeDirAreOwnerOnly(t *testing.T) {
@@ -28,7 +28,7 @@ func TestIntegrationSocketPathAndRuntimeDirAreOwnerOnly(t *testing.T) {
 	if info.Mode().Perm() != 0o700 {
 		t.Fatalf("expected runtime dir 0700, got %04o", info.Mode().Perm())
 	}
-	if got := transport.SocketPath(dataHome); got != filepath.Join(dataHome, "run", "hund.sock") {
+	if got := transport.SocketPath(dataHome); got != filepath.Join(dataHome, "run", "atn-controld.sock") {
 		t.Fatalf("unexpected socket path %q", got)
 	}
 }

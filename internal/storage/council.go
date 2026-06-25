@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
 )
 
-const daemonPrincipal = "kkachi-agent-networkd"
+const daemonPrincipal = "atn-controld"
 
 type CouncilStartSpec struct {
 	Session SessionSpec

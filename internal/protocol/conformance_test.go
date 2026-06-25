@@ -633,7 +633,7 @@ func TestUnitConformanceCouncilLifecycleFixtureMatrix(t *testing.T) {
 		phase       string
 		payload     []string
 	}{
-		{path: "fixtures/event/session-created-council.json", eventType: "session_created", sessionType: "council", from: "kkachi-agent-networkd", to: []string{"agent-1", "agent-2", "agent-mod"}, phase: "created", payload: []string{"session_type", "title", "moderator", "participants", "surface"}},
+		{path: "fixtures/event/session-created-council.json", eventType: "session_created", sessionType: "council", from: "atn-controld", to: []string{"agent-1", "agent-2", "agent-mod"}, phase: "created", payload: []string{"session_type", "title", "moderator", "participants", "surface"}},
 		{path: "fixtures/event/attendance-requested-council.json", eventType: "attendance_requested", sessionType: "council", from: "agent-mod", to: []string{"agent-1", "agent-2"}, phase: "created", payload: []string{"timeout_sec", "required_members", "surface_kind"}},
 		{path: "fixtures/event/member-attended-council.json", eventType: "member_attended", sessionType: "council", from: "agent-1", to: []string{"agent-mod"}, phase: "created", payload: []string{"status", "summary"}},
 		{path: "fixtures/event/agenda-locked-council.json", eventType: "agenda_locked", sessionType: "council", from: "agent-mod", to: []string{"agent-1", "agent-2"}, phase: "created", payload: []string{"decision_question", "max_rounds"}},

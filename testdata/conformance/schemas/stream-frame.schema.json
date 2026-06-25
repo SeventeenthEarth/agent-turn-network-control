@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kkachi.local/conformance/stream-frame.schema.json",
-  "title": "KAN stream frame",
+  "title": "ATN stream frame",
   "type": "object",
   "required": [
     "cursor",

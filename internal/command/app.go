@@ -12,14 +12,14 @@ import (
 	"strings"
 	"time"
 
-	"hun-control/internal/daemon"
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
-	"hun-control/internal/storage"
-	"hun-control/internal/transport"
+	"atn-control/internal/daemon"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
+	"atn-control/internal/storage"
+	"atn-control/internal/transport"
 )
 
-// App describes a minimal local-only command surface for a KAN binary.
+// App describes a minimal local-only command surface for the ATN binary.
 type App struct {
 	Name        string
 	Description string
@@ -37,10 +37,10 @@ const (
 )
 
 const (
-	cliBinaryName     = "hun"
-	daemonBinaryName  = "hund"
-	dataHomeEnvName   = "HUN_HOME"
-	daemonPathEnvName = "HUND_PATH"
+	cliBinaryName     = "atn-control"
+	daemonBinaryName  = "atn-controld"
+	dataHomeEnvName   = "ATN_HOME"
+	daemonPathEnvName = "ATN_CONTROLD_PATH"
 )
 
 // CommandSummary is a help-only command listing.
@@ -57,7 +57,7 @@ func NewCLI() App {
 func NewCLIWithRuntime(runtime registry.Runtime) App {
 	return App{
 		Name:        cliBinaryName,
-		Description: "Hermes Unified Network control CLI for diagnostics, recovery, and manual operation.",
+		Description: "Agent Turn Network control CLI for diagnostics, recovery, and manual operation.",
 		Runtime:     runtime,
 		Kind:        appKindCLI,
 		StartDaemon: startDaemonProcess,
@@ -89,7 +89,7 @@ func NewCLIWithRuntime(runtime registry.Runtime) App {
 func NewDaemon() App {
 	return App{
 		Name:        daemonBinaryName,
-		Description: "Hermes Unified Network daemon authority for state transitions, event append, replay, and projections.",
+		Description: "Agent Turn Network daemon authority for state transitions, event append, replay, and projections.",
 		Runtime:     registry.DefaultRuntime(),
 		Kind:        appKindDaemon,
 		Commands: []CommandSummary{

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"hun-control/internal/command"
+	"atn-control/internal/command"
 )
 
 func TestUnitCLIHelpNamesCanonicalBinaryAndHasNoErrors(t *testing.T) {
@@ -20,7 +20,7 @@ func TestUnitCLIHelpNamesCanonicalBinaryAndHasNoErrors(t *testing.T) {
 	}
 	out := stdout.String()
 	for _, want := range []string{
-		"hun",
+		"atn-control",
 		"Usage:",
 		"Commands:",
 		"daemon",
@@ -47,7 +47,7 @@ func TestUnitDaemonHelpNamesDaemonAndHasNoErrors(t *testing.T) {
 	}
 	out := stdout.String()
 	for _, want := range []string{
-		"hund",
+		"atn-controld",
 		"Usage:",
 		"Commands:",
 		"run",
@@ -94,8 +94,8 @@ func TestUnitVersionReportsProtocolMetadata(t *testing.T) {
 	}
 	out := stdout.String()
 	for _, want := range []string{
-		"hun",
-		"protocol_version=hun-protocol-v1alpha0",
+		"atn-control",
+		"protocol_version=atn-protocol-v1alpha0",
 		"schema_version=1",
 	} {
 		if !strings.Contains(out, want) {
@@ -112,7 +112,7 @@ func TestIntegrationInitCreatesSafeDataHomeAndDisabledSampleRegistry(t *testing.
 	if err := os.Remove(dataHome); err != nil {
 		t.Fatalf("remove temp data home before init: %v", err)
 	}
-	t.Setenv("HUN_HOME", dataHome)
+	t.Setenv("ATN_HOME", dataHome)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
@@ -177,7 +177,7 @@ members:
 	if err := os.Chmod(dataHome+"/registry.yaml", 0o600); err != nil {
 		t.Fatalf("chmod registry: %v", err)
 	}
-	t.Setenv("HUN_HOME", dataHome)
+	t.Setenv("ATN_HOME", dataHome)
 	t.Setenv("ANTHROPIC_API_KEY", "must-not-appear")
 
 	var validateOut bytes.Buffer

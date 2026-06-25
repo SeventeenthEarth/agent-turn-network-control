@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
 
 	_ "modernc.org/sqlite"
 )
@@ -146,7 +146,7 @@ func TestIntegrationDelegationBlockResumeLimitsAndCancelFailClosed(t *testing.T)
 		t.Fatalf("ResumeSession manual block: %v", err)
 	}
 
-	budget := appendRawEventForTest(t, sessionDir, metadata, "evt_budget_block", "cmd_budget", "session_budget_exceeded", "blocked", "kkachi-agent-networkd", []string{"agent-mod"}, map[string]any{"limit_kind": "max_runner_calls", "observed": 1, "limit": 1, "prior_phase": "working", "resume_phase": "working", "action": "session_blocked"}, 4*time.Second)
+	budget := appendRawEventForTest(t, sessionDir, metadata, "evt_budget_block", "cmd_budget", "session_budget_exceeded", "blocked", "atn-controld", []string{"agent-mod"}, map[string]any{"limit_kind": "max_runner_calls", "observed": 1, "limit": 1, "prior_phase": "working", "resume_phase": "working", "action": "session_blocked"}, 4*time.Second)
 	if _, _, err := ResumeSession(sessionDir, metadata, SessionResumeSpec{Actor: "agent-mod", BlockedEventID: budget.EventID, Reason: "try manual", CommandID: "cmd_bad_resume", Now: fixedRuntime().Now().Add(5 * time.Second)}); err == nil {
 		t.Fatalf("manual resume of budget block must fail closed")
 	}

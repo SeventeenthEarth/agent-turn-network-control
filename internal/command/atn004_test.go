@@ -7,21 +7,23 @@ import (
 	"strings"
 	"testing"
 
-	"hun-control/internal/command"
-	"hun-control/internal/registry"
-	"hun-control/internal/transport"
+	"atn-control/internal/command"
+	"atn-control/internal/registry"
+	"atn-control/internal/transport"
 )
 
-func TestUnitHUN003CanonicalBinarySurfacesHaveNoLegacyPublicAliases(t *testing.T) {
+func TestUnitATN004CanonicalBinarySurfacesHaveNoLegacyPublicAliases(t *testing.T) {
 	for _, dir := range []string{
-		filepath.Join("..", "..", "cmd", "hun"),
-		filepath.Join("..", "..", "cmd", "hund"),
+		filepath.Join("..", "..", "cmd", "atn-control"),
+		filepath.Join("..", "..", "cmd", "atn-controld"),
 	} {
 		assertCommandDirExists(t, dir)
 	}
 	for _, dir := range []string{
 		filepath.Join("..", "..", "cmd", "kkachi-agent-network"),
 		filepath.Join("..", "..", "cmd", "kkachi-agent-networkd"),
+		filepath.Join("..", "..", "cmd", "hun"),
+		filepath.Join("..", "..", "cmd", "hund"),
 	} {
 		assertCommandDirMissing(t, dir)
 	}
@@ -43,9 +45,10 @@ func TestUnitHUN003CanonicalBinarySurfacesHaveNoLegacyPublicAliases(t *testing.T
 	}
 }
 
-func TestUnitHUN003RuntimeAliasesAreNotAccepted(t *testing.T) {
+func TestUnitATN004RuntimeAliasesAreNotAccepted(t *testing.T) {
 	env := map[string]string{
 		"KKACHI_AGENT_NETWORK_HOME": "/tmp/legacy-home",
+		"HUN_HOME":                  "/tmp/hun-home",
 		"XDG_DATA_HOME":             "/tmp/xdg",
 	}
 	runtime := registry.Runtime{
@@ -61,7 +64,7 @@ func TestUnitHUN003RuntimeAliasesAreNotAccepted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveDataHome with legacy env alias present: %v", err)
 	}
-	if got != "/tmp/xdg/hermes-unified-network" {
+	if got != "/tmp/xdg/agent-turn-network" {
 		t.Fatalf("legacy env alias should be ignored in favor of canonical XDG path, got %q", got)
 	}
 
@@ -70,16 +73,16 @@ func TestUnitHUN003RuntimeAliasesAreNotAccepted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveDataHome with only legacy env alias present: %v", err)
 	}
-	if got != "/home/tester/.hun" {
+	if got != "/home/tester/.atn" {
 		t.Fatalf("legacy env alias should not replace canonical home fallback, got %q", got)
 	}
 
-	dataHome := "/tmp/hun"
+	dataHome := "/tmp/atn-control"
 	socket := transport.SocketPath(dataHome)
-	if socket != filepath.Join(dataHome, "run", "hund.sock") {
+	if socket != filepath.Join(dataHome, "run", "atn-controld.sock") {
 		t.Fatalf("expected canonical socket path, got %q", socket)
 	}
-	if strings.Contains(socket, "kkachi-agent-networkd.sock") {
+	if strings.Contains(socket, "kkachi-agent-networkd.sock") || strings.Contains(socket, "hund.sock") {
 		t.Fatalf("legacy socket alias must not be exposed, got %q", socket)
 	}
 }
@@ -101,7 +104,7 @@ func assertCommandDirMissing(t *testing.T, dir string) {
 
 func assertNoLegacyBinaryName(t *testing.T, label string, output string) {
 	t.Helper()
-	for _, forbidden := range []string{"kkachi-agent-network", "kkachi-agent-networkd"} {
+	for _, forbidden := range []string{"kkachi-agent-network", "kkachi-agent-networkd", "hun", "hund"} {
 		if strings.Contains(output, forbidden) {
 			t.Fatalf("%s exposed legacy binary name %q in:\n%s", label, forbidden, output)
 		}

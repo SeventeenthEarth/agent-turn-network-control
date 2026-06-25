@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
 )
 
 var cursorPattern = regexp.MustCompile(`^cur_([0-9]{12})_(.+)$`)
@@ -272,7 +272,7 @@ func AcknowledgeCursor(sessionDir string, metadata *SessionMetadata, member, cur
 		SessionType:   metadata.SessionType,
 		Phase:         latestPhase(metadata, index),
 		Type:          "stream_cursor_acknowledged",
-		From:          "kkachi-agent-networkd",
+		From:          "atn-controld",
 		To:            []string{member},
 		CreatedAt:     now.UTC(),
 		Payload:       map[string]any{"member": member, "cursor": cursor, "event_id": eventID},

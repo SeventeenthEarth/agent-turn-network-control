@@ -6,7 +6,7 @@
   "session_type": "delegation",
   "phase": "created",
   "type": "session_created",
-  "from": "kkachi-agent-networkd",
+  "from": "atn-controld",
   "to": [
     "agent-1",
     "agent-mod"

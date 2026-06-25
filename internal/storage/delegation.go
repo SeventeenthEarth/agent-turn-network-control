@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
 )
 
 type DelegationStartSpec struct {
@@ -674,7 +674,7 @@ func delegationTransition(metadata *SessionMetadata, index *LogIndex, current Ph
 		}
 	case "escalation-flush":
 		eventType, phase = "user_escalation_requested", "waiting_user"
-		actor = "kkachi-agent-networkd"
+		actor = "atn-controld"
 		to = []string{"user"}
 		payload["batch"] = true
 		payload["prior_phase"] = string(current)

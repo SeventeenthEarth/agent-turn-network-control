@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
 )
 
 const operationalLogName = "operational.log"

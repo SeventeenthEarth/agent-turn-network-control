@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"hun-control/internal/command"
+	"atn-control/internal/command"
 )
 
 func main() {

@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/daemon"
-	"hun-control/internal/protocol"
-	"hun-control/internal/storage"
+	"atn-control/internal/daemon"
+	"atn-control/internal/protocol"
+	"atn-control/internal/storage"
 )
 
 func TestRUNFIX011PrepareRecordsAttendanceTimeoutAndFailsClosedWithoutRuntimeReadiness(t *testing.T) {
@@ -24,7 +24,7 @@ func TestRUNFIX011PrepareRecordsAttendanceTimeoutAndFailsClosedWithoutRuntimeRea
 		t.Fatalf("ReadLogIndex: %v", err)
 	}
 	timeout := findEvent(t, index.Events, "member_attended")
-	if timeout.From != "kkachi-agent-networkd" || timeout.Payload["status"] != "no_response_timeout" || timeout.Payload["member"] != "agent-1" {
+	if timeout.From != "atn-controld" || timeout.Payload["status"] != "no_response_timeout" || timeout.Payload["member"] != "agent-1" {
 		t.Fatalf("attendance timeout evidence has wrong shape: %#v", timeout)
 	}
 	if eventTypeCount(index.Events, "preparation_requested") != 0 {
@@ -45,7 +45,7 @@ func TestRUNFIX011PollRecordsPreparationTimeoutAndFailsClosed(t *testing.T) {
 		t.Fatalf("ReadLogIndex: %v", err)
 	}
 	partial := findEvent(t, index.Events, "member_prepared_partial")
-	if partial.From != "kkachi-agent-networkd" || partial.Payload["reason"] != "timeout" || partial.Payload["member"] != "agent-1" {
+	if partial.From != "atn-controld" || partial.Payload["reason"] != "timeout" || partial.Payload["member"] != "agent-1" {
 		t.Fatalf("preparation timeout evidence has wrong shape: %#v", partial)
 	}
 	if eventTypeCount(index.Events, "hand_raise_requested") != 0 {

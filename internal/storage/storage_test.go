@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
 )
 
 func TestUnitValidateSessionID(t *testing.T) {
@@ -84,7 +84,7 @@ func TestUnitValidateEnvelopeRejectsStatusInExistingLog(t *testing.T) {
 	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
 		t.Fatalf("write metadata: %v", err)
 	}
-	line := `{"schema_version":1,"event_id":"evt_bad_status","session_id":"sess_test","session_type":"delegation","phase":"created","type":"session_created","from":"kkachi-agent-networkd","to":["agent-mod"],"created_at":"2026-06-04T12:00:00Z","status":"open","payload":{"session_type":"delegation","title":"Test session","moderator":"agent-mod","participants":["agent-mod"],"limits":{}}}` + "\n"
+	line := `{"schema_version":1,"event_id":"evt_bad_status","session_id":"sess_test","session_type":"delegation","phase":"created","type":"session_created","from":"atn-controld","to":["agent-mod"],"created_at":"2026-06-04T12:00:00Z","status":"open","payload":{"session_type":"delegation","title":"Test session","moderator":"agent-mod","participants":["agent-mod"],"limits":{}}}` + "\n"
 	if err := os.WriteFile(filepath.Join(sessionDir, ChannelJSONLName), []byte(line), 0o600); err != nil {
 		t.Fatalf("write channel: %v", err)
 	}

@@ -10,11 +10,11 @@ import (
 	"sync"
 	"time"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
-	"hun-control/internal/runner"
-	"hun-control/internal/storage"
-	"hun-control/internal/transport"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
+	"atn-control/internal/runner"
+	"atn-control/internal/storage"
+	"atn-control/internal/transport"
 )
 
 type Server struct {

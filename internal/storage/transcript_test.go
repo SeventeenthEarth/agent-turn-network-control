@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
 )
 
 func TestUnitTranscriptMarkdownAndJSONLAreDeterministic(t *testing.T) {
@@ -45,7 +45,7 @@ func TestUnitTranscriptMarkdownAndJSONLAreDeterministic(t *testing.T) {
 		SessionType:   metadata.SessionType,
 		Phase:         "accepted",
 		Type:          "runner_invocation_failed",
-		From:          "kkachi-agent-networkd",
+		From:          "atn-controld",
 		To:            []string{"agent-mod"},
 		CreatedAt:     fixedTranscriptTime().Add(time.Minute),
 		Runner:        &RunnerInfo{InvocationID: "run_001", AdapterKind: "fake", Member: "agent-1", Attempt: 1, Status: "failed"},

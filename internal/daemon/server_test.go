@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/daemon"
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
-	"hun-control/internal/storage"
-	"hun-control/internal/transport"
+	"atn-control/internal/daemon"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
+	"atn-control/internal/storage"
+	"atn-control/internal/transport"
 )
 
 func TestIntegrationDaemonLifecycleStatusHealthAndShutdown(t *testing.T) {
@@ -596,7 +596,7 @@ func TestIntegrationDaemonDelegationBlockResumeLimitsEscalationAndCancel(t *test
 		SessionType:   budgetMeta.SessionType,
 		Phase:         "blocked",
 		Type:          "session_budget_exceeded",
-		From:          "kkachi-agent-networkd",
+		From:          "atn-controld",
 		To:            []string{"agent-mod"},
 		CreatedAt:     daemonFixedRuntime().Now().Add(time.Second),
 		Payload:       map[string]any{"limit_kind": "max_runner_calls", "observed": 1, "limit": 1, "prior_phase": "working", "resume_phase": "working", "action": "session_blocked"},

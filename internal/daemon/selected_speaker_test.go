@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/daemon"
-	"hun-control/internal/memberruntime"
-	"hun-control/internal/protocol"
-	"hun-control/internal/registry"
-	"hun-control/internal/runner"
-	"hun-control/internal/storage"
+	"atn-control/internal/daemon"
+	"atn-control/internal/memberruntime"
+	"atn-control/internal/protocol"
+	"atn-control/internal/registry"
+	"atn-control/internal/runner"
+	"atn-control/internal/storage"
 )
 
 func TestSelectedSpeakerDispatchInvokesSelectedMemberThroughRunnerAndRecordsSpeech(t *testing.T) {

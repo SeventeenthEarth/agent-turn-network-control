@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"hun-control/internal/protocol"
+	"atn-control/internal/protocol"
 )
 
 func TestUnitExitTaxonomyAndStructuredUnsupportedFeature(t *testing.T) {

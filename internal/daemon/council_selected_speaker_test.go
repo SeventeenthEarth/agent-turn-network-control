@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/daemon"
-	"hun-control/internal/protocol"
-	"hun-control/internal/runner"
-	"hun-control/internal/storage"
+	"atn-control/internal/daemon"
+	"atn-control/internal/protocol"
+	"atn-control/internal/runner"
+	"atn-control/internal/storage"
 )
 
 func TestCouncilGrantDispatchesSelectedMemberRunnerAndRecordsSpeech(t *testing.T) {
@@ -184,7 +184,7 @@ func TestCouncilGrantStartedOnlyReplayRecordsStaleIncompleteDispatch(t *testing.
 		SessionType:      metadata.SessionType,
 		Phase:            selected.Phase,
 		Type:             "runner_invocation_started",
-		From:             "kkachi-agent-networkd",
+		From:             "atn-controld",
 		To:               []string{metadata.Moderator},
 		CreatedAt:        daemonFixedRuntime().Now().Add(8 * time.Second),
 		Runner:           &storage.RunnerInfo{InvocationID: "run_started_only_selected_runner", AdapterKind: runner.HermesAgentKind, Member: "agent-1", Attempt: 1, SourceCommandID: "cmd_council_grant_started_only", Status: "started"},

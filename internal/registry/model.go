@@ -146,7 +146,7 @@ func validateRawMember(id string, raw rawMember) (Member, []Issue) {
 	}
 
 	var issues []Issue
-	if id == "user" || id == "kkachi-agent-networkd" {
+	if id == "user" || id == "atn-controld" {
 		issues = append(issues, Issue{Category: CategoryReservedPrincipalCollision, Path: path, Message: "member id is reserved"})
 	}
 	if !memberIDPattern.MatchString(id) {

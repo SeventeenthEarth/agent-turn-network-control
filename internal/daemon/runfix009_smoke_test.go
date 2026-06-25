@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/daemon"
-	"hun-control/internal/protocol"
-	"hun-control/internal/runner"
-	"hun-control/internal/storage"
+	"atn-control/internal/daemon"
+	"atn-control/internal/protocol"
+	"atn-control/internal/runner"
+	"atn-control/internal/storage"
 
 	_ "modernc.org/sqlite"
 )

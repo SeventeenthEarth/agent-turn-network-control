@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/daemon"
-	"hun-control/internal/registry"
-	"hun-control/internal/runner"
-	"hun-control/internal/storage"
+	"atn-control/internal/daemon"
+	"atn-control/internal/registry"
+	"atn-control/internal/runner"
+	"atn-control/internal/storage"
 )
 
 func TestRUNRTDispatcherAppendsStartedBeforeAdapterAndTerminalCost(t *testing.T) {
@@ -45,7 +45,7 @@ func TestRUNRTDispatcherAppendsStartedBeforeAdapterAndTerminalCost(t *testing.T)
 	if started.Type != "runner_invocation_started" || len(started.Cost) != 0 {
 		t.Fatalf("bad started envelope: %#v cost=%s", started, started.Cost)
 	}
-	if started.From != "kkachi-agent-networkd" || len(started.To) != 1 || started.To[0] != "agent-mod" || started.CommandID != "cmd_runrt_dispatch" {
+	if started.From != "atn-controld" || len(started.To) != 1 || started.To[0] != "agent-mod" || started.CommandID != "cmd_runrt_dispatch" {
 		t.Fatalf("runner operational event should reuse original command id and address moderator: %#v", started)
 	}
 	if succeeded.Type != "runner_invocation_succeeded" || string(succeeded.Cost) == "" || succeeded.Runner.InvocationID != started.Runner.InvocationID {
@@ -90,7 +90,7 @@ func TestRUNRTDispatcherRetriesWithNewInvocationIDAndNullCostFailure(t *testing.
 			if event.CommandID != "cmd_retry" || event.Runner.SourceCommandID != "cmd_retry" {
 				t.Fatalf("started retry attempts must reuse original command id/source command id: %#v", event)
 			}
-			if event.From != "kkachi-agent-networkd" || len(event.To) != 1 || event.To[0] != "agent-mod" {
+			if event.From != "atn-controld" || len(event.To) != 1 || event.To[0] != "agent-mod" {
 				t.Fatalf("runner started should be daemon-origin addressed to moderator: %#v", event)
 			}
 		case "runner_retry_attempted":
@@ -98,7 +98,7 @@ func TestRUNRTDispatcherRetriesWithNewInvocationIDAndNullCostFailure(t *testing.
 			if event.CommandID != "cmd_retry" || event.Runner != nil || len(event.Cost) != 0 {
 				t.Fatalf("retry policy event must reuse command id and omit runner/cost: %#v cost=%s", event, event.Cost)
 			}
-			if event.From != "kkachi-agent-networkd" || len(event.To) != 1 || event.To[0] != "agent-mod" {
+			if event.From != "atn-controld" || len(event.To) != 1 || event.To[0] != "agent-mod" {
 				t.Fatalf("retry policy event should be daemon-origin addressed to moderator: %#v", event)
 			}
 			if event.Payload["original_command_id"] != "cmd_retry" || event.Payload["target_member"] != "agent-1" {
@@ -109,7 +109,7 @@ func TestRUNRTDispatcherRetriesWithNewInvocationIDAndNullCostFailure(t *testing.
 			if event.CommandID != "cmd_retry" || event.Runner.SourceCommandID != "cmd_retry" {
 				t.Fatalf("failure must reuse original command id/source command id: %#v", event)
 			}
-			if event.From != "kkachi-agent-networkd" || len(event.To) != 1 || event.To[0] != "agent-mod" {
+			if event.From != "atn-controld" || len(event.To) != 1 || event.To[0] != "agent-mod" {
 				t.Fatalf("runner failure should be daemon-origin addressed to moderator: %#v", event)
 			}
 			if string(event.Cost) != "null" {

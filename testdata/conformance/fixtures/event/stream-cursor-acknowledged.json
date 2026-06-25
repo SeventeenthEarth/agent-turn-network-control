@@ -6,7 +6,7 @@
   "session_type": "delegation",
   "phase": "waiting_user",
   "type": "stream_cursor_acknowledged",
-  "from": "kkachi-agent-networkd",
+  "from": "atn-controld",
   "to": [
     "agent-1"
   ],

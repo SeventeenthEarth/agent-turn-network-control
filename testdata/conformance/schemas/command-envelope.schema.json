@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kkachi.local/conformance/command-envelope.schema.json",
-  "title": "KAN command envelope",
+  "title": "ATN command envelope",
   "type": "object",
   "required": [
     "schema_version",

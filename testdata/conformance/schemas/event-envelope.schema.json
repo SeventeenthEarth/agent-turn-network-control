@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kkachi.local/conformance/event-envelope.schema.json",
-  "title": "KAN event envelope",
+  "title": "ATN event envelope",
   "type": "object",
   "required": [
     "schema_version",

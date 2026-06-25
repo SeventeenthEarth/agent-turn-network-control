@@ -7,7 +7,7 @@
   "session_type": "delegation",
   "phase": "working",
   "type": "runner_invocation_started",
-  "from": "kkachi-agent-networkd",
+  "from": "atn-controld",
   "to": [
     "agent-mod"
   ],

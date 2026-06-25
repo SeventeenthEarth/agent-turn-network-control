@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kkachi.local/conformance/delivery-evidence-command.schema.json",
-  "title": "KAN delivery evidence command envelope",
+  "title": "ATN delivery evidence command envelope",
   "allOf": [
     {
       "$ref": "command-envelope.schema.json"

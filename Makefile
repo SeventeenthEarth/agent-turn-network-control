@@ -37,10 +37,10 @@ guardrails-test:
 
 help-smoke:
 	@if command -v go >/dev/null 2>&1 && [ -f go.mod ]; then \
-		cli_help=$$(go run ./cmd/hun --help); \
-		printf '%s\n' "$$cli_help" | grep -q '^hun$$'; \
-		daemon_help=$$(go run ./cmd/hund --help); \
-		printf '%s\n' "$$daemon_help" | grep -q '^hund$$'; \
+		cli_help=$$(go run ./cmd/atn-control --help); \
+		printf '%s\n' "$$cli_help" | grep -q '^atn-control$$'; \
+		daemon_help=$$(go run ./cmd/atn-controld --help); \
+		printf '%s\n' "$$daemon_help" | grep -q '^atn-controld$$'; \
 	else \
 		echo "help-smoke: go/go.mod unavailable; skipped until Go scaffold exists"; \
 	fi
@@ -57,21 +57,21 @@ test-unit:
 
 test-int:
 	@if command -v go >/dev/null 2>&1 && [ -f go.mod ]; then \
-		KAN_TEST_MODE=integration KAN_EXTERNAL=0 go test ./... -run 'TestIntegration|Integration' -count=1; \
+		ATN_TEST_MODE=integration ATN_EXTERNAL=0 go test ./... -run 'TestIntegration|Integration' -count=1; \
 	else \
 		echo "test-int: no Go scaffold yet; docs-only pass"; \
 	fi
 
 test-release-acceptance:
 	@if command -v go >/dev/null 2>&1 && [ -f go.mod ]; then \
-		KAN_TEST_MODE=release KAN_EXTERNAL=0 go test ./internal/command -run 'TestReleaseAcceptance' -count=1; \
+		ATN_TEST_MODE=release ATN_EXTERNAL=0 go test ./internal/command -run 'TestReleaseAcceptance' -count=1; \
 	else \
 		echo "test-release-acceptance: no Go scaffold yet; docs-only pass"; \
 	fi
 
 test-e2e:
 	@if command -v go >/dev/null 2>&1 && [ -f go.mod ]; then \
-		KAN_TEST_MODE=e2e KAN_PROFILE_HOME="$${KAN_PROFILE_HOME:-$$(mktemp -d)}" KAN_DISCORD_TEST_TARGET="$${KAN_DISCORD_TEST_TARGET:-}" go test ./... -run 'TestE2E|E2E' -count=1; \
+		ATN_TEST_MODE=e2e ATN_PROFILE_HOME="$${ATN_PROFILE_HOME:-$$(mktemp -d)}" ATN_DISCORD_TEST_TARGET="$${ATN_DISCORD_TEST_TARGET:-}" go test ./... -run 'TestE2E|E2E' -count=1; \
 	else \
 		echo "test-e2e: no Go scaffold yet; docs-only pass"; \
 	fi

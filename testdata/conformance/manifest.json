@@ -1,9 +1,9 @@
 {
   "manifest_version": 1,
-  "protocol_version": "hun-protocol-v1alpha0",
+  "protocol_version": "atn-protocol-v1alpha0",
   "stability": "draft-local-conformance",
-  "owner_repo": "hun-control",
-  "consumer_repo": "hun-plugin",
+  "owner_repo": "atn-control",
+  "consumer_repo": "atn-plugin",
   "live_readiness": false,
   "schemas": [
     "schemas/command-envelope.schema.json",

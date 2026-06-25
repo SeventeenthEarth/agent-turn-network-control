@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"hun-control/internal/protocol"
+	"atn-control/internal/protocol"
 
 	_ "modernc.org/sqlite"
 )

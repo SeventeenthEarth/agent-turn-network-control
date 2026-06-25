@@ -7,7 +7,7 @@
   "session_type": "delegation",
   "phase": "cancelled",
   "type": "runner_result_discarded",
-  "from": "kkachi-agent-networkd",
+  "from": "atn-controld",
   "to": [
     "agent-mod"
   ],

@@ -5,9 +5,9 @@
   "result": {
     "schema_version": 1,
     "fixture_manifest": "testdata/conformance/manifest.json",
-    "protocol_version": "hun-protocol-v1alpha0",
+    "protocol_version": "atn-protocol-v1alpha0",
     "daemon_version": "daemn-002-local",
-    "min_plugin_protocol_version": "hun-protocol-v1alpha0",
+    "min_plugin_protocol_version": "atn-protocol-v1alpha0",
     "features": [
       "version.read",
       "status.read",

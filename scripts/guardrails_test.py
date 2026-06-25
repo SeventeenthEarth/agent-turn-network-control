@@ -15,13 +15,13 @@ def write(root: Path, rel: str, text: str) -> None:
 
 
 class GuardrailsTest(unittest.TestCase):
-    def test_canonical_hun_terms_pass(self) -> None:
+    def test_canonical_atn_terms_pass(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write(
                 root,
                 "README.md",
-                "Hermes Unified Network HUN hun-control hun hund HUN_HOME ~/.hun hund.sock hun-protocol-v1alpha0\n",
+                "Agent Turn Network ATN atn-control atn-controld ATN_HOME ~/.atn atn-controld.sock atn-protocol-v1alpha0\n",
             )
 
             findings, metadata_errors = guardrails.scan_forbidden_terms(
