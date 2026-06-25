@@ -2,8 +2,8 @@
   "manifest_version": 1,
   "protocol_version": "hun-protocol-v1alpha0",
   "stability": "draft-local-conformance",
-  "owner_repo": "kkachi-agent-network-control",
-  "consumer_repo": "kkachi-agent-network-plugin",
+  "owner_repo": "hun-control",
+  "consumer_repo": "hun-plugin",
   "live_readiness": false,
   "schemas": [
     "schemas/command-envelope.schema.json",

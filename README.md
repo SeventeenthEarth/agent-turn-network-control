@@ -2,7 +2,7 @@
 
 `hun-control` is the Go control/runtime repository for Hermes Unified Network (HUN). It owns the daemon, canonical CLI, protocol contracts, event log, state machine, storage projection, recovery paths, and control test gates. The public product is Hermes Unified Network; the current control binaries are `hun` and `hund`.
 
-The companion Python Hermes plugin adapter is public-facing as `hun-plugin`; the local sibling workspace still resolves as `../kkachi-agent-network-plugin` until the hosted/local repository rename is handled in HUN-014.
+The companion Python Hermes plugin adapter is public-facing as `hun-plugin`; the current local sibling workspace remains `../kkachi-agent-network-plugin` as a local compatibility path while public repo labels use `hun-plugin`.
 
 ## Repository boundary
 
@@ -62,7 +62,7 @@ Export bundles are local directories containing `transcript.md`, `transcript.jso
 
 ## Plugin handoff
 
-The companion plugin is contract-checked/tested locally from the current workspace path `../kkachi-agent-network-plugin` while public docs and status labels refer to the repo as `hun-plugin`. It consumes this repo's protocol schemas, version/features response, and `testdata/conformance/manifest.json`; it must continue to fail closed on unsupported protocol versions, missing feature groups, malformed fake-daemon responses, or any live-service configuration that has not been separately proven. HUN-011 does not claim hosted/local repository rename readiness.
+The companion plugin is contract-checked/tested locally from the current workspace path `../kkachi-agent-network-plugin` while public docs and status labels refer to the repo as `hun-plugin`. It consumes this repo's protocol schemas, version/features response, and `testdata/conformance/manifest.json`; it must continue to fail closed on unsupported protocol versions, missing feature groups, malformed fake-daemon responses, or any live-service configuration that has not been separately proven. HUN-014 is the active bounded compatibility proof for this local/public naming split.
 
 ## Test targets
 

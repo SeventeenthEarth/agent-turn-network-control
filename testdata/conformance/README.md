@@ -1,6 +1,6 @@
 # HUN Conformance Fixtures
 
-This directory contains core-owned protocol fixtures consumed by `kkachi-agent-network-plugin`.
+This directory contains control-owned protocol fixtures consumed by `hun-plugin`.
 
 Current status: DAEMN-002 plus DELEG-002, COUNC-001, and ARGUE-002 static/local conformance sets. The files here define the shared protocol examples for command envelopes, event envelopes, structured errors, stream frames, version/features, delivery evidence, delegation/review command handoff, council lifecycle handoff, and council argument-graph handoff.
 

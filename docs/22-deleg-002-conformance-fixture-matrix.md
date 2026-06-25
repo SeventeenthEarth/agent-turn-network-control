@@ -73,4 +73,4 @@ make check-plugin-contract
 make test
 ```
 
-Full closeout additionally needs downstream plugin `make check-core-contract` from the current local workspace path `/Users/draccoon/Workspace/SeventeenthEarth/kkachi/kkachi-agent-network-plugin` (public repo label `hun-plugin`; hosted/local rename compatibility remains HUN-014) and `kkachi-agent-helper gate final run-20260606T081553Z-f394a2b5b90a --json`.
+Full closeout additionally needs downstream plugin `make check-core-contract` from the current local workspace path `/Users/draccoon/Workspace/SeventeenthEarth/kkachi/kkachi-agent-network-plugin` (public repo label `hun-plugin`; current local compatibility path) and `kkachi-agent-helper gate final run-20260606T081553Z-f394a2b5b90a --json`.

@@ -2,7 +2,7 @@
 
 This directory is the source of truth for the **HUN control/runtime repo**: the Go daemon, Go CLI, protocol, event log, state machine, storage, security, operations, and release plan.
 
-The Python Hermes plugin has its own public-facing repository label `hun-plugin`; local cross-repo checks currently resolve its workspace documentation at `../../kkachi-agent-network-plugin/docs/` until HUN-014 handles hosted/local repository rename compatibility. This repo may repeat plugin-facing compatibility rules, but it must not own plugin implementation details beyond the daemon contract the plugin must obey.
+The Python Hermes plugin has its own public-facing repository label `hun-plugin`; local cross-repo checks currently resolve its workspace documentation at `../../kkachi-agent-network-plugin/docs/` as a local compatibility path. This repo may repeat plugin-facing compatibility rules, but it must not own plugin implementation details beyond the daemon contract the plugin must obey.
 
 ## Terminology
 
@@ -88,7 +88,7 @@ The control repo Makefile owns Go checks, control docs guardrails, and RELIA-001
 14. `24-live-transport-control-sot.md` when planning post-Release `LTRAN`, `MEMBR`, `SURFD`, or `ENSOT` live-local / visible-closeout work
 15. `25-council-argument-graph-sot.md` when planning `ARGUE` discussion-quality argument graph work; `control/ARGUE-001` is accepted docs-only, and `control/ARGUE-002` is accepted for bounded local static protocol/fixture scope under KAS/KAH run `run-20260615T145822Z-caab064cf550`
 16. `26-hermes-unified-network-control-naming-sot.md` when planning `HUN` public rename work
-17. plugin docs in the local workspace path `../../kkachi-agent-network-plugin/docs/` while the public repo label remains `hun-plugin` until HUN-014 rename compatibility closes
+17. plugin docs in the local workspace path `../../kkachi-agent-network-plugin/docs/` while the public repo label remains `hun-plugin`; HUN-014 is the active compatibility proof for this split
 
 ## Current implementation state
 
