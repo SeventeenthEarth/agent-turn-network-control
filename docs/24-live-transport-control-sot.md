@@ -8,7 +8,7 @@ The plugin-side companion SOT is `../../agent-turn-network-plugin/docs/10-live-t
 
 This document does **not** authorize production activation, live Discord delivery, gateway/auth/token changes, active Hermes profile mutation, KAB bridge readiness, or replacing real participant profiles with role prompts. It defines repo ownership, epic/task distribution, required gates, and non-scope boundaries for post-Release-v1 live-local work.
 
-RUNFIX update: this SOT also records the control-owned side of `RUNFIX`, the cross-repo remediation epic created from the 2026-06-17 council dogfood issues report. `control/RUNFIX-001` and `plugin/RUNFIX-002` are accepted docs-only SOT locks after Red/Orange/Gray review, focused re-check, and Blue final synthesis; they do not by themselves authorize implementation, live profile activation, gateway mutation, Discord delivery, or production readiness claims.
+RUNFIX update: this SOT also records the control-owned side of `RUNFIX`, the cross-repo remediation epic created from the 2026-06-17 council dogfood issues report. `control/RUNFIX-001` and `plugin/RUNFIX-002` are accepted docs-only SOT locks after Red/Orange/Gray review, focused re-check, and Blue final synthesis; they do not by themselves authorize implementation, live profile activation, gateway mutation, Discord delivery, or production readiness claims. RUNFIX3 update: this SOT also records the control-owned follow-up from the 2026-06-25 KLM live-thread postmortem; `RUNFIX3-001` is a docs-only SOT/roadmap lock and does not authorize live Discord rollout, profile/provider/gateway/auth/token/model mutation, daemon startup, push, or production readiness.
 
 ## Scope
 
@@ -194,6 +194,30 @@ RUNFIX2 task order and current local-proof status:
 | 3 | control | RUNFIX2-003 | completed/local-control | Local control status/export now expose `discussion_lifecycle`, summary turn rows add lifecycle stage and visible turn index/total where evidence exists, and `council.propose` fails closed until the configured participant discussion window plus one selected closeout speech per member are present. `council.unresolved` remains the fail-closed terminal path; selected-runner and visible-surface pass labels remain separate evidence-derived gates. |
 | 4 | plugin | RUNFIX2-004 | local plugin implementation proof | Plugin KAH run `run-20260620T121230Z-dea687353d54` adds local pure-renderer visible transcript cleanup that consumes control audit/status evidence without hiding audit data. No live Discord delivery, production readiness, pilot success, daemon/profile/provider/gateway/auth/token mutation, commit, push, or broad rollout is claimed. |
 | 5 | plugin | RUNFIX2-005 | local plugin implementation proof | Plugin KAH run `run-20260620T131542Z-ae344b0d5ee9` adds local explicit-evidence planner/schema/test support for `integrated_discussion_proof`. The proof axes are separated: lifecycle, selected-runner, participant runtime readiness at grant/turns, visible-surface, clean-transcript, visible-closeout, fallback, discussion-quality, and final labels. Selected-runner proof requires explicit runner success plus canonical linked speech for the selected member; manual/profile fallback remains diagnostic-only and cannot repair selected-runner failure. This control SOT records the plugin-owned companion status only: `live_readiness` remains false, and this is not live pilot success, production readiness, live Discord delivery, daemon/profile/provider/gateway/auth/token/model mutation, push, or broad rollout. |
+
+
+### RUNFIX3 live-visible council contract hardening
+
+RUNFIX3 records the 2026-06-25 KLM live Discord thread postmortem. The SOT is `17thHermes:40_outputs/team/macho/atn/2026-06-25-atn-live-visible-council-contract-hardening-sot.md`. The failed session `sess_klm_selected_runner_20260625T085557Z` is diagnostic-only evidence and must not be counted as a successful live-visible council.
+
+The control-owned contract impact is:
+
+- `limits.max_discussion_turns` means participant discussion turns T1..TN. Expected visible turns are T0 moderator opening, T1..TN selected participant discussion, TN+1..TN+P participant closeouts, and TN+P+1 moderator final synthesis: `max_discussion_turns + participant_count + 2`.
+- `council.propose` / finalization paths must fail closed until lifecycle prerequisites are satisfied unless the moderator explicitly closes unresolved.
+- `selected_runner_pass` requires durable runner success plus linked canonical selected-member `speech`; manual/profile/fallback text and moderator reposting are diagnostic only.
+- `selected_runner_pass` is frozen for RUNFIX3 as an evidence-derived label. It is not a daemon `selection_mode`, selection policy, or feature toggle; any future mandatory selected-runner policy needs a separately named and separately approved field such as `selected_runner_required`.
+- Exact origin Discord thread binding and per-turn delivery evidence remain visible-surface proof requirements; display-name targets are diagnostic only.
+- Control follow-up work is `control/RUNFIX3-004`; plugin guidance and planner/schema work remains plugin-owned in `plugin/RUNFIX3-002` and `plugin/RUNFIX3-003` and must consume this frozen control evidence contract.
+- RUNFIX3-wide completion requires a final closeout artifact at `40_outputs/team/macho/atn/<date>-runfix3-final-live-visible-council-closeout.md` with bound-thread evidence, per-turn daemon/runner/speech/delivery linkage, negative fail-closed matrix results, Red/Orange/Gray review, 마초 Blue synthesis, and 주군 approval.
+
+RUNFIX3 task order and current status:
+
+| Global Order | Repo | Task ID | Status | Control-owned acceptance |
+|---:|---|---|---|---|
+| 1 | cross-repo | RUNFIX3-001 | completed | Docs-only SOT and roadmap lock accepted after Red/Orange/Gray review and Blue synthesis. It records the KLM live-thread failure as diagnostic-only and defines the follow-up task split; no runtime mutation or live readiness claim. |
+| 2 | plugin | RUNFIX3-002 | planned | Plugin-owned moderator/operator guidance hardening against the frozen control evidence contract. Fixed minimum gates include plugin docs guardrails, core contract, test-prepare, focused bundled-skill/guardrail/load-smoke tests, Red/Orange/Gray review, and Blue synthesis. |
+| 3 | plugin | RUNFIX3-003 | planned | Plugin-owned planner/schema/operator-evidence support that consumes the frozen control evidence contract and covers positive/negative proof payloads without promoting live readiness. Fixed minimum gates include plugin docs guardrails, core contract, test-prepare, test-unit unless explicitly waived, focused planner/schema/handler/core/diagnostic/surface tests, Red/Orange/Gray review, and Blue synthesis. |
+| 4 | control | RUNFIX3-004 | planned | Control-owned diagnostics/enforcement follow-up against frozen evidence-label semantics for lifecycle, selected-runner, delivery evidence, exact thread binding, missing closeouts, missing synthesis, and unresolved closeout diagnostics. Fixed minimum gates include `git diff --check`, focused storage/daemon/protocol tests, docs guardrails, plugin-contract check, test-prepare, Red/Orange/Gray review, and Blue synthesis. |
 
 
 ### MEMBR: Member runtime profile invocation
