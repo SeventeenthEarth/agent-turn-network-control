@@ -6,15 +6,15 @@ Given no active session exists,
 when the moderator creates a delegation session for agent-1,
 then the daemon creates a session directory, appends `session_created` and `task_assigned`, and publishes the assignment to the session stream for agent-1's member runtime.
 
-When agent-1's runtime observes the assignment, it first records `assignee_acknowledged` through `hun delegate ack`.
+When agent-1's runtime observes the assignment, it first records `assignee_acknowledged` through `atn-control delegate ack`.
 
-When agent-1 later asks a clarification question through `hun delegate clarify`,
+When agent-1 later asks a clarification question through `atn-control delegate clarify`,
 then the daemon records `clarification_requested`.
 
-When the moderator answers through `hun delegate answer-clarification`,
+When the moderator answers through `atn-control delegate answer-clarification`,
 then the daemon records `clarification_answered` whose `causation_event_id` references the originating `clarification_requested` event.
 
-When agent-1 submits work through `hun delegate submit`,
+When agent-1 submits work through `atn-control delegate submit`,
 then the moderator must accept (`delegate accept`), request revision (`delegate revise`), or mark blocked (`delegate block`).
 
 Then `task_assigned` has `from: "agent-mod"` and `to: ["agent-1"]`, and `clarification_requested` has `from: "agent-1"` and `to: ["agent-mod"]`.
@@ -25,10 +25,10 @@ Given agent-1 asks a clarification question that requires user authority,
 when the moderator escalates it,
 then the session enters `waiting_user` and records `user_escalation_requested` with the moderator-supplied `delivery_policy` hint preserved in the payload.
 
-When the Hermes plugin/gateway helper or equivalent moderator gateway skill reaches the user (via origin Hermes session, Telegram, Slack, or any other configured gateway) and records the result through a typed HUN command such as the canonical `hun delegate escalation-delivered`,
+When the Hermes plugin/gateway helper or equivalent moderator gateway skill reaches the user (via origin Hermes session, Telegram, Slack, or any other configured gateway) and records the result through a typed ATN command such as the canonical `atn-control delegate escalation-delivered`,
 then the daemon records `user_escalation_delivered` with `from: agent-mod`, the actual `delivery_target`, and `causation_event_id` pointing to the originating `user_escalation_requested`.
 
-When the Hermes plugin/gateway helper or equivalent moderator gateway skill fails to reach the requested target and records the failure through a typed HUN command such as the canonical `hun delegate escalation-delivery-failed`,
+When the Hermes plugin/gateway helper or equivalent moderator gateway skill fails to reach the requested target and records the failure through a typed ATN command such as the canonical `atn-control delegate escalation-delivery-failed`,
 then the daemon records `user_escalation_delivery_failed` from the moderator (does not treat the escalation as delivered) and waits for a follow-up `user_escalation_delivered` if a fallback succeeds.
 
 The daemon must not itself open any outbound notification channel; if `user_escalation_delivered` is not recorded, no delivery has occurred.
@@ -60,31 +60,31 @@ then agent-2 asks agent-1 through `review_clarification_requested`, not the mode
 When agent-1 answers through `review_clarification_answered`,
 then agent-2 uses that answer in the review verdict.
 
-When agent-2 returns a review verdict through `hun delegate review-submit`,
+When agent-2 returns a review verdict through `atn-control delegate review-submit`,
 then the daemon records `review_submitted` with the verdict.
 
 When the verdict is `changes_requested`,
-then the moderator can issue `hun delegate revise`, which records `revision_requested`, and the session remains active.
+then the moderator can issue `atn-control delegate revise`, which records `revision_requested`, and the session remains active.
 
 ## Scenario 4: Full council consensus path
 
 Given no active session exists,
-when the moderator creates a council with agent-1, agent-2, and agent-3 through `hun council new`,
+when the moderator creates a council with agent-1, agent-2, and agent-3 through `atn-control council new`,
 then the daemon records `session_created` and the council remains in `created`.
 
-When the moderator starts preparation through `hun council prepare`,
+When the moderator starts preparation through `atn-control council prepare`,
 then the daemon records `preparation_requested` and the council enters `preparation`.
 
 When all member runtimes observe `preparation_requested` through the stream,
-then each ready member records `member_ready` through `hun council ready`, and the council enters discussion.
+then each ready member records `member_ready` through `atn-control council ready`, and the council enters discussion.
 
-When member runtimes observe `hand_raise_requested`, raise hands through `hun council hand-raise`, and the moderator selects speakers through `hun council grant`,
+When member runtimes observe `hand_raise_requested`, raise hands through `atn-control council hand-raise`, and the moderator selects speakers through `atn-control council grant`,
 then no speaker speaks twice in a row.
 
-When the moderator proposes a conclusion through `hun council propose` and requests a consensus vote through `hun council request-vote`,
-then the daemon records `consensus_vote_requested`, and member runtimes vote (`hun council vote`) only after observing it.
+When the moderator proposes a conclusion through `atn-control council propose` and requests a consensus vote through `atn-control council request-vote`,
+then the daemon records `consensus_vote_requested`, and member runtimes vote (`atn-control council vote`) only after observing it.
 
-When all members approve, the council finalizes (`hun council finalize`) and transcript export includes all turns and votes.
+When all members approve, the council finalizes (`atn-control council finalize`) and transcript export includes all turns and votes.
 
 Then `preparation_requested` and `hand_raise_requested` use explicit recipient lists containing all council members; the daemon must not emit `to: "all"` or `to: ["all"]`.
 
@@ -94,7 +94,7 @@ Given a member does not finish preparation within 10 minutes,
 when the timeout expires,
 then the daemon records `member_prepared_partial` and instructs the member to proceed with partial notes.
 
-If the member runtime itself records partial preparation before timeout through `hun council prepared-partial`,
+If the member runtime itself records partial preparation before timeout through `atn-control council prepared-partial`,
 then the daemon records `member_prepared_partial` with origin class `participant_cli`.
 
 If timeout expires first, the daemon records `member_prepared_partial` with origin class `daemon_internal`.
@@ -119,17 +119,17 @@ The final report must not claim consensus.
 ## Scenario 7A: Discord-thread council surface binding
 
 Given no active session exists,
-when the moderator creates a council through `hun council new` with `--surface discord-thread`, `--thread-id`, and `--kanban-card`,
+when the moderator creates a council through `atn-control council new` with `--surface discord-thread`, `--thread-id`, and `--kanban-card`,
 then `session_created.payload.surface.kind` is `discord_thread`, `session_created.payload.surface.thread_id` is set, and `channel.jsonl` remains the source of truth.
 
 When the moderator records `attendance_requested`, members record one terminal `member_attended` record each (`present`, `partial`, `unavailable`, or `no_response_timeout`), and the moderator records `agenda_locked`,
 then those events remain in the `created` phase and `council prepare` is still the event that enters `preparation`.
 
 Given the same Discord-thread-bound council lacks `attendance_requested`, lacks a terminal `member_attended` record for any required participant, or lacks `agenda_locked`,
-when the moderator runs `hun council prepare`,
+when the moderator runs `atn-control council prepare`,
 then the command fails closed, appends no `preparation_requested` event, keeps the council in `created`, and reports the missing prerequisite(s).
 
-When the moderator grants floor with `hun council grant --mode role_order` or `--mode moderator_direct`,
+When the moderator grants floor with `atn-control council grant --mode role_order` or `--mode moderator_direct`,
 then the daemon records `speaker_selected` with that per-turn `selection_mode`, and only the selected member can record the next normal `speech` event.
 
 Given the council was created with `--turn-mode role_order`,
@@ -169,7 +169,7 @@ then the daemon may create the new session.
 ## Scenario 9: Transcript completeness
 
 Given a session that has reached a terminal state (`accepted`, `cancelled`, `finalized`, `unresolved`) or is currently `blocked`,
-when `hun transcript <id> --format md` is run,
+when `atn-control transcript <id> --format md` is run,
 then output includes all major events from start to finish.
 
 ## Scenario 10: Real member profile evidence
@@ -259,7 +259,7 @@ Given an artifact exceeds `max_artifact_bytes`,
 when the daemon attempts ingestion,
 then the ingestion fails closed and no file is copied under `sessions/<id>/artifacts/`.
 
-Given a valid artifact source path is submitted through `hun delegate submit --artifact result.md`,
+Given a valid artifact source path is submitted through `atn-control delegate submit --artifact result.md`,
 when the daemon ingests the artifact,
 then the persisted `work_submitted` event references the ingested artifact record with `artifact_id`, `stored_path`, `sha256`, `size_bytes`, and `mime`. The persisted event must not contain the raw source path as the artifact reference.
 
@@ -299,7 +299,7 @@ then the daemon rejects the registry before considering the wrapper valid (regis
 ## Scenario 19: Stream reconnect and cursor safety
 
 Given agent-1's member runtime has acknowledged cursor `cur_10`,
-when the runtime disconnects and reconnects with `hun stream <id> --member agent-1 --since cur_10 --follow`,
+when the runtime disconnects and reconnects with `atn-control stream <id> --member agent-1 --since cur_10 --follow`,
 then the daemon must replay every later event before emitting live events.
 
 If the cursor cannot be reconciled, the stream must fail closed with a clear error. It must not skip events silently.
@@ -320,13 +320,13 @@ then `04-cli-spec.md` must list an explicit CLI command path for that event in t
 Given a state-mutating CLI command,
 then `04-cli-spec.md` must list the event type or event sequence emitted by that command.
 
-Given `hun delegate message`,
+Given `atn-control delegate message`,
 then it must emit only `delegation_message` and must not emit `clarification_answered`.
 
-Given `hun delegate answer-clarification`,
+Given `atn-control delegate answer-clarification`,
 then it must emit `clarification_answered` and require `--in-reply-to`, and the resulting event's `causation_event_id` must reference the originating `clarification_requested`.
 
-Given `hun council request-vote`,
+Given `atn-control council request-vote`,
 then it must emit `consensus_vote_requested`, and member runtimes must not vote until they observe that event (or its replay).
 
 Given a daemon-originated operational event such as `session_budget_exceeded`,
@@ -343,7 +343,7 @@ Given a pending batch is flushed manually through `delegate escalation-flush`,
 then the emitted event is `user_escalation_requested` and the session enters `waiting_user`.
 
 Given the daemon flushes a pending batch due to timer expiry,
-then the emitted event is `user_escalation_requested` with `from: hund` and a valid `causation_event_id`.
+then the emitted event is `user_escalation_requested` with `from: atn-controld` and a valid `causation_event_id`.
 
 ## Scenario 22: Phase and status semantics
 
@@ -351,13 +351,13 @@ Given a delegation session is in `working`,
 when the daemon appends an `assignee_update`,
 then the event envelope has `phase: working` and the projected session has `status: open`.
 
-Given the assignee records `progress_status: blocked` through `hun delegate update`,
+Given the assignee records `progress_status: blocked` through `atn-control delegate update`,
 then the daemon records the self-report but does **not** automatically change the session phase to `blocked`; the projected `status` remains `open`.
 
 Given the moderator records a manual block (`delegate block` → `session_blocked`) or the daemon records a blocking operational event (`session_budget_exceeded`, `escalation_timeout`, session-scoped `security_violation`),
 then the event envelope has `phase: blocked` with payload `prior_phase` and `resume_phase`, the projected session has `status: blocked`, and the active-session lock remains held.
 
-Given the moderator records a manual block through `hun delegate block`,
+Given the moderator records a manual block through `atn-control delegate block`,
 then the daemon records `session_blocked` with envelope `phase: blocked` and payload `prior_phase` and `resume_phase` (both required, even when equal).
 
 Given a terminal event such as `work_accepted`, `session_cancelled`, `council_finalized`, or `council_unresolved`,
@@ -392,7 +392,7 @@ Given a recipient is unknown and is not the reserved principal `user`,
 when a CLI command attempts to address that recipient,
 then the daemon rejects the command before append.
 
-Given a registry defines `members.user` or `members.hund`,
+Given a registry defines `members.user` or `members.atn-controld`,
 when the daemon validates the registry,
 then validation fails closed.
 
@@ -499,34 +499,34 @@ then the violation is recorded as `security_violation` in that session's `channe
 ## Scenario 27: Common block and resume
 
 Given a delegation session is in `working`,
-when the moderator records a manual block through `hun block`,
+when the moderator records a manual block through `atn-control block`,
 then the daemon records `session_blocked` with envelope `phase: blocked`, payload `prior_phase`, and payload `resume_phase`.
 
 Given the blocking condition is resolved,
-when the moderator records `hun resume --blocked-event <event_id>`,
+when the moderator records `atn-control resume --blocked-event <event_id>`,
 then the daemon records `session_resumed`, returns the session to the recorded `resume_phase`, and clears blocked projection fields.
 
 Given the block was caused by `session_budget_exceeded`,
-when the moderator attempts `hun resume`,
-then the daemon rejects it and requires `hun limits extend` with user authorization.
+when the moderator attempts `atn-control resume`,
+then the daemon rejects it and requires `atn-control limits extend` with user authorization.
 
 Given a council session is in `discussion`,
-when the moderator records `hun block`,
+when the moderator records `atn-control block`,
 then the council enters `blocked` and still holds the active-session lock.
 
-When the moderator records `hun resume`,
+When the moderator records `atn-control resume`,
 then the council returns to the recorded `resume_phase`.
 
-Given `hun delegate block` is used in place of the common command for a delegation session,
+Given `atn-control delegate block` is used in place of the common command for a delegation session,
 then the daemon records the same `session_blocked` event; both command paths are accepted.
 
 ## Scenario 28: Daemon-originated partial preparation
 
 Given a council member does not record `member_ready` before preparation timeout,
 when the daemon records `member_prepared_partial`,
-then the event has `from: "hund"` and `payload.member` contains the timed-out member id.
+then the event has `from: "atn-controld"` and `payload.member` contains the timed-out member id.
 
-Given a member runtime explicitly records partial preparation through `hun council prepared-partial`,
+Given a member runtime explicitly records partial preparation through `atn-control council prepared-partial`,
 then the event has `from` equal to the member id, omits `payload.member`, and does not pretend to be daemon-originated.
 
 ## Scenario 29: Structured CLI errors
@@ -539,6 +539,6 @@ Given registry validation fails,
 when the command is run with `--format json`,
 then the CLI returns a JSON error envelope with a stable code and category matching the security violation category, and exit code 3.
 
-Given an `hun resume` command targets a budget-originated block,
+Given an `atn-control resume` command targets a budget-originated block,
 when the command is run with `--format json`,
-then the CLI returns a JSON error envelope with category `session_lock`, a code identifying the budget mismatch, and `next` listing `hun limits extend ...` instead of `hun resume`.
+then the CLI returns a JSON error envelope with category `session_lock`, a code identifying the budget mismatch, and `next` listing `atn-control limits extend ...` instead of `atn-control resume`.

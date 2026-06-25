@@ -2,7 +2,7 @@
 
 ## Goal
 
-Build a full target system for real-profile Hermes agent communication using a daemon, HUN protocol client/contract, minimal canonical CLI, and Hermes plugin integration layer, without changing Hermes core.
+Build a full target system for real-profile Hermes agent communication using a daemon, ATN protocol client/contract, minimal canonical CLI, and Hermes plugin integration layer, without changing Hermes core.
 
 ## Primary user stories
 
@@ -28,15 +28,15 @@ In summary, `open` and `blocked` sessions both count as active. Only `terminal` 
 - All durable events must be appended to `channel.jsonl`.
 - SQLite must be a projection, not the source of truth.
 - Full transcript export must be available for every session.
-- The daemon must expose a replayable stream/watch interface so moderator and member runtimes can observe session events in near real time; the CLI and Hermes plugin both consume this through the HUN protocol client/contract.
+- The daemon must expose a replayable stream/watch interface so moderator and member runtimes can observe session events in near real time; the CLI and Hermes plugin both consume this through the ATN protocol client/contract.
 - Stream delivery must be replayable from a durable cursor; disconnects must resume without losing events.
-- All agent-originated writes must still go through typed HUN command models validated by the daemon. Hermes plugin tools should call the HUN protocol client/contract directly; the CLI remains the canonical fallback path. No integration may mutate daemon state directly or append to `channel.jsonl` outside the daemon.
+- All agent-originated writes must still go through typed ATN command models validated by the daemon. Hermes plugin tools should call the ATN protocol client/contract directly; the CLI remains the canonical fallback path. No integration may mutate daemon state directly or append to `channel.jsonl` outside the daemon.
 - Every participant-originated event must have an explicit canonical CLI command path (see `04-cli-spec.md` event-to-command coverage matrix) and, when exposed through the Hermes plugin, a documented plugin tool/slash-command equivalent that maps to the same command model.
 - Every state-mutating CLI command must declare the protocol event type or event sequence it emits.
 - Ambiguous state-mutating commands are not allowed; clarification answers, general delegation messages, review verdicts, escalation delivery reports, and council readiness must each have explicit commands.
 - Every session has an exact lifecycle `phase` and a derived roll-up `status`. `phase` is used for state transitions; `status` is used for UI, query, and active-session lock checks. Allowed `status` values are `open`, `blocked`, and `terminal`. The active-session lock is held whenever `status != terminal`.
 - Every event has a single originator (`from`) and zero or more semantic recipients (`to`). `from` is always a string; `to` is always an array of strings. Broadcast events must enumerate their recipients explicitly. `to` is not stream access control; authorized session participants can observe the session stream and decide whether to act.
-- Manual, external-dependency, and council blocks must be recoverable through a common `session_resumed` event recorded by `hun resume`.
+- Manual, external-dependency, and council blocks must be recoverable through a common `session_resumed` event recorded by `atn-control resume`.
 - Budget and limit blocks must be recovered through `limits_extended`, not through `session_resumed`.
 
 ### Delegation requirements
@@ -80,7 +80,7 @@ In summary, `open` and `blocked` sessions both count as active. Only `terminal` 
 - A council may include optional `linked_authority` metadata. When `linked_authority.kanban_card_id` is present, the final result must be returned to that card or to a clearly linked follow-up/review card. When `linked_authority.vault_decision_note` is required, Gray/Gongmyeong records the decision note after the council.
 - Discord-thread councils must support an explicit attendance check through typed events before preparation starts. The first-pass spec keeps attendance inside the `created` phase unless Gongmyeong/user review chooses a new `attendance` phase.
 - Discord-thread councils must support an explicit agenda lock before substantive discussion. The locked agenda is the decision question used for topic-drift control and final outcome evaluation.
-- Each member runtime gets up to 10 minutes for initial research and records `member_ready` (through `council ready`) or `member_prepared_partial` (through `council prepared-partial`) through typed HUN commands exposed by the plugin protocol client or canonical CLI fallback. The daemon also emits `member_prepared_partial` internally when preparation timeout expires.
+- Each member runtime gets up to 10 minutes for initial research and records `member_ready` (through `council ready`) or `member_prepared_partial` (through `council prepared-partial`) through typed ATN commands exposed by the plugin protocol client or canonical CLI fallback. The daemon also emits `member_prepared_partial` internally when preparation timeout expires.
 - The moderator requests consensus voting through `council request-vote`, which emits a stream-visible `consensus_vote_requested` event; member runtimes must not vote until they observe it (or its replay).
 - Timed-out members are not excluded; they proceed with material prepared so far.
 - Before each turn, the daemon records `hand_raise_requested`; member runtimes observe it through the stream and decide whether to raise a hand.
@@ -111,18 +111,18 @@ Required baseline:
 - The daemon must fail closed if the registry is missing or invalid.
 - Member profile invocations must preserve session continuity through session IDs.
 - Member runtimes must preserve their own stream cursor and member AI session handle across reconnects.
-- The daemon may provide local SSE, WebSocket, Unix socket, or local HTTP internally, but the stable agent-facing interface is the plugin protocol-client stream plus typed HUN commands, with the CLI stream and canonical CLI command paths as the diagnostics/recovery/manual fallback.
+- The daemon may provide local SSE, WebSocket, Unix socket, or local HTTP internally, but the stable agent-facing interface is the plugin protocol-client stream plus typed ATN commands, with the CLI stream and canonical CLI command paths as the diagnostics/recovery/manual fallback.
 - The system must not restart or alter unrelated team member gateways.
 - The system must expose operational health, metrics, and structured errors sufficient for local monitoring and debugging. See `16-observability.md`.
 - The system must document backup, restore, corruption recovery, and projection rebuild procedures. See `17-disaster-recovery.md`.
-- The system must support setup and diagnostic commands (`hun init`, `hun doctor`, `hun storage verify`, `hun storage rebuild-projection`) without weakening the security model. See `04-cli-spec.md` and `12-security.md`.
+- The system must support setup and diagnostic commands (`atn-control init`, `atn-control doctor`, `atn-control storage verify`, `atn-control storage rebuild-projection`) without weakening the security model. See `04-cli-spec.md` and `12-security.md`.
 
 ## Distribution requirements
 
-- The repository README must be written so a user can ask Hermes Agent to install `hun` from GitHub and Hermes can complete the setup without hidden context.
-- The Go build must expose both `hun` and `hund` binaries.
-- The data home must resolve in the order `$HUN_HOME` > `$XDG_DATA_HOME/hermes-unified-network` > `~/.hun/`.
-- The companion plugin repository must include a bundled Hermes skill that teaches Hermes how to operate `hun` safely through the daemon/CLI contract.
+- The repository README must be written so a user can ask Hermes Agent to install `atn-control` from GitHub and Hermes can complete the setup without hidden context.
+- The Go build must expose both `atn-control` and `atn-controld` binaries.
+- The data home must resolve in the order `$ATN_HOME` > `$XDG_DATA_HOME/agent-turn-network` > `~/.atn/`.
+- The companion plugin repository must include a bundled Hermes skill that teaches Hermes how to operate `atn-control` safely through the daemon/CLI contract.
 - The Release v1 skill must cover delegation, review gate, council preparation/discussion/consensus, transcript, user escalation (delivery policy and rate limits), daemon status checks, budget and limit extensions, and fail-close behavior; the plugin repository owns the skill implementation, while this repository owns the daemon/CLI contract it documents (see `11-distribution-and-plugin.md`).
 - Installation docs must distinguish code install, data home, registry setup, daemon setup, and optional launchd integration.
 

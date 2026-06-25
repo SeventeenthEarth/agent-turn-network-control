@@ -1,8 +1,8 @@
 # kkachi-agent-helper:managed
-project: "hun-control"
-public_plugin_repo: "hun-plugin"
-local_plugin_workspace: "../kkachi-agent-network-plugin"
-path_note: "HUN-014 is completed/local-compatibility-proof: public labels use hun-control/hun-plugin while local checks still resolve the existing sibling workspace path."
+project: "atn-control"
+public_plugin_repo: "atn-plugin"
+local_plugin_workspace: "../agent-turn-network-plugin"
+path_note: "ATN-001 locks the public rename and ATN-002 scrubs control docs; the current sibling workspace already resolves at the public `agent-turn-network-*` paths while ATN-004 and ATN-005 remain pending code/runtime/package rename work."
 roadmap: "docs/roadmap.md"
 sot_docs:
   - "docs/03-protocol-spec.md"
@@ -26,7 +26,7 @@ kan_team:
   orange: "jonghoe"
   gray: "manchong"
 kas:
-  project: "hun-control"
+  project: "atn-control"
   suite_roles:
     macho: "blue_commander"
     seohwang: "red_reviewer"
@@ -44,7 +44,7 @@ workflow:
 runfix:
   epic: "RUNFIX"
   control_sot: "docs/24-live-transport-control-sot.md"
-  plugin_sot: "../kkachi-agent-network-plugin/docs/10-live-transport-sot.md"
+  plugin_sot: "../agent-turn-network-plugin/docs/10-live-transport-sot.md"
   cross_repo_dag:
     - "control/RUNFIX-001"
     - "plugin/RUNFIX-002"
@@ -68,7 +68,7 @@ runfix:
 hun:
   epic: "HUN"
   control_sot: "docs/26-hermes-unified-network-control-naming-sot.md"
-  plugin_sot: "../kkachi-agent-network-plugin/docs/12-hermes-unified-network-plugin-naming-sot.md"
+  plugin_sot: "../agent-turn-network-plugin/docs/12-hermes-unified-network-plugin-naming-sot.md"
   cross_repo_sequence:
     - "control/HUN-001"
     - "plugin/HUN-002"
@@ -91,7 +91,7 @@ hun:
 atn:
   epic: "ATN"
   control_sot: "docs/27-agent-turn-network-control-naming-sot.md"
-  plugin_sot: "../kkachi-agent-network-plugin/docs/13-agent-turn-network-plugin-naming-sot.md"
+  plugin_sot: "../agent-turn-network-plugin/docs/13-agent-turn-network-plugin-naming-sot.md"
   cross_repo_sequence:
     - "cross-repo/ATN-001"
     - "control/ATN-002"

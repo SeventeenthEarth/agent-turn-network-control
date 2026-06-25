@@ -3,10 +3,10 @@
 ## Status
 
 - Status: TOBE source plus alignment record; canonical implementation rules now live in the main protocol, CLI, state-machine, storage, policy, operational-contract, acceptance-test, and epic docs.
-- Scope: `hun` council UX on Discord threads
+- Scope: `atn-control` council UX on Discord threads
 - Source request, preserved as SOT: `discord에서는 이런 토론이 하나의 쓰레드 안에서 진행되었으면 좋겠어. 내가 "토론을 시작해줘"하면 네가 쓰레드에 장수들을 한명씩 불러서 출석 체크를 한 다음에 토론이 진행되면서 공명이 발언권을 주고 토론을 체계적으로 수향하는거지.`
 - Operating language: user-facing reports to 주군 are Korean; agent-facing docs and implementation notes remain English while preserving fixed Korean labels such as `17번째 지구`, `주군`, and member names.
-- Governance correction: HUN is the public product/repository naming for the bounded KAN control/plugin lane. Prior Hwangchung-routed work is historical draft/spec-prep evidence only, not durable current ownership. Current KAN lane ownership is 마초/서황/종회/만총 for Blue/Red/Orange/Gray respectively; Gongmyeong/wolong may coordinate Kanban routing without becoming HUN/KAN Blue.
+- Governance correction: HUN is the public product/repository naming for the bounded KAN control/plugin lane. Prior Hwangcat-routed work is historical draft/spec-prep evidence only, not durable current ownership. Current KAN lane ownership is 마초/서황/종회/만총 for Blue/Red/Orange/Gray respectively; Gongmyeong/wolong may coordinate Kanban routing without becoming HUN/KAN Blue.
 
 
 ## Spec alignment record
@@ -17,7 +17,7 @@ This document preserves the original Discord-thread council TOBE request and the
 2. Add optional council `surface` and `linked_authority` metadata to `session_created.payload` and session projections.
 3. Represent attendance and agenda lock as typed council events while the session remains in `created`, rather than adding a new `attendance` phase for the first pass.
 4. Extend `speaker_selected.payload.selection_mode` with `moderator_direct` and `role_order` so Gongmyeong can grant floor explicitly in a Discord-thread council.
-5. Keep Discord delivery outside `hund`; the moderator runtime posts to Discord through Hermes plugin/gateway capability and records delivery evidence as metadata or follow-up delivery audit.
+5. Keep Discord delivery outside `atn-controld`; the moderator runtime posts to Discord through Hermes plugin/gateway capability and records delivery evidence as metadata or follow-up delivery audit.
 6. If `linked_authority.kanban_card_id` is present, final council outcome must be returned to the Kanban card; Vault decision-note recording remains a Gray/Gongmyeong workflow when the topic is durable architecture/process/command knowledge.
 
 Aligned spec sections:
@@ -25,7 +25,7 @@ Aligned spec sections:
 - `docs/README.md`: add source-of-truth and decision-log entries for Discord-thread council surface binding.
 - `docs/00-overview.md`: describe Discord-thread council as an optional surface, not a replacement architecture.
 - `docs/01-product-requirements.md`: add council requirements for surface binding, attendance, agenda lock, floor grants, and Kanban/Vault return path.
-- `docs/02-architecture.md`: preserve Clean Architecture by keeping Discord transport outside engine/domain and outside `hund` delivery responsibility.
+- `docs/02-architecture.md`: preserve Clean Architecture by keeping Discord transport outside engine/domain and outside `atn-controld` delivery responsibility.
 - `docs/03-protocol-spec.md`: add `surface`/`linked_authority` metadata, `attendance_requested`, `member_attended`, `agenda_locked`, and final outcome linkage fields.
 - `docs/04-cli-spec.md`: add additive flags/commands and event-to-command rows.
 - `docs/05-storage-schema.md`: add optional projected session fields for `surface` and `linked_authority`.
@@ -47,7 +47,7 @@ Target model:
 ```text
 Discord thread = human-visible council room
 channel.jsonl = canonical session SOT
-hund = state machine, event log, locks, replay, transcript/export
+atn-controld = state machine, event log, locks, replay, transcript/export
 Hermes plugin = preferred agent-facing HUN tools/slash commands and Discord visible-post helper
 Gongmyeong/wolong = possible moderator runtime and user-facing Korean reporter when assigned
 member profiles = real 장수 participants
@@ -66,10 +66,10 @@ Do not let free-form multi-agent Discord replies drive state directly.
 
 The existing docs define these reusable foundations:
 
-- `hun` CLI and `hund` daemon.
+- `atn-control` CLI and `atn-controld` daemon.
 - `session_type: council` with preparation, hand-raise discussion, draft conclusion, consensus vote, and finalized/unresolved states.
 - `channel.jsonl` as durable source of truth, SQLite as projection.
-- `hun stream` as the stable member runtime observation interface.
+- `atn-control stream` as the stable member runtime observation interface.
 - Real Hermes member profiles, not simulated prompt personas.
 - No Hermes core modification.
 - External delivery to Telegram/Slack/Discord/origin is currently the moderator runtime's responsibility, not the daemon's direct responsibility.
@@ -113,7 +113,7 @@ The Discord thread should feel like a real council, but every meaningful transit
 - Do not use Discord message order as the authoritative state machine.
 - Do not require Hermes core patches.
 - Do not make MCP or the Hermes plugin a state authority; the Hermes plugin is now the preferred integration surface, but canonical CLI diagnostics/recovery/manual paths must still work.
-- Do not give `hund` broad Discord bot-token responsibility; use Hermes plugin/gateway capability for first-pass visible posting unless a later design explicitly approves a Discord bridge component and its security model.
+- Do not give `atn-controld` broad Discord bot-token responsibility; use Hermes plugin/gateway capability for first-pass visible posting unless a later design explicitly approves a Discord bridge component and its security model.
 - Do not bypass Kanban review and traceability rules when a council is tied to a work item.
 
 ## Surface binding model
@@ -274,7 +274,7 @@ Rules:
 For the role-ordered council UX, add or document a `grant` mode:
 
 ```bash
-hun council grant <session_id> \
+atn-control council grant <session_id> \
   --to macho \
   --mode moderator_direct \
   --round 1 \
@@ -298,7 +298,7 @@ role_order       # deterministic round-robin by declared role order
 Minimal additive CLI changes:
 
 ```bash
-hun council new "<topic>" \
+atn-control council new "<topic>" \
   --members macho,seohwang,jonghoe,manchong \
   --moderator wolong \
   --surface discord-thread \
@@ -306,35 +306,35 @@ hun council new "<topic>" \
   --kanban-card t_xxxxx \
   --turn-mode role_order
 
-hun council attend <session_id> \
+atn-control council attend <session_id> \
   --from macho \
   --status present \
   --summary "Present. Owner-side spec governance perspective ready."
 
-hun council lock-agenda <session_id> \
+atn-control council lock-agenda <session_id> \
   --decision-question "Decide next action for Kanban card t_xxxxx" \
   --max-rounds 2
 
-hun council grant <session_id> \
+atn-control council grant <session_id> \
   --to macho \
   --mode role_order \
   --round 1 \
   --reason "Owner-side spec governance first pass"
 
-hun council speak <session_id> \
+atn-control council speak <session_id> \
   --from macho \
   --stdin
 
 # Optional future UX, not part of the minimal first-pass alignment unless
 # separately added to the protocol/CLI spec:
-# hun council close-round <session_id> \
+# atn-control council close-round <session_id> \
 #   --round 1 \
 #   --summary-file unresolved-issues.md
 
-hun council propose <session_id> --stdin
-hun council request-vote <session_id>
-hun council vote <session_id> --from macho --vote approve
-hun council finalize <session_id>
+atn-control council propose <session_id> --stdin
+atn-control council request-vote <session_id>
+atn-control council vote <session_id> --from macho --vote approve
+atn-control council finalize <session_id>
 ```
 
 Existing commands should remain backward compatible. The new flags are additive.
@@ -344,7 +344,7 @@ Existing commands should remain backward compatible. The new flags are additive.
 Recommended Release v1-compatible approach:
 
 ```text
-hund records typed events.
+atn-controld records typed events.
 Moderator runtime observes events and posts human-visible messages to the Discord thread through Hermes gateway capability.
 Member runtimes emit typed events after they act.
 Discord delivery audit is recorded as metadata or delivery events when needed.
@@ -420,8 +420,8 @@ Please choose one:
 
 ### Phase B: Core/plugin bootstrap split
 
-- Core bootstrap follows `19-tooling.md`: create `go.mod`, `cmd/hun`, `cmd/hund`, `internal/`, `tests/`, and help smoke tests.
-- Plugin bootstrap follows `../../kkachi-agent-network-plugin/docs/06-implementation-epics-tasks.md`: create `pyproject.toml`, `plugin.yaml`, `src/hun_plugin/`, fake daemon tests, and Hermes plugin smoke tests.
+- Core bootstrap follows `19-tooling.md`: create `go.mod`, `cmd/atn-control`, `cmd/atn-controld`, `internal/`, `tests/`, and help smoke tests.
+- Plugin bootstrap follows `../../agent-turn-network-plugin/docs/06-implementation-epics-tasks.md`: create `pyproject.toml`, `plugin.yaml`, `src/atn_plugin/`, fake daemon tests, and Hermes plugin smoke tests.
 - Do not start with Discord API integration.
 
 ### Phase C: Core council engine with surface metadata
@@ -502,7 +502,7 @@ Owner-side direction now reflected in canonical docs:
 
 ## Historical next-assignment note
 
-The following was the historical next assignment before the alignment patches were applied. It is retained only to explain the review sequence. Do not route HUN implementation planning to Hwangchung or unrelated Kkachi ownership tracks unless 주군 later assigns that explicitly. Current KAN Blue/Red/Orange/Gray review ownership is 마초/서황/종회/만총; those internal lane labels are not public HUN product aliases.
+The following was the historical next assignment before the alignment patches were applied. It is retained only to explain the review sequence. Do not route HUN implementation planning to Hwangcat or unrelated Kkachi ownership tracks unless 주군 later assigns that explicitly. Current KAN Blue/Red/Orange/Gray review ownership is 마초/서황/종회/만총; those internal lane labels are not public HUN product aliases.
 
 Historical first Kanban task:
 

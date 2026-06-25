@@ -18,16 +18,16 @@ This file may explain *why* the design is shaped the way it is. It must not be c
 
 If the reader does not know what Hermes Agent is, read `15-hermes-agent-runtime-context.md` first.
 
-`hun` is a stream-driven agent network, not a one-shot worker dispatcher. The daemon is always-on and owns durable state. Agents participate through the HUN protocol client/contract, normally exposed through the Hermes plugin, with the CLI as the canonical fallback:
+`atn-control` is a stream-driven agent network, not a one-shot worker dispatcher. The daemon is always-on and owns durable state. Agents participate through the ATN protocol client/contract, normally exposed through the Hermes plugin, with the CLI as the canonical fallback:
 
 ```text
-preferred read:  Hermes plugin stream/tail tool -> HUN protocol client/contract
-preferred write: Hermes plugin typed HUN tool -> HUN protocol client/contract
-fallback read:   hun stream ... --follow
-fallback write:  hun <typed command> ...
+preferred read:  Hermes plugin stream/tail tool -> ATN protocol client/contract
+preferred write: Hermes plugin typed ATN tool -> ATN protocol client/contract
+fallback read:   atn-control stream ... --follow
+fallback write:  atn-control <typed command> ...
 ```
 
-The daemon may internally expose SSE, WebSocket, Unix socket, or local HTTP. That transport is private. The agent-facing contract is the plugin protocol-client stream plus typed HUN writes, with the CLI stream and canonical CLI command paths as the diagnostics/recovery/manual fallback.
+The daemon may internally expose SSE, WebSocket, Unix socket, or local HTTP. That transport is private. The agent-facing contract is the plugin protocol-client stream plus typed ATN writes, with the CLI stream and canonical CLI command paths as the diagnostics/recovery/manual fallback.
 
 ## Participants
 
@@ -43,7 +43,7 @@ Each member runtime is a long-lived loop for one real Hermes profile. It:
 2. subscribes to the active session stream,
 3. persists its acknowledged cursor,
 4. resumes its real AI session or wrapper when thinking is required,
-5. writes typed events back through the HUN protocol client/contract or canonical CLI fallback.
+5. writes typed events back through the ATN protocol client/contract or canonical CLI fallback.
 
 A member runtime is not a simulated role prompt. It must preserve the member profile identity and session handle.
 
@@ -54,14 +54,14 @@ start
   -> validate live registry identity for startup/discovery before session binding
   -> find active session where member is a participant
   -> validate registry identity against the active session's `registry_snapshot.yaml` once session-bound
-  -> HUN protocol client/contract stream subscribe, or hun stream <session_id> --member <member> --since <cursor> --follow as fallback
+  -> ATN protocol client/contract stream subscribe, or atn-control stream <session_id> --member <member> --since <cursor> --follow as fallback
   -> for each event:
        - treat event.to as semantic addressing, not access control
        - decide whether to act based on event.type, event.from, event.to, role, phase, and local policy
        - ignore events outside member interest
        - update local context from transcript/brief if needed
        - run/resume member AI session when needed
-       - emit typed HUN command through plugin protocol client or canonical CLI fallback
+       - emit typed ATN command through plugin protocol client or canonical CLI fallback
        - acknowledge cursor only after successful local processing
   -> reconnect from last acknowledged cursor on disconnect
 ```
@@ -111,7 +111,7 @@ The same stream contract handles work updates, clarification, review questions, 
 Example:
 
 ```bash
-hun stream sess_123 --member agent-1 --since cur_42 --follow --format ndjson
+atn-control stream sess_123 --member agent-1 --since cur_42 --follow --format ndjson
 ```
 
 Each line:
@@ -135,7 +135,7 @@ Each line:
 Acknowledgement:
 
 ```bash
-hun stream ack sess_123 --member agent-1 --cursor cur_000000000043_evt_...
+atn-control stream ack sess_123 --member agent-1 --cursor cur_000000000043_evt_...
 ```
 
 Rules:
@@ -154,7 +154,7 @@ Recommended implementation order:
 2. Protocol-client writes as ordinary request/response commands, with CLI writes as canonical diagnostics/recovery/manual fallback.
 3. WebSocket only if one bidirectional connection becomes necessary.
 
-This keeps agent operation simple: one runtime reads the plugin protocol-client stream or canonical CLI NDJSON fallback; actions are separate typed HUN command calls.
+This keeps agent operation simple: one runtime reads the plugin protocol-client stream or canonical CLI NDJSON fallback; actions are separate typed ATN command calls.
 
 ## RUNRT-001 local implementation note
 
@@ -174,7 +174,7 @@ The first participant invocation pilot uses main-agent mediated bounded runner i
 
 This pilot means the main agent or operator-controlled lane observes the daemon-selected participant turn, invokes the selected member through the existing bounded runner path, and records the result back to the daemon with durable runner/session evidence. It is not a simulated role prompt and it must not replace the participant profile with an ad hoc Codex role. The selected member's real registry identity, wrapper boundary, and session handle or redacted equivalent remain part of the evidence contract.
 
-Long-lived member runtimes remain the target model because HUN is stream-driven: each participant should eventually observe replay/live frames, manage its own cursor, preserve its real profile identity, and write typed HUN events as the participant. They are not the first proof mode because the next risk to retire is narrower: prove one selected participant can be invoked through a real profile/wrapper boundary and leave enough durable evidence to distinguish success, failure, timeout, and unsafe setup. The bounded pilot keeps that proof disposable and reviewable before introducing always-on participant loops.
+Long-lived member runtimes remain the target model because ATN is stream-driven: each participant should eventually observe replay/live frames, manage its own cursor, preserve its real profile identity, and write typed ATN events as the participant. They are not the first proof mode because the next risk to retire is narrower: prove one selected participant can be invoked through a real profile/wrapper boundary and leave enough durable evidence to distinguish success, failure, timeout, and unsafe setup. The bounded pilot keeps that proof disposable and reviewable before introducing always-on participant loops.
 
 The minimum runner/session evidence for the pilot is:
 
@@ -184,7 +184,7 @@ The minimum runner/session evidence for the pilot is:
 - wrapper, backend, and session handle, or a redacted equivalent sufficient to prove real invocation without exposing secrets;
 - started timestamp and terminal timestamp/status;
 - stdout, stderr, log, and artifact pointers as redacted evidence pointers only, not inline secret-bearing payloads;
-- on success, the produced typed HUN event such as `council.speak` when applicable;
+- on success, the produced typed ATN event such as `council.speak` when applicable;
 - on failure, a durable failure event that records the failed invocation instead of fake progress.
 
 The pilot fails closed on registry mismatch, missing wrapper, unsafe profile, missing evidence, command id conflict, timeout, unsupported transport, cursor gap, or schema gap. A missing real member must never fall back to a role prompt.
@@ -213,4 +213,4 @@ Member runtimes should treat `escalation_batched` as audit context only. They sh
 
 Member runtimes should interpret `event.phase` as the **post-transition** lifecycle phase and key state-specific behavior off `phase`. They should **not** infer lifecycle transitions from `assignee_update.payload.progress_status`; that field is only the assignee's self-report.
 
-Runtimes may consult the projected `status` (`open`/`blocked`/`terminal`) from `hun status` for high-level decisions (e.g. whether the active-session lock is held), but transition logic uses `phase`.
+Runtimes may consult the projected `status` (`open`/`blocked`/`terminal`) from `atn-control status` for high-level decisions (e.g. whether the active-session lock is held), but transition logic uses `phase`.

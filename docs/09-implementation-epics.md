@@ -2,7 +2,7 @@
 
 ## Release v1 target scope
 
-Release v1 covers the Go control daemon/CLI plus the compatible Python Hermes plugin adapter. This repository owns control epics; plugin-specific implementation epics live in `../../kkachi-agent-network-plugin/docs/06-implementation-epics-tasks.md`.
+Release v1 covers the Go control daemon/CLI plus the compatible Python Hermes plugin adapter. This repository owns control epics; plugin-specific implementation epics live in `../../agent-turn-network-plugin/docs/06-implementation-epics-tasks.md`.
 
 Control scope: registry, storage, daemon, CLI, protocol/conformance, stream, member runtime contract, runner adapter, delegation, review gate, council, transcript/export, distribution, reliability.
 
@@ -130,7 +130,7 @@ Remaining summarized Release v1 epics preserve the previous product behavior: me
 
 ## Post-Release live-local epics
 
-These epics are planned after Release v1 local acceptance. They are repo-owned control epics that gate companion plugin epics in `../../kkachi-agent-network-plugin/docs/06-implementation-epics-tasks.md`.
+These epics are planned after Release v1 local acceptance. They are repo-owned control epics that gate companion plugin epics in `../../agent-turn-network-plugin/docs/06-implementation-epics-tasks.md`.
 
 Active task transfer between control and plugin happens only at an epic boundary. Do not interrupt a control epic with plugin tasks, and do not interrupt a plugin epic with control tasks. If a missing sibling capability is found, block the active epic with evidence and complete the sibling epic that owns the missing capability before resuming.
 
@@ -150,7 +150,7 @@ Active task transfer between control and plugin happens only at an epic boundary
 | ARGUE-004 | Preserve relation evidence in transcript/export/projection surfaces. Completed as a bounded local Stage 1 implementation under KAS/KAH run `run-20260616T073755Z-f2fe201156c7` after transcript/export/projection tests, first color review, Red R1 color-adjust, focused Red re-review, official KAB GLM Octo review, post-Octo Red/Orange/Gray re-review, and Blue synthesis. This remains control-local evidence only; plugin JSON-string parsing, missing-field transcript UX handling, live readiness, production activation, commit/push, and pilot readiness remain separate gates. | `internal/transcript/`, `internal/storage/`, projection/export tests | golden transcript/export/projection tests, `make test` |
 | ARGUE-005 | Prove the control integration gate before plugin handoff or live-local pilot planning. Completed as a local verification gate under KAS/KAH run `run-20260616T132731Z-781418864c04` after plugin-contract compatibility, ARGUE conformance fixture, validation/scoring, transcript/export/projection, and full local test evidence passed. This does not claim plugin/ARGUE-004, live-local pilot readiness, production activation, or live Discord/profile/provider mutation. | integration tests, conformance checks, docs evidence | `make check-plugin-contract`; focused `go test ./internal/protocol`; focused `go test ./internal/storage`; full `make test`; no live activation |
 
-Plugin-side ARGUE adapter, rendering, participant response generation, and packaged operator guidance are companion consumer work in `../../kkachi-agent-network-plugin/`. They are referenced here only as handoff/consumer notes and are not control-roadmap tasks.
+Plugin-side ARGUE adapter, rendering, participant response generation, and packaged operator guidance are companion consumer work in `../../agent-turn-network-plugin/`. They are referenced here only as handoff/consumer notes and are not control-roadmap tasks.
 
 
 ## RUNFIX — HUN council runner, activation, and discussion-quality remediation
@@ -231,7 +231,7 @@ RUNFIX2 task 5 may report `selected_runner_pass: true`, `visible_surface_pass: t
 | Global Order | Repo | Task ID | Scope | Suggested paths | Verification / gate |
 |---:|---|---|---|---|---|
 | 1 | cross-repo | ATN-001 | Completed/docs-only: locked control and plugin ATN naming SOTs, roadmap/index/docs-map entries, and no-alias policy after Red `t_d43402f0`, Orange `t_6d6bb8e8`, Gray `t_7ebc9e1e`, and Blue synthesis `t_8e348f72`. | `docs/27-agent-turn-network-control-naming-sot.md`, plugin `docs/13-agent-turn-network-plugin-naming-sot.md`, roadmaps, docs maps, docs indexes | docs guardrails, plugin contract/core checks, Red/Orange/Gray review, Blue synthesis; no binary/package/runtime mutation |
-| 2 | control | ATN-002 | Planned: scrub control public docs, examples, protocol wording, roadmap/index/map surfaces, and operator-facing text to ATN-only wording before code rename. | control README/docs/docs-map/roadmap/protocol/CLI docs | `git diff --check`, docs guardrails, plugin contract check, stale public-name scan |
+| 2 | control | ATN-002 | Completed/local-docs-proof: scrubbed control public docs, examples, protocol wording, roadmap/index/map surfaces, and operator-facing text to ATN-only wording ahead of ATN-004, updated sibling workspace path references to the current `agent-turn-network-plugin` checkout, and preserved historical HUN provenance rows separately. | control README/docs/docs-map/roadmap/protocol/CLI docs | `git diff --check`, docs guardrails, plugin contract check, stale public-name scan |
 | 3 | plugin | ATN-003 | Planned: scrub plugin public docs, package/docs metadata, operator guide, and bundled skill documentation to ATN-only wording before package/tool rename. | plugin README/docs/docs-map/operator guide/bundled skill docs | plugin `git diff --check`, docs guardrails, core-contract check, stale public-name scan |
 | 4 | control | ATN-004 | Planned: rename control code, Go module, CLI binary, daemon binary, data-home/env/socket/protocol markers, fixtures, tests, and Makefile surfaces to ATN names with no aliases. | `go.mod`, `cmd/`, `internal/`, `testdata/conformance/`, `scripts/`, `Makefile`, docs | focused Go tests, help smoke, conformance/contract checks, full control gates |
 | 5 | plugin | ATN-005 | Planned: rename plugin package/import/manifest/tools/bundled skills to ATN names, add/update final no-alias guardrails, and close cross-repo compatibility proof. | plugin `pyproject.toml`, `plugin.yaml`, `src/`, bundled skills, schemas/handlers/tests/scripts/docs | plugin-load smoke, tool/schema tests, docs guardrails, core-contract check, full plugin gates, cross-repo stale scan |

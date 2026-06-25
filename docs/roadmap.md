@@ -2,7 +2,7 @@
 
 ## Roadmap rule
 
-This roadmap is for the Go control repository. Python Hermes plugin roadmap items live in `../../kkachi-agent-network-plugin/docs/06-implementation-epics-tasks.md`.
+This roadmap is for the Go control repository. Python Hermes plugin roadmap items live in `../../agent-turn-network-plugin/docs/06-implementation-epics-tasks.md`.
 
 Roadmap tasks must be **capability-sized**, not file-sized. Each row should normally be large enough for one Kkachi/KAH task contract, one implementation lane, tests, docs/evidence update, role review, and one commit. Split a task only when dependency order, approval gate, failure domain, or reviewer specialty is materially different.
 
@@ -105,7 +105,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs are derived from the 
 
 ## HUN — Hermes Unified Network public rename and runtime split
 
-HUN is the public rename and vanilla Hermes runtime-split epic for the control and plugin repositories. This control roadmap lists control-owned rows only; plugin-owned rows live in `../../kkachi-agent-network-plugin/docs/06-implementation-epics-tasks.md`. HUN uses the user-approved `HUN-*` task id stream even though earlier roadmap rules prefer five-letter epic slugs.
+HUN is the public rename and vanilla Hermes runtime-split epic for the control and plugin repositories. This control roadmap lists control-owned rows only; plugin-owned rows live in `../../agent-turn-network-plugin/docs/06-implementation-epics-tasks.md`. HUN uses the user-approved `HUN-*` task id stream even though earlier roadmap rules prefer five-letter epic slugs.
 
 HUN is a clean public rename. Repository content must converge to HUN-only wording; in-repository legacy aliases are not part of the public compatibility contract. Live readiness, production activation, Discord delivery, package publication, hosted repository rename, and profile/provider/gateway/auth/token mutation remain separately approved scopes.
 
@@ -128,7 +128,7 @@ Live readiness, production activation, Discord delivery, package publication, ho
 | Task ID | Task Title | Task Status | Task Description |
 | --- | --- | --- | --- |
 | ATN-001 | ATN naming SOT and roadmap lock | completed/docs-only | Added control and plugin ATN naming SOT documents, recorded ATN-001 through ATN-005 in the roadmaps/docs maps, and locked the no-alias policy. Review consensus: Red `t_d43402f0`, Orange `t_6d6bb8e8`, Gray `t_7ebc9e1e`, Blue synthesis `t_8e348f72`. This does not rename code, binaries, packages, tools, live profiles, hosted repositories, or public release artifacts. |
-| ATN-002 | Control public docs rename | planned | Rewrite control public docs, docs index/map surfaces, protocol wording, examples, operator-facing text, and roadmap status wording to ATN-only naming without changing binaries or code behavior. |
+| ATN-002 | Control public docs rename | completed/local-docs-proof | Rewrote control public docs, docs index/map surfaces, protocol wording, examples, operator-facing text, and roadmap status wording to ATN-only naming ahead of ATN-004, updated sibling workspace path references to the current `agent-turn-network-plugin` checkout, and preserved historical HUN provenance rows separately. |
 | ATN-003 | Plugin public docs rename | planned | Plugin-owned task to rewrite plugin public docs, package/docs metadata, operator guide, and bundled skill documentation to ATN-only naming without changing package/tool code behavior. |
 | ATN-004 | Control code and binary rename | planned | Rename control Go module, CLI binary, daemon binary, data-home/env/socket/protocol markers, fixtures, tests, Makefile surfaces, and command examples to `atn-control`, `atn-controld`, `ATN_HOME`, and `atn-protocol-v1alpha0` with no aliases. |
 | ATN-005 | Plugin package, tools, skills, and final guardrails | planned | Plugin-owned task to rename package/import/manifest/tools/bundled skills to ATN names, add/update no-alias guardrails, and close final cross-repo ATN compatibility proof. |
@@ -138,7 +138,7 @@ Every roadmap item must map to the Makefile target taxonomy in `18-testing-strat
 
 ## RUNFIX — HUN council runner, activation, and discussion-quality remediation
 
-RUNFIX is a cross-repo remediation epic using a single global task sequence across control and plugin. This control roadmap lists only control-owned rows; plugin-owned rows live in `../../kkachi-agent-network-plugin/docs/06-implementation-epics-tasks.md`.
+RUNFIX is a cross-repo remediation epic using a single global task sequence across control and plugin. This control roadmap lists only control-owned rows; plugin-owned rows live in `../../agent-turn-network-plugin/docs/06-implementation-epics-tasks.md`.
 
 Legacy `kan-*`, `kan_discussion_*`, and recorded `kan/` artifact path fragments in older RUNFIX rows are historical/provenance labels, not current public HUN aliases.
 
@@ -163,7 +163,7 @@ Plugin-owned `plugin/RUNFIX-012` now has local implementation proof under plugin
 
 ## RUNFIX2 — HUN discussion runtime usability hardening
 
-RUNFIX2 is a five-task cross-repo epic created from the 2026-06-20 KLM/주유 live discussion dogfood. This control roadmap lists control-owned rows and bounded companion plugin status notes; plugin-owned implementation authority remains in `../../kkachi-agent-network-plugin/docs/06-implementation-epics-tasks.md`. The epic distinguishes production/operator enablement defaults from evidence-derived pass labels and does not authorize production activation, profile/provider/gateway/auth/token mutation, push, broad rollout, live pilot success, or unapproved live Discord delivery.
+RUNFIX2 is a five-task cross-repo epic created from the 2026-06-20 KLM/주유 live discussion dogfood. This control roadmap lists control-owned rows and bounded companion plugin status notes; plugin-owned implementation authority remains in `../../agent-turn-network-plugin/docs/06-implementation-epics-tasks.md`. The epic distinguishes production/operator enablement defaults from evidence-derived pass labels and does not authorize production activation, profile/provider/gateway/auth/token mutation, push, broad rollout, live pilot success, or unapproved live Discord delivery.
 
 | Task ID | Task Title | Task Status | Task Description |
 | --- | --- | --- | --- |

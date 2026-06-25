@@ -2,14 +2,14 @@
 
 ## Scope
 
-This document defines the control repository toolchain after the repo split. The control daemon and CLI are implemented in Go. The Python Hermes plugin tooling lives in `../../kkachi-agent-network-plugin/docs/04-tooling.md`.
+This document defines the control repository toolchain after the repo split. The control daemon and CLI are implemented in Go. The Python Hermes plugin tooling lives in `../../agent-turn-network-plugin/docs/04-tooling.md`.
 
 ## Baseline decisions
 
 | Item | Decision |
 | --- | --- |
 | Control language | Go |
-| Binaries | `hund`, `hun` |
+| Binaries | `atn-controld`, `atn-control` |
 | Source layout | `cmd/`, `internal/`, `pkg/` only if public API is needed |
 | Protocol fixtures | `testdata/conformance/` |
 | Test runner | `go test` |
@@ -20,12 +20,12 @@ This document defines the control repository toolchain after the repo split. The
 ## Target layout
 
 ```text
-hun-control/
+atn-control/
   go.mod
   cmd/
-    hun/
+    atn-control/
       main.go
-    hund/
+    atn-controld/
       main.go
   internal/
     command/
@@ -77,8 +77,8 @@ The first Go scaffold PR must prove:
 - `go test ./...` passes.
 - `go vet ./...` passes.
 - `gofmt` reports no changed files.
-- `hun --help` exits 0.
-- `hund --help` exits 0.
+- `atn-control --help` exits 0.
+- `atn-controld --help` exits 0.
 - `make test` succeeds without external resources in docs/scaffold mode.
 
 ## Guardrails

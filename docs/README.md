@@ -1,26 +1,26 @@
-# hun-control Documentation
+# atn-control Documentation
 
-This directory is the source of truth for the **HUN control/runtime repo**: the Go daemon, Go CLI, protocol, event log, state machine, storage, security, operations, and release plan.
+This directory is the source of truth for the **ATN control/runtime repo**: the Go daemon, Go CLI, protocol, event log, state machine, storage, security, operations, and release plan.
 
-The Python Hermes plugin has its own public-facing repository label `hun-plugin`; local cross-repo checks currently resolve its workspace documentation at `../../kkachi-agent-network-plugin/docs/` as a local compatibility path. This repo may repeat plugin-facing compatibility rules, but it must not own plugin implementation details beyond the daemon contract the plugin must obey.
+The Python Hermes plugin has its own public-facing repository label `atn-plugin`; local cross-repo checks currently resolve its workspace documentation at `../../agent-turn-network-plugin/docs/`. This repo may repeat plugin-facing compatibility rules, but it must not own plugin implementation details beyond the daemon contract the plugin must obey.
 
 ## Terminology
 
-- **Release v1** — the first product release target for HUN control/runtime plus the matching plugin adapter.
+- **Release v1** — the first product release target for ATN control/runtime plus the matching plugin adapter.
 - **Implementation Phase N** — build sequencing bucket, not a product version.
-- **Control repo** — this repository, `hun-control`, containing daemon/CLI authority.
-- **Plugin repo** — `hun-plugin`, containing the Python Hermes plugin adapter.
+- **Control repo** — this repository, `atn-control`, containing daemon/CLI authority.
+- **Plugin repo** — `atn-plugin`, containing the Python Hermes plugin adapter.
 - **Protocol contract** — command envelopes, stream frames, structured errors, version compatibility, and schema fixtures used by both repos.
 
 ## Repository split contract
 
 | Concern | Owning repo | Notes |
 | --- | --- | --- |
-| Daemon state, locks, event append, replay | `hun-control` | `channel.jsonl` is SOT. |
-| Go CLI diagnostics/recovery/manual operation | `hun-control` | Must work without Hermes plugin; CLI binary remains `hun`. |
-| Protocol schemas and conformance fixtures | `hun-control` | Plugin consumes and tests against them. |
-| Hermes plugin tools/slash commands/skill | `hun-plugin` | Adapter only; no direct SOT mutation. |
-| Discord visible surface helpers | `hun-plugin` | Uses Hermes gateway/send_message and records delivery evidence through daemon commands. |
+| Daemon state, locks, event append, replay | `atn-control` | `channel.jsonl` is SOT. |
+| Go CLI diagnostics/recovery/manual operation | `atn-control` | Must work without Hermes plugin; public CLI binary is `atn-control`. |
+| Protocol schemas and conformance fixtures | `atn-control` | Plugin consumes and tests against them. |
+| Hermes plugin tools/slash commands/skill | `atn-plugin` | Adapter only; no direct SOT mutation. |
+| Discord visible surface helpers | `atn-plugin` | Uses Hermes gateway/send_message and records delivery evidence through daemon commands. |
 | End-user UX summaries | both | May duplicate, but authority labels must be explicit. |
 
 ## Documents
@@ -40,7 +40,7 @@ The Python Hermes plugin has its own public-facing repository label `hun-plugin`
 13. `12-security.md` — registry, subprocess, workspace, and secret safety
 14. `13-operational-contracts.md` — stream, idempotency, cost, timeouts, schema migration
 15. `14-streaming-member-runtime.md` — member runtime rationale
-16. `15-hermes-agent-runtime-context.md` — Hermes Agent context for HUN implementers
+16. `15-hermes-agent-runtime-context.md` — Hermes Agent context for ATN implementers
 17. `16-observability.md` — health, metrics, SLO/SLI, structured diagnostics
 18. `17-disaster-recovery.md` — backup, restore, corruption handling, replay rebuild
 19. `18-testing-strategy.md` — test layers and Makefile target contract
@@ -90,7 +90,7 @@ The control repo Makefile owns Go checks, control docs guardrails, and RELIA-001
 15. `25-council-argument-graph-sot.md` when planning `ARGUE` discussion-quality argument graph work; `control/ARGUE-001` is accepted docs-only, and `control/ARGUE-002` is accepted for bounded local static protocol/fixture scope under KAS/KAH run `run-20260615T145822Z-caab064cf550`
 16. `26-hermes-unified-network-control-naming-sot.md` when reading the completed prior public rename proof
 17. `27-agent-turn-network-control-naming-sot.md` when planning `ATN` public rename work
-18. plugin docs in the local workspace path `../../kkachi-agent-network-plugin/docs/` while the public repo label remains `hun-plugin`; HUN-014 is the active compatibility proof for this split until ATN tasks replace the public labels
+18. plugin docs in the local workspace path `../../agent-turn-network-plugin/docs/`; the public repo label is `atn-plugin`, and ATN-001/ATN-002 now define the public docs baseline ahead of ATN-004/ATN-005 runtime/code rename work
 
 ## Current implementation state
 

@@ -47,7 +47,7 @@ def is_disposable_path(path: Path) -> bool:
             return False
         if resolved == home or home in resolved.parents:
             return False
-        sibling_plugin = root.parent / "kkachi-agent-network-plugin"
+        sibling_plugin = root.parent / "agent-turn-network-plugin"
         if sibling_plugin.exists():
             plugin_resolved = sibling_plugin.resolve()
             if resolved == plugin_resolved or plugin_resolved in resolved.parents:

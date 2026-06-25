@@ -2,9 +2,9 @@
 
 ## Goal
 
-Enable `hun-control` and `hun-plugin` to develop independently while checking each other's milestones through an explicit protocol/conformance contract.
+Enable `atn-control` and `atn-plugin` to develop independently while checking each other's milestones through an explicit protocol/conformance contract.
 
-This document is the control-side SOT for cross-repo development. The plugin-side companion is `../../kkachi-agent-network-plugin/docs/07-core-compatibility.md`.
+This document is the control-side SOT for cross-repo development. The plugin-side companion is `../../agent-turn-network-plugin/docs/07-core-compatibility.md`.
 
 ## Development principle
 
@@ -24,7 +24,7 @@ The control repo can move without waiting for plugin UX work. The plugin can mov
 
 | Field | Value |
 | --- | --- |
-| Protocol version | `hun-protocol-v1alpha0` |
+| Protocol version | `atn-protocol-v1alpha0` |
 | Fixture manifest | `testdata/conformance/manifest.json` |
 | Stability | draft local implementation + static DAEMN/DELEG/COUNC conformance fixtures |
 | Live readiness | `false`; no live Hermes/Discord/KAB/gateway/auth/token support is claimed |
@@ -106,7 +106,7 @@ Control publishes conformance fixtures and plugin runs parser/client tests again
 
 ### Live local mode
 
-Plugin runs against a locally built `hund` with a disposable data home. Good for integration and isolated E2E once control commands exist.
+Plugin runs against a locally built `atn-controld` with a disposable data home. Good for integration and isolated E2E once control commands exist.
 
 ### External E2E mode
 

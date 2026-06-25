@@ -2,15 +2,15 @@
 
 ## Architectural principle
 
-HUN control/runtime follows a daemon-authority architecture. Domain policy is separated from adapters. The daemon owns state transitions, event append, locks, replay, and projections. The CLI and plugin are clients of the daemon contract, not alternate authorities.
+ATN control/runtime follows a daemon-authority architecture. Domain policy is separated from adapters. The daemon owns state transitions, event append, locks, replay, and projections. The CLI and plugin are clients of the daemon contract, not alternate authorities.
 
 ## Repository layout target
 
 ```text
-hun-control/
+atn-control/
   cmd/
-    hun/       # Go CLI main
-    hund/      # Go daemon main
+    atn-control/       # Go CLI main
+    atn-controld/      # Go daemon main
   internal/
     daemon/                     # process, local transport, stream hub
     cli/                        # canonical command handlers and stream client
@@ -32,8 +32,8 @@ hun-control/
 The companion plugin repository targets:
 
 ```text
-hun-plugin/
-  src/hun_plugin/
+atn-plugin/
+  src/atn_plugin/
     client/                     # Python daemon client for protocol contract
     tools/                      # Hermes tool handlers
     slash_commands/             # Hermes command bindings when supported
@@ -49,8 +49,8 @@ hun-plugin/
 ```text
 Moderator/member runtime or operator
   -> CLI or Python plugin client
-    -> HUN command envelope
-      -> hund local transport
+    -> ATN command envelope
+      -> atn-controld local transport
         -> validate registry identity and state transition
         -> append channel.jsonl
         -> update SQLite projection
@@ -64,9 +64,9 @@ Post-Release live-local work is governed by `24-live-transport-control-sot.md`. 
 
 ## Authority boundaries
 
-- `hund` is the only component that mutates `channel.jsonl`, SQLite projections, session locks, cursor state, and replay state.
-- `hun` CLI is canonical for diagnostics, recovery, manual operation, and plugin-failure fallback.
-- `hun-plugin` is the preferred Hermes UX surface, but the plugin is not the source of truth.
+- `atn-controld` is the only component that mutates `channel.jsonl`, SQLite projections, session locks, cursor state, and replay state.
+- `atn-control` CLI is canonical for diagnostics, recovery, manual operation, and plugin-failure fallback.
+- `atn-plugin` is the preferred Hermes UX surface, but the plugin is not the source of truth.
 - Discord is a visible room/evidence pointer, never a state authority.
 - Hermes core is not patched.
 
@@ -101,7 +101,7 @@ Discord-thread council support is a surface binding over the council state machi
 ```text
 Discord thread            # human-visible room
 Hermes plugin/gateway     # posts visible messages
-HUN daemon                # records typed events and delivery evidence
+ATN daemon                # records typed events and delivery evidence
 channel.jsonl             # canonical SOT
 Kanban/Vault              # optional linked authority return path
 ```

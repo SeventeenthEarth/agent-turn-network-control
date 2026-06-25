@@ -6,7 +6,7 @@ The moderator is the default orchestrator. In delegation sessions the moderator 
 
 When the moderator has a substantive opinion in a council, it must be recorded as a separate participant-style turn, distinct from moderation actions.
 
-The moderator and members operate through the `hun` CLI. Long-lived runtimes observe `hun stream` and write typed commands back to the daemon. The moderator must not treat fresh one-shot subprocess prompts as the primary council participation loop.
+The moderator and members operate through the `atn-control` CLI. Long-lived runtimes observe `atn-control stream` and write typed commands back to the daemon. The moderator must not treat fresh one-shot subprocess prompts as the primary council participation loop.
 
 # Delegation policy
 
@@ -54,7 +54,7 @@ The moderator must escalate to the user when the question involves:
 Delivery responsibility split:
 
 - The **daemon** records the escalation (`user_escalation_requested`), counts it against `max_user_escalations`, applies dedupe and batching windows, and emits the audit events. It does not open any outbound notification channel.
-- The **moderator runtime**, using the Hermes plugin/gateway helper or an equivalent Hermes gateway skill, decides which gateway to use (Telegram/Slack/Discord/the origin Hermes session/etc.), performs the delivery, and writes `user_escalation_delivered` (or `user_escalation_delivery_failed` plus a fallback attempt) back through a typed HUN command. The canonical CLI remains the recovery/manual path for the same event.
+- The **moderator runtime**, using the Hermes plugin/gateway helper or an equivalent Hermes gateway skill, decides which gateway to use (Telegram/Slack/Discord/the origin Hermes session/etc.), performs the delivery, and writes `user_escalation_delivered` (or `user_escalation_delivery_failed` plus a fallback attempt) back through a typed ATN command. The canonical CLI remains the recovery/manual path for the same event.
 
 Delivery hint to the moderator skill (the `delivery_policy` payload field):
 
@@ -229,7 +229,7 @@ When a council has `surface.kind: discord_thread`, the moderator must preserve t
 
 - Discord thread is the human-visible room.
 - `channel.jsonl` is the canonical event SOT.
-- Typed HUN events validated by the daemon are the only state transitions; they may arrive through Hermes plugin tools or the canonical CLI fallback.
+- Typed ATN events validated by the daemon are the only state transitions; they may arrive through Hermes plugin tools or the canonical CLI fallback.
 - Free-form Discord replies are evidence or user-facing presentation, not implicit state.
 - Visible speech/final-result rendering follows `03-protocol-spec.md#surface-rendering-evidence-contract`: render from cursor-ordered durable events first, then attach Discord/Kanban/Vault ids only as delivery evidence pointers.
 

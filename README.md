@@ -1,14 +1,14 @@
-# hun-control
+# atn-control
 
-`hun-control` is the Go control/runtime repository for Hermes Unified Network (HUN). It owns the daemon, canonical CLI, protocol contracts, event log, state machine, storage projection, recovery paths, and control test gates. The public product is Hermes Unified Network; the current control binaries are `hun` and `hund`.
+`atn-control` is the Go control/runtime repository for Agent Turn Network (ATN). It owns the daemon, canonical CLI, protocol contracts, event log, state machine, storage projection, recovery paths, and control test gates. The public product is Agent Turn Network; the current control binaries are `atn-control` and `atn-controld`.
 
-The companion Python Hermes plugin adapter is public-facing as `hun-plugin`; the current local sibling workspace remains `../kkachi-agent-network-plugin` as a local compatibility path while public repo labels use `hun-plugin`.
+The companion Python Hermes plugin adapter is public-facing as `atn-plugin`; the current local sibling workspace remains `../agent-turn-network-plugin` as a local compatibility path while public repo labels use `atn-plugin`.
 
 ## Repository boundary
 
-- This repo: `hun-control`, plus the `hund` daemon, `hun` CLI, `channel.jsonl` SOT, SQLite projection, protocol/conformance fixtures, security and recovery docs.
+- This repo: `atn-control`, plus the `atn-controld` daemon, `atn-control` CLI, `channel.jsonl` SOT, SQLite projection, protocol/conformance fixtures, security and recovery docs.
 - Plugin repo: Hermes plugin manifest/tools/slash commands/skill, Python daemon client, Discord visible-surface helper.
-- The plugin is not the source of truth. Discord is not the source of truth. `hund` owns state mutation.
+- The plugin is not the source of truth. Discord is not the source of truth. `atn-controld` owns state mutation.
 
 ## Documentation
 
@@ -29,13 +29,13 @@ The Go control runtime implements the local daemon/CLI spine, deterministic `cha
 ## Build and local operation
 
 ```bash
-go build -o ./hun ./cmd/hun
-go build -o ./hund ./cmd/hund
-export HUN_HOME=/path/to/local/data-home
-./hun init
-./hun daemon start
-./hun daemon status
-./hun doctor
+go build -o ./atn-control ./cmd/atn-control
+go build -o ./atn-controld ./cmd/atn-controld
+export ATN_HOME=/path/to/local/data-home
+./atn-control init
+./atn-control daemon start
+./atn-control daemon status
+./atn-control doctor
 ```
 
 The CLI creates a sample disabled registry only when missing. Edit `registry.yaml` with local member wrappers before creating real sessions.
@@ -43,26 +43,26 @@ The CLI creates a sample disabled registry only when missing. Edit `registry.yam
 ## Session examples
 
 ```bash
-hun delegate new sess_example_delegation --moderator agent-mod --assignee agent-1 --title "Implement task A" --task "Implement task A"
-hun delegate submit sess_example_delegation --actor agent-1 --summary "Done" --command-id cmd_submit_example
-hun delegate review sess_example_delegation --actor agent-mod --command-id cmd_review_example
-hun council new "Decide release gate" --members agent-mod,agent-1,agent-2 --moderator agent-mod --session-id sess_example_council
+atn-control delegate new sess_example_delegation --moderator agent-mod --assignee agent-1 --title "Implement task A" --task "Implement task A"
+atn-control delegate submit sess_example_delegation --actor agent-1 --summary "Done" --command-id cmd_submit_example
+atn-control delegate review sess_example_delegation --actor agent-mod --command-id cmd_review_example
+atn-control council new "Decide release gate" --members agent-mod,agent-1,agent-2 --moderator agent-mod --session-id sess_example_council
 ```
 
 Transcript and export commands are deterministic and do not append session events:
 
 ```bash
-hun transcript sess_example_delegation --format md --output transcript.md
-hun transcript sess_example_delegation --format jsonl
-hun export sess_example_delegation --bundle
-hun tail sess_example_delegation --limit 20 --format ndjson
+atn-control transcript sess_example_delegation --format md --output transcript.md
+atn-control transcript sess_example_delegation --format jsonl
+atn-control export sess_example_delegation --bundle
+atn-control tail sess_example_delegation --limit 20 --format ndjson
 ```
 
 Export bundles are local directories containing `transcript.md`, `transcript.jsonl`, `brief.md`, `session.json`, `channel.jsonl`, `registry_snapshot.yaml`, and `bundle_manifest.json`.
 
 ## Plugin handoff
 
-The companion plugin is contract-checked/tested locally from the current workspace path `../kkachi-agent-network-plugin` while public docs and status labels refer to the repo as `hun-plugin`. It consumes this repo's protocol schemas, version/features response, and `testdata/conformance/manifest.json`; it must continue to fail closed on unsupported protocol versions, missing feature groups, malformed fake-daemon responses, or any live-service configuration that has not been separately proven. HUN-014 is the active bounded compatibility proof for this local/public naming split.
+The companion plugin is contract-checked/tested locally from the current workspace path `../agent-turn-network-plugin` while public docs and status labels refer to the repo as `atn-plugin`. It consumes this repo's protocol schemas, version/features response, and `testdata/conformance/manifest.json`; it must continue to fail closed on unsupported protocol versions, missing feature groups, malformed fake-daemon responses, or any live-service configuration that has not been separately proven. ATN-001 locked the rename policy, and ATN-004 remains the pending control code/runtime rename for checked-in module, binary, socket, env, and protocol markers.
 
 ## Test targets
 

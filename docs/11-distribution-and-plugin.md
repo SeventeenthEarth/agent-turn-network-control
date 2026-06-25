@@ -2,20 +2,20 @@
 
 ## Goal
 
-A user should be able to install the Go control runtime, start the daemon, verify the CLI, then optionally install the Python Hermes plugin from `hun-plugin`.
+A user should be able to install the Go control runtime, start the daemon, verify the CLI, then optionally install the Python Hermes plugin from `atn-plugin`.
 
 ## Control distribution
 
 The control repository ships two binaries:
 
-- `hund` — daemon, state authority, stream hub, storage owner
-- `hun` — canonical CLI for diagnostics, recovery, manual operation, and tests
+- `atn-controld` — daemon, state authority, stream hub, storage owner
+- `atn-control` — canonical CLI for diagnostics, recovery, manual operation, and tests
 
 Supported install shapes may include source build, release archives, Homebrew/tap, or `go install` once module paths are fixed. The exact distribution mechanism must not change the authority boundary: CLI and plugin remain clients of the daemon.
 
 ## Companion plugin distribution
 
-The Hermes plugin is distributed separately from the control runtime, in the companion `hun-plugin` repository. It contains Python plugin code, a Python daemon client, tool/slash-command bindings, and a bundled skill. The plugin repo owns its Python packaging details.
+The Hermes plugin is distributed separately from the control runtime, in the companion `atn-plugin` repository. It contains Python plugin code, a Python daemon client, tool/slash-command bindings, and a bundled skill. The plugin repo owns its Python packaging details.
 
 Control docs must specify the daemon contract the plugin consumes:
 
@@ -39,8 +39,8 @@ The plugin may support multiple control protocol versions only when it can prove
 
 The control root README should include:
 
-1. What HUN control/runtime is and is not.
-2. How to build/install `hund` and `hun`.
+1. What ATN control/runtime is and is not.
+2. How to build/install `atn-controld` and `atn-control`.
 3. Data home resolution and registry setup.
 4. Daemon start/status/stop.
 5. First delegation example through CLI.

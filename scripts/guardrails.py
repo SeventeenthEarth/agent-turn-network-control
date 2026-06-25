@@ -144,30 +144,8 @@ def accepted_literal(
 
 
 ACCEPTED_HITS = [
-    # Current checkout paths remain until hosted/local repository names change.
-    accepted_hit("README.md", "kkachi-agent-network-plugin", r"local sibling workspace.*kkachi-agent-network-plugin.*compatibility path", "local-workspace-compatibility", r"kkachi-agent-network-plugin"),
-    accepted_hit("README.md", "kkachi-agent-network-plugin", r"current workspace path.*kkachi-agent-network-plugin.*public docs", "local-workspace-compatibility", r"kkachi-agent-network-plugin"),
-    AcceptedHit("docs/00-overview.md", "kkachi-agent-network-plugin", re.compile(r"companion plugin repository: .*kkachi-agent-network-plugin"), "local-workspace-compatibility"),
-    AcceptedHit("docs/09-implementation-epics.md", "kkachi-agent-network-plugin", re.compile(r"plugin-specific implementation epics live in .*kkachi-agent-network-plugin"), "local-workspace-compatibility"),
-    AcceptedHit("docs/09-implementation-epics.md", "kkachi-agent-network-plugin", re.compile(r"control epics that gate companion plugin epics in .*kkachi-agent-network-plugin"), "local-workspace-compatibility"),
-    AcceptedHit("docs/09-implementation-epics.md", "kkachi-agent-network-plugin", re.compile(r"companion consumer work in .*kkachi-agent-network-plugin"), "local-workspace-compatibility"),
-    AcceptedHit("docs/11-distribution-and-skill.md", "kkachi-agent-network-plugin", re.compile(r"Hermes plugin packaging.*kkachi-agent-network-plugin"), "local-workspace-compatibility"),
-    AcceptedHit("docs/19-tooling.md", "kkachi-agent-network-plugin", re.compile(r"Python Hermes plugin tooling lives in .*kkachi-agent-network-plugin"), "local-workspace-compatibility"),
-    AcceptedHit("docs/21-cross-repo-development.md", "kkachi-agent-network-plugin", re.compile(r"plugin-side companion is .*kkachi-agent-network-plugin"), "local-workspace-compatibility"),
-    AcceptedHit("docs/22-deleg-002-conformance-fixture-matrix.md", "kkachi-agent-network-plugin", re.compile(r"current local workspace path .*kkachi-agent-network-plugin.*compatibility path"), "local-workspace-compatibility"),
-    AcceptedHit("docs/24-live-transport-control-sot.md", "kkachi-agent-network-plugin", re.compile(r"plugin-side companion SOT is .*kkachi-agent-network-plugin"), "local-workspace-compatibility"),
-    AcceptedHit("docs/24-live-transport-control-sot.md", "kkachi-agent-network-plugin", re.compile(r"cd \.\./kkachi-agent-network-plugin && make check-core-contract"), "local-workspace-compatibility"),
-    AcceptedHit("docs/20-discord-thread-council-tobe.md", "kkachi-agent-network-plugin", re.compile(r"Plugin bootstrap follows .*kkachi-agent-network-plugin"), "local-workspace-compatibility"),
-    AcceptedHit("docs/README.md", "kkachi-agent-network-plugin", re.compile(r"workspace documentation at .*kkachi-agent-network-plugin.*local compatibility path"), "local-workspace-compatibility"),
-    AcceptedHit("docs/README.md", "kkachi-agent-network-plugin", re.compile(r"local workspace path .*kkachi-agent-network-plugin.*HUN-014 is the active compatibility proof"), "local-workspace-compatibility"),
-    AcceptedHit("docs/kkachi-docs-map.yaml", "kkachi-agent-network-plugin", re.compile(r'local_plugin_workspace: "../kkachi-agent-network-plugin"'), "local-workspace-compatibility"),
-    AcceptedHit("docs/kkachi-docs-map.yaml", "kkachi-agent-network-plugin", re.compile(r'plugin_sot: "../kkachi-agent-network-plugin/'), "local-workspace-compatibility"),
+    # Historical local workflow ids still use the prior private control path.
     AcceptedHit("docs/kkachi-docs-map.yaml", "kkachi-agent-network-control", re.compile(r'graph_id: "graph-kkachi-project-kkachi-agent-network-control'), "local-workspace-compatibility"),
-    AcceptedHit("docs/roadmap.md", "kkachi-agent-network-plugin", re.compile(r"Python Hermes plugin roadmap items live in .*kkachi-agent-network-plugin"), "local-workspace-compatibility"),
-    AcceptedHit("docs/roadmap.md", "kkachi-agent-network-plugin", re.compile(r"plugin-owned rows live in .*kkachi-agent-network-plugin"), "local-workspace-compatibility"),
-    AcceptedHit("docs/roadmap.md", "kkachi-agent-network-plugin", re.compile(r"plugin-owned implementation authority remains in .*kkachi-agent-network-plugin"), "local-workspace-compatibility"),
-    AcceptedHit("scripts/check_plugin_contract.py", "kkachi-agent-network-plugin", re.compile(r'PLUGIN = Path\(PLUGIN_REPO or CORE\.parent / "kkachi-agent-network-plugin"\)'), "local-workspace-compatibility"),
-    AcceptedHit("scripts/ltran003_live_local_smoke.py", "kkachi-agent-network-plugin", re.compile(r'sibling_plugin = root.parent / "kkachi-agent-network-plugin"'), "local-workspace-compatibility"),
     # Historical/provenance labels retained to explain old evidence, task rows, or compatibility fixtures.
     AcceptedHit("docs/09-implementation-epics.md", "KAN public label", re.compile(r"KAN Red|KAN_ORANGE|KAN_GRAY|KAN control"), "historical/provenance"),
     accepted_hit("docs/09-implementation-epics.md", "KAN public label", r"KAN Red|KAN_ORANGE|KAN_GRAY|KAN control", "historical/provenance", r"make check-plugin-contract`, KAN Red"),
