@@ -1,12 +1,12 @@
-# AGENTS.md — KAN control repo
+# AGENTS.md — ATN control repo
 
-This file is the local agent contract for `/Users/draccoon/Workspace/SeventeenthEarth/kkachi/kkachi-agent-network-control`.
+This file is the local agent contract for `/Users/draccoon/Workspace/SeventeenthEarth/agent-turn-network/agent-turn-network-control`.
 
 <!-- KAS:MANAGED:BEGIN core-behavior -->
 ## KAS-managed baseline behavior
 
 These repo-local instructions preserve the useful baseline guardrails from the
-`andrej-karpathy-skills` `CLAUDE.md` lineage and adapt them for KAN control.
+`andrej-karpathy-skills` `CLAUDE.md` lineage and adapt them for the ATN control repository.
 These repo-local instructions are optional development guardrails only. They do
 not make KAS, KAH, KAB, or any profile-local skill suite a prerequisite for
 working on this repository, and they do not authorize profile mutation,
@@ -30,7 +30,7 @@ Operating principles:
 
 Layer boundaries:
 
-- KAN control repository source, tests, and docs are sufficient for ordinary
+- ATN control repository source, tests, and docs are sufficient for ordinary
   development. Optional Kkachi workflow helpers may record evidence or reviews
   when explicitly selected, but absence of those helpers or profile-local phase
   skills must not block normal code/docs work.
@@ -44,16 +44,16 @@ Layer boundaries:
 
 ## Identity and scope
 
-- Project: `kkachi-agent-network-control`.
-- Lane: KAN control repo only. Do not claim KAB, KAH, KAS, KAN plugin, or whole Kkachi authority from this file.
+- Project: `atn-control`.
+- Lane: ATN control repo only. Do not claim KAB, KAH, KAS, ATN plugin, or whole Kkachi authority from this file.
 - Blue command owner for this lane: 마초 / `macho`.
-- Companion plugin repo: `/Users/draccoon/Workspace/SeventeenthEarth/kkachi/kkachi-agent-network-plugin`.
-- Team/channel ownership after KAN cutover: 마초 Blue, 서황 Red, 종회 Orange, 만총 Gray.
+- Companion plugin repo: `/Users/draccoon/Workspace/SeventeenthEarth/agent-turn-network/agent-turn-network-plugin`.
+- Team/channel ownership after the ATN rename: 마초 Blue, 서황 Red, 종회 Orange, 만총 Gray.
 
 ## Optional development helpers
 
 Profile-local Kkachi/KAS phase skills are development conveniences, not project
-requirements and not KAN runtime/operator skills. Do not mention or require profile-local phase-skill names in this repository's product docs or install path.
+requirements and not ATN runtime/operator skills. Do not mention or require profile-local phase-skill names in this repository's product docs or install path.
 Ordinary direct edits, tests, docs updates, and reviews may proceed from the repo
 SOT and the commands documented here.
 
@@ -67,7 +67,7 @@ work solely because KAS/KAH is absent.
 When instructions conflict, use this order:
 
 1. 주군's explicit current instruction.
-2. Team registry and KAN cutover authority from `/Users/draccoon/Workspace/Hermes/17thHermes/01_references/team/team-agent-registry.yaml`.
+2. Team registry authority from `/Users/draccoon/Workspace/Hermes/17thHermes/01_references/team/team-agent-registry.yaml`.
 3. This repo's SOT/docs:
    - `docs/24-live-transport-control-sot.md`
    - `docs/09-implementation-epics.md`
@@ -109,12 +109,12 @@ Important semantics:
 
 - Plan-stage development defaults to Blue vet plus official Red/Orange plan review when KAS/KAH roadmap policy requires it.
 - `delegate_task`, temporary helper agents, and ad-hoc subagents are not official review evidence.
-- Implementation/final acceptance normally requires official KAN Red/Orange/Gray Kanban review plus dependent Blue synthesis.
+- Implementation/final acceptance normally requires official Red/Orange/Gray Kanban review plus dependent Blue synthesis.
 - Color review is a convergence loop: valid requested changes return to the selected implementer lane, verification reruns, and focused re-review continues until no valid change requests remain.
 - MAR review is the default independent review lane for development/implementation tasks unless 주군 explicitly waives or replaces it before start; required roles are `logic`, `security`, `arch`, `cve`, and `test_adequacy`.
 - Non-development tasks must preserve explicit skipped-phase reasons instead of silently inheriting the full spine; MAR phases are not forced on classes where policy marks them not applicable.
 
-## KAN control repo boundaries
+## ATN control repo boundaries
 
 In scope for this repo:
 
@@ -137,7 +137,7 @@ Out of scope unless a later task explicitly opens it:
 
 ## Codex/KAB lane rule
 
-When a KAS/KAN task mentions or requires `codex app-server`, use the actual local Codex Python SDK stdio app-server/session flow:
+When a KAS/ATN task mentions or requires `codex app-server`, use the actual local Codex Python SDK stdio app-server/session flow:
 
 ```text
 openai_codex.Codex / CodexConfig -> codex app-server --listen stdio://
@@ -147,7 +147,7 @@ Do not use `codex exec` as a substitute. If the SDK/app-server path is unavailab
 
 ## Review and Kanban evidence
 
-Official KAN color-review evidence must be durable Kanban/team-member evidence:
+Official color-review evidence must be durable Kanban/team-member evidence:
 
 - 서황 Red: safety, fail-closed behavior, evidence sufficiency, approval boundaries, regressions.
 - 종회 Orange: operator/user-visible workflow, value, clarity, handoff and acceptance criteria.
@@ -180,7 +180,7 @@ HOME=/Users/draccoon make test-release-acceptance
 When protocol/contract shape affects plugin compatibility, run the sibling plugin gate when practical:
 
 ```bash
-cd /Users/draccoon/Workspace/SeventeenthEarth/kkachi/kkachi-agent-network-plugin
+cd /Users/draccoon/Workspace/SeventeenthEarth/agent-turn-network/agent-turn-network-plugin
 HOME=/Users/draccoon make check-core-contract
 ```
 

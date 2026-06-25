@@ -6,12 +6,12 @@
 - Scope: `atn-control` council UX on Discord threads
 - Source request, preserved as SOT: `discord에서는 이런 토론이 하나의 쓰레드 안에서 진행되었으면 좋겠어. 내가 "토론을 시작해줘"하면 네가 쓰레드에 장수들을 한명씩 불러서 출석 체크를 한 다음에 토론이 진행되면서 공명이 발언권을 주고 토론을 체계적으로 수향하는거지.`
 - Operating language: user-facing reports to 주군 are Korean; agent-facing docs and implementation notes remain English while preserving fixed Korean labels such as `17번째 지구`, `주군`, and member names.
-- Governance correction: HUN is the public product/repository naming for the bounded KAN control/plugin lane. Prior Hwangcat-routed work is historical draft/spec-prep evidence only, not durable current ownership. Current KAN lane ownership is 마초/서황/종회/만총 for Blue/Red/Orange/Gray respectively; Gongmyeong/wolong may coordinate Kanban routing without becoming HUN/KAN Blue.
+- Governance correction: ATN is the public product/repository naming for the bounded ATN control/plugin lane. Prior Hwangcat-routed work is historical draft/spec-prep evidence only, not durable current ownership. Current ATN lane ownership is 마초/서황/종회/만총 for Blue/Red/Orange/Gray respectively; Gongmyeong/wolong may coordinate Kanban routing without becoming Blue.
 
 
 ## Spec alignment record
 
-This document preserves the original Discord-thread council TOBE request and the decisions that were folded into the canonical HUN docs. Implementers should treat this file as UX/background context; when details differ, the canonical implementation spec is `03-protocol-spec.md`, `04-cli-spec.md`, `05-storage-schema.md`, `06-state-machine.md`, `07-moderator-policy.md`, `08-acceptance-tests.md`, `09-implementation-epics.md`, and `13-operational-contracts.md`. The first-class alignment is additive:
+This document preserves the original Discord-thread council TOBE request and the decisions that were folded into the canonical ATN docs. Implementers should treat this file as UX/background context; when details differ, the canonical implementation spec is `03-protocol-spec.md`, `04-cli-spec.md`, `05-storage-schema.md`, `06-state-machine.md`, `07-moderator-policy.md`, `08-acceptance-tests.md`, `09-implementation-epics.md`, and `13-operational-contracts.md`. The first-class alignment is additive:
 
 1. Keep `channel.jsonl` as the canonical council SOT and Discord thread as the human-visible surface only.
 2. Add optional council `surface` and `linked_authority` metadata to `session_created.payload` and session projections.
@@ -36,11 +36,11 @@ Aligned spec sections:
 - `docs/12-security.md`: state token/thread validation boundary and forbid raw Discord tokens in daemon/event payloads.
 - `docs/13-operational-contracts.md`: state replay/idempotency behavior for surface metadata and final return-path evidence.
 
-Resolved for first implementation: attendance remains a typed subflow inside `created`; a later true `attendance` phase would require a coordinated spec/replay/storage migration. KAN Blue/Red/Orange/Gray ownership is the current internal review lane assignment; it is not a public HUN product alias.
+Resolved for first implementation: attendance remains a typed subflow inside `created`; a later true `attendance` phase would require a coordinated spec/replay/storage migration. Blue/Red/Orange/Gray ownership is the current internal review lane assignment; it is not a public ATN product alias.
 
 ## Executive summary
 
-The current HUN documentation defines an event-sourced daemon, HUN protocol client/contract, minimal canonical CLI, preferred Hermes plugin integration layer, `council` sessions, durable event streams, real Hermes profile participants, and a strict non-goal of modifying Hermes core. The Discord-thread TOBE should therefore **not replace the core HUN architecture**. It should add a first-class **Discord thread council surface** on top of the existing event-sourced session model; Discord is not a state authority.
+The current ATN documentation defines an event-sourced daemon, ATN protocol client/contract, minimal canonical CLI, preferred Hermes plugin integration layer, `council` sessions, durable event streams, real Hermes profile participants, and a strict non-goal of modifying Hermes core. The Discord-thread TOBE should therefore **not replace the core ATN architecture**. It should add a first-class **Discord thread council surface** on top of the existing event-sourced session model; Discord is not a state authority.
 
 Target model:
 
@@ -48,7 +48,7 @@ Target model:
 Discord thread = human-visible council room
 channel.jsonl = canonical session SOT
 atn-controld = state machine, event log, locks, replay, transcript/export
-Hermes plugin = preferred agent-facing HUN tools/slash commands and Discord visible-post helper
+Hermes plugin = preferred agent-facing ATN tools/slash commands and Discord visible-post helper
 Gongmyeong/wolong = possible moderator runtime and user-facing Korean reporter when assigned
 member profiles = real 장수 participants
 Kanban/Vault = task authority, final decision, traceability
@@ -86,7 +86,7 @@ When 주군 writes in a Discord thread:
 안건: 이 Kanban 카드의 다음 행동을 결정하자.
 ```
 
-Gongmyeong starts a HUN council bound to that exact thread.
+Gongmyeong starts a ATN council bound to that exact thread.
 
 Expected visible flow:
 
@@ -104,7 +104,7 @@ Expected visible flow:
 [11] Final summary is written back to Kanban and/or Vault when configured.
 ```
 
-The Discord thread should feel like a real council, but every meaningful transition must be represented by typed HUN events.
+The Discord thread should feel like a real council, but every meaningful transition must be represented by typed ATN events.
 
 ## Non-goals
 
@@ -373,7 +373,7 @@ When `--kanban-card` is set:
 Recommended final Kanban comment shape:
 
 ```text
-HUN council finalized in Discord thread <thread link>.
+ATN council finalized in Discord thread <thread link>.
 Decision: ...
 Consensus: approve / approve_with_conditions / unresolved
 Participants: ...
@@ -386,7 +386,7 @@ Vault note: <path if created>
 
 ## Divergence control
 
-This is the core difference between a simple round-robin moderator and HUN.
+This is the core difference between a simple round-robin moderator and ATN.
 
 Mandatory controls:
 
@@ -475,7 +475,7 @@ A minimal successful Discord-thread council should prove:
 
 1. First-pass alignment keeps attendance as typed events inside `created`; a later true `attendance` phase would require a coordinated spec/replay/storage migration.
 2. First-pass alignment splits optional session-level `turn_mode` as intended/default policy from per-turn `speaker_selected.payload.selection_mode` as durable audit evidence.
-3. Member speech may come from long-lived member runtimes or bounded runner invocations, but every durable speech event must still be a typed HUN event with the runner/accounting fields required by `03-protocol-spec.md` and `13-operational-contracts.md`.
+3. Member speech may come from long-lived member runtimes or bounded runner invocations, but every durable speech event must still be a typed ATN event with the runner/accounting fields required by `03-protocol-spec.md` and `13-operational-contracts.md`.
 4. Discord message IDs are evidence pointers. Opening/final delivery evidence is required when it proves visible-post or linked-authority return completion; additional per-post IDs are allowed but must not become ordering or lifecycle authority.
 5. Kanban/Vault binding uses generic `linked_authority` metadata on `session_created.payload` and `linked_authority_result` on final/unresolved council outcomes.
 6. Follow-up topic candidates must not be auto-created as Kanban cards by the daemon. They should be listed for Gongmyeong/user approval or created by the appropriate moderator/Gray workflow with explicit evidence.
@@ -502,12 +502,12 @@ Owner-side direction now reflected in canonical docs:
 
 ## Historical next-assignment note
 
-The following was the historical next assignment before the alignment patches were applied. It is retained only to explain the review sequence. Do not route HUN implementation planning to Hwangcat or unrelated Kkachi ownership tracks unless 주군 later assigns that explicitly. Current KAN Blue/Red/Orange/Gray review ownership is 마초/서황/종회/만총; those internal lane labels are not public HUN product aliases.
+The following was the historical next assignment before the alignment patches were applied. It is retained only to explain the review sequence. Do not route ATN implementation planning to Hwangcat or unrelated Kkachi ownership tracks unless 주군 later assigns that explicitly. Current Blue/Red/Orange/Gray review ownership is 마초/서황/종회/만총; those internal lane labels are not public ATN product aliases.
 
 Historical first Kanban task:
 
 ```text
-Goal: Update the HUN documentation set so Discord thread council is a first-class TOBE surface while preserving existing event-sourced daemon/protocol/plugin/CLI architecture.
+Goal: Update the ATN documentation set so Discord thread council is a first-class TOBE surface while preserving existing event-sourced daemon/protocol/plugin/CLI architecture.
 Scope: docs only.
 No code implementation.
 Expected output: proposed patches to protocol, CLI, state machine, moderator policy, implementation epics, and acceptance tests.

@@ -88,7 +88,7 @@ ATN uses one five-task cross-repo sequence. The owning repository is part of the
 | --- | --- | --- | --- |
 | ATN-001 | cross-repo | completed/docs-only | Lock control and plugin ATN naming SOT documents, roadmap entries, and clean no-alias policy. Review consensus: Red `t_d43402f0`, Orange `t_6d6bb8e8`, Gray `t_7ebc9e1e`, Blue synthesis `t_8e348f72`. |
 | ATN-002 | control | completed/local-docs-proof | Rewrote control public docs, roadmap/index/map surfaces, protocol wording, examples, and operator-facing text to ATN-only wording without binary/code rename. |
-| ATN-003 | plugin | completed/local-docs-proof | Rewrote plugin public docs, package/docs metadata, operator guide, bundled skill documentation, and local sibling workspace references to ATN-only wording ahead of ATN-005 while preserving historical HUN provenance rows separately. |
+| ATN-003 | plugin | completed/local-docs-proof | Rewrote plugin public docs, package/docs metadata, operator guide, bundled skill documentation, and local sibling workspace references to ATN-only wording ahead of ATN-005. |
 | ATN-004 | control | completed/local-proof | Renamed control code, Go module, CLI binary, daemon binary, data-home/env/socket/protocol markers, daemon principal, conformance fixtures, tests, scripts, and Makefile surfaces to ATN names with no aliases. |
 | ATN-005 | plugin | completed/local-proof | Renamed plugin package/import/manifest/tools/bundled skills to ATN names, updated final no-alias guardrails, and closed cross-repo compatibility proof. |
 

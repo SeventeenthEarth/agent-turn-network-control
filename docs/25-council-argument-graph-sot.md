@@ -1,6 +1,6 @@
 # Council Argument Graph SOT
 
-Status: Accepted/completed docs-only SOT for `control/ARGUE-001`. Official KAN review passed with Red card `t_4a2e735f`, Orange card `t_9f4b2b9c`, and Gray card `t_b196d630`; this closeout records Blue synthesis as satisfied for ARGUE-001. This document is the first durable SOT for ATN council discussion-quality work. ARGUE-001 did not start or authorize `control/ARGUE-002`; `control/ARGUE-002` was separately accepted for bounded local static protocol/fixture scope under KAS/KAH run `run-20260615T145822Z-caab064cf550` after Red `t_e2ced3fc`, Orange `t_fd35e83a`, Gray `t_c9e20348`, Blue synthesis `t_ade91c69`, and final gate `evt-001437`. This SOT does not enable live/default/production runtime behavior by itself.
+Status: Accepted/completed docs-only SOT for `control/ARGUE-001`. Official ATN review passed with Red card `t_4a2e735f`, Orange card `t_9f4b2b9c`, and Gray card `t_b196d630`; this closeout records Blue synthesis as satisfied for ARGUE-001. This document is the first durable SOT for ATN council discussion-quality work. ARGUE-001 did not start or authorize `control/ARGUE-002`; `control/ARGUE-002` was separately accepted for bounded local static protocol/fixture scope under KAS/KAH run `run-20260615T145822Z-caab064cf550` after Red `t_e2ced3fc`, Orange `t_fd35e83a`, Gray `t_c9e20348`, Blue synthesis `t_ade91c69`, and final gate `evt-001437`. This SOT does not enable live/default/production runtime behavior by itself.
 
 Date: 2026-06-15
 Owner: 마초 / `macho` for the bounded ATN control/plugin lanes
@@ -29,7 +29,7 @@ ATN therefore models discussion quality as an **argument graph layered over the 
 
 ATN is independent of KAS. KAS does not install, own, or activate ATN control, ATN plugin, ATN bundled operator guidance, or ATN participant profile state.
 
-The legacy `kan_selected_participant_response` tool name below is a historical/provenance reference from the pre-ATN plugin surface, not a current public ATN alias.
+The participant response tool below uses the current public ATN plugin surface name `atn_selected_participant_response`.
 
 ### 2.2 Control authority
 
@@ -47,7 +47,7 @@ The legacy `kan_selected_participant_response` tool name below is a historical/p
 
 - Hermes participant-agent tool surface;
 - plugin schemas and handler validation before command submission;
-- participant response framing for `kan_selected_participant_response`;
+- participant response framing for `atn_selected_participant_response`;
 - visible surface rendering of relation evidence;
 - packaged ATN operator guidance bundled inside the plugin package.
 

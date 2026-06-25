@@ -1,4 +1,4 @@
-# HUN Conformance Fixtures
+# ATN Conformance Fixtures
 
 This directory contains control-owned protocol fixtures consumed by `atn-plugin`.
 

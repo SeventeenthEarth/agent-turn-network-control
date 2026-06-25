@@ -2,7 +2,7 @@
 
 `atn-control` is the Go control/runtime repository for Agent Turn Network (ATN). It owns the daemon, canonical CLI, protocol contracts, event log, state machine, storage projection, recovery paths, and control test gates. The public product is Agent Turn Network; the current control binaries are `atn-control` and `atn-controld`.
 
-The companion Python Hermes plugin adapter is public-facing as `atn-plugin`; the current local sibling workspace remains `../agent-turn-network-plugin` as a local compatibility path while public repo labels use `atn-plugin`.
+The companion Python Hermes plugin adapter is public-facing as `atn-plugin`; the current local sibling workspace is `../agent-turn-network-plugin`.
 
 ## Repository boundary
 
