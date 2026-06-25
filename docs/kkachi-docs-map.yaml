@@ -10,6 +10,7 @@ sot_docs:
   - "docs/24-live-transport-control-sot.md"
   - "docs/25-council-argument-graph-sot.md"
   - "docs/26-hermes-unified-network-control-naming-sot.md"
+  - "docs/27-agent-turn-network-control-naming-sot.md"
 adr_dir: "docs"
 todo_dir: "docs"
 spec_dir: "docs"
@@ -85,3 +86,16 @@ hun:
     - "cross-repo/HUN-014"
   boundary: "HUN is a clean public rename and vanilla Hermes runtime-split contract. Control owns daemon, CLI, protocol, fixtures, runtime evidence, and control docs. Plugin owns package/import names, manifest, tool prefix, bundled skills, plugin docs, and plugin smoke tests. No in-repository legacy aliases, hidden plugin-to-CLI fallback, live readiness claim, Discord delivery claim, package publication, or profile/provider/gateway/auth/token mutation is authorized by HUN-001/HUN-002."
   compatibility_proof: "cross-repo/HUN-014 is completed/local-compatibility-proof under run-20260623T033911Z-267d9cd68d9c for final local/public naming compatibility and docs-map status alignment."
+
+
+atn:
+  epic: "ATN"
+  control_sot: "docs/27-agent-turn-network-control-naming-sot.md"
+  plugin_sot: "../kkachi-agent-network-plugin/docs/13-agent-turn-network-plugin-naming-sot.md"
+  cross_repo_sequence:
+    - "cross-repo/ATN-001"
+    - "control/ATN-002"
+    - "plugin/ATN-003"
+    - "control/ATN-004"
+    - "plugin/ATN-005"
+  boundary: "ATN is a clean public rename to Agent Turn Network. Control owns daemon, CLI, protocol, fixtures, runtime evidence, and control docs. Plugin owns package/import names, manifest, tool prefix, bundled skills, plugin docs, and plugin smoke tests. No in-repository legacy aliases, hidden plugin-to-CLI fallback, live readiness claim, Discord delivery claim, package publication, or profile/provider/gateway/auth/token mutation is authorized by ATN-001."

@@ -119,6 +119,20 @@ HUN is a clean public rename. Repository content must converge to HUN-only wordi
 | HUN-012 | Control HUN guardrails | completed/local-guardrail-proof | Added fail-closed forbidden-term guardrails and docs/test gates so stale legacy and private terms cannot re-enter control repository content without explicit occurrence-specific accepted-hit metadata. Evidence passed on 2026-06-23: guardrail unit tests, `python3 scripts/guardrails.py`, `make guardrails-test`, `make docs-guardrails`, `make check-plugin-contract`, `git diff --check`, `make test-prepare`, and `make test`. HUN-013 plugin guardrails, HUN-014 final compatibility, live/runtime/Discord/package/profile/provider/gateway/auth/token mutation, push, and hosted rename remain out of scope. |
 | HUN-014 | Cross-repo HUN final compatibility | completed/local-compatibility-proof | Completed local compatibility proof under run `run-20260623T033911Z-267d9cd68d9c` reconciles the final local/public naming compatibility between `hun-control` and `hun-plugin`: current local checkout paths remain compatibility paths, contract checks prefer HUN override env vars before legacy private env vars, conformance labels use public HUN repo names, and docs-map/status surfaces record HUN-014 as completed local proof. This does not claim live readiness, Discord delivery, package publication, hosted repository rename, profile/provider/gateway/auth/token mutation, commit, push, or production rollout. |
 
+## ATN — Agent Turn Network public rename
+
+ATN is the user-approved clean public rename to **Agent Turn Network**. ATN uses one five-task cross-repo sequence across the control and plugin repositories. This control roadmap records the full sequence for planning clarity; repo-qualified execution remains required. The rename has no public legacy aliases.
+
+Live readiness, production activation, Discord delivery, package publication, hosted repository rename, push, and profile/provider/gateway/auth/token mutation remain separately approved scopes.
+
+| Task ID | Task Title | Task Status | Task Description |
+| --- | --- | --- | --- |
+| ATN-001 | ATN naming SOT and roadmap lock | completed/docs-only | Added control and plugin ATN naming SOT documents, recorded ATN-001 through ATN-005 in the roadmaps/docs maps, and locked the no-alias policy. Review consensus: Red `t_d43402f0`, Orange `t_6d6bb8e8`, Gray `t_7ebc9e1e`, Blue synthesis `t_8e348f72`. This does not rename code, binaries, packages, tools, live profiles, hosted repositories, or public release artifacts. |
+| ATN-002 | Control public docs rename | planned | Rewrite control public docs, docs index/map surfaces, protocol wording, examples, operator-facing text, and roadmap status wording to ATN-only naming without changing binaries or code behavior. |
+| ATN-003 | Plugin public docs rename | planned | Plugin-owned task to rewrite plugin public docs, package/docs metadata, operator guide, and bundled skill documentation to ATN-only naming without changing package/tool code behavior. |
+| ATN-004 | Control code and binary rename | planned | Rename control Go module, CLI binary, daemon binary, data-home/env/socket/protocol markers, fixtures, tests, Makefile surfaces, and command examples to `atn-control`, `atn-controld`, `ATN_HOME`, and `atn-protocol-v1alpha0` with no aliases. |
+| ATN-005 | Plugin package, tools, skills, and final guardrails | planned | Plugin-owned task to rename package/import/manifest/tools/bundled skills to ATN names, add/update no-alias guardrails, and close final cross-repo ATN compatibility proof. |
+
 Every roadmap item must map to the Makefile target taxonomy in `18-testing-strategy.md` and to the phase dependencies in `09-implementation-epics.md`. For legacy repo-owned epics, active task transfer between this control repo and the plugin repo happens only at an epic boundary. For an accepted cross-repo epic such as RUNFIX, transfer happens at the globally ordered task boundary recorded in both repos' SOT tables. When a task ID is cited outside its repo-local roadmap, qualify it as `control/<task-id>` or `plugin/<task-id>`.
 
 

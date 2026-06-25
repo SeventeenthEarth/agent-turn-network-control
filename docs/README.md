@@ -52,6 +52,7 @@ The Python Hermes plugin has its own public-facing repository label `hun-plugin`
 25. `24-live-transport-control-sot.md` — control-side live transport SOT for `LTRAN` / `MEMBR` / `SURFD`, companion to the plugin live transport SOT
 26. `25-council-argument-graph-sot.md` — control-side council argument graph SOT for `ARGUE`, discussion-quality protocol/fixture planning, and plugin handoff boundaries
 27. `26-hermes-unified-network-control-naming-sot.md` — control-side Hermes Unified Network naming SOT for `HUN`, public rename boundaries, clean no-alias policy, and downstream control task sequencing
+28. `27-agent-turn-network-control-naming-sot.md` — control-side Agent Turn Network naming SOT for `ATN`, public rename boundaries, clean no-alias policy, and ATN-001..ATN-005 task sequencing
 
 `11-distribution-and-skill.md` is deprecated by the repo split and replaced by `11-distribution-and-plugin.md`.
 
@@ -87,8 +88,9 @@ The control repo Makefile owns Go checks, control docs guardrails, and RELIA-001
 13. `23-release-v1-acceptance.md` when validating Release v1 local readiness
 14. `24-live-transport-control-sot.md` when planning post-Release `LTRAN`, `MEMBR`, `SURFD`, or `ENSOT` live-local / visible-closeout work
 15. `25-council-argument-graph-sot.md` when planning `ARGUE` discussion-quality argument graph work; `control/ARGUE-001` is accepted docs-only, and `control/ARGUE-002` is accepted for bounded local static protocol/fixture scope under KAS/KAH run `run-20260615T145822Z-caab064cf550`
-16. `26-hermes-unified-network-control-naming-sot.md` when planning `HUN` public rename work
-17. plugin docs in the local workspace path `../../kkachi-agent-network-plugin/docs/` while the public repo label remains `hun-plugin`; HUN-014 is the active compatibility proof for this split
+16. `26-hermes-unified-network-control-naming-sot.md` when reading the completed prior public rename proof
+17. `27-agent-turn-network-control-naming-sot.md` when planning `ATN` public rename work
+18. plugin docs in the local workspace path `../../kkachi-agent-network-plugin/docs/` while the public repo label remains `hun-plugin`; HUN-014 is the active compatibility proof for this split until ATN tasks replace the public labels
 
 ## Current implementation state
 
