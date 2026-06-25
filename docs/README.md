@@ -90,7 +90,7 @@ The control repo Makefile owns Go checks, control docs guardrails, and RELIA-001
 15. `25-council-argument-graph-sot.md` when planning `ARGUE` discussion-quality argument graph work; `control/ARGUE-001` is accepted docs-only, and `control/ARGUE-002` is accepted for bounded local static protocol/fixture scope under KAS/KAH run `run-20260615T145822Z-caab064cf550`
 16. `26-hermes-unified-network-control-naming-sot.md` when reading the completed prior public rename proof
 17. `27-agent-turn-network-control-naming-sot.md` when planning `ATN` public rename work
-18. plugin docs in the local workspace path `../../agent-turn-network-plugin/docs/`; the public repo label is `atn-plugin`, ATN-001/ATN-002/ATN-003 define the public docs baseline, ATN-004 is completed for control code/runtime naming, and ATN-005 remains the pending plugin package/tool rename work
+18. plugin docs in the local workspace path `../../agent-turn-network-plugin/docs/`; the public repo label is `atn-plugin`, ATN-001/ATN-002/ATN-003 define the public docs baseline, ATN-004 is completed for control code/runtime naming, and ATN-005 is completed for plugin package/tool/skill naming and guardrails
 
 ## Current implementation state
 
