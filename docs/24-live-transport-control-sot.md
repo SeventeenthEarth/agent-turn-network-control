@@ -8,7 +8,7 @@ The plugin-side companion SOT is `../../agent-turn-network-plugin/docs/10-live-t
 
 This document does **not** authorize production activation, live Discord delivery, gateway/auth/token changes, active Hermes profile mutation, KAB bridge readiness, or replacing real participant profiles with role prompts. It defines repo ownership, epic/task distribution, required gates, and non-scope boundaries for post-Release-v1 live-local work.
 
-RUNFIX update: this SOT also records the control-owned side of `RUNFIX`, the cross-repo remediation epic created from the 2026-06-17 council dogfood issues report. `control/RUNFIX-001` and `plugin/RUNFIX-002` are accepted docs-only SOT locks after Red/Orange/Gray review, focused re-check, and Blue final synthesis; they do not by themselves authorize implementation, live profile activation, gateway mutation, Discord delivery, or production readiness claims. RUNFIX3 update: this SOT also records the control-owned follow-up from the 2026-06-25 KLM live-thread postmortem; `RUNFIX3-001` is a docs-only SOT/roadmap lock and does not authorize live Discord rollout, profile/provider/gateway/auth/token/model mutation, daemon startup, push, or production readiness.
+RUNFIX update: this SOT also records the control-owned side of `RUNFIX`, the cross-repo remediation epic created from the 2026-06-17 council dogfood issues report. `control/RUNFIX-001` and `plugin/RUNFIX-002` are accepted docs-only SOT locks after Red/Orange/Gray review, focused re-check, and Blue final synthesis; they do not by themselves authorize implementation, live profile activation, gateway mutation, Discord delivery, or production readiness claims. RUNFIX3 update: this SOT also records the control-owned follow-up from the 2026-06-25 KLM live-thread postmortem; `RUNFIX3-001` is a docs-only SOT/roadmap lock and does not authorize live Discord rollout, profile/provider/gateway/auth/token/model mutation, daemon startup, push, or production readiness. NEXFIX update: this SOT records the 2026-06-26 selected-runner prompt envelope remediation epic; `control/NEWFIX-001` is planned as the blocking control fix for projection-backed runner prompts and missing-agenda fail-closed diagnostics, while `plugin/NEWFIX-002` owns moderator/participant guidance.
 
 ## Scope
 
@@ -218,6 +218,27 @@ RUNFIX3 task order and current status:
 | 2 | plugin | RUNFIX3-002 | implementation_complete/review_pending | Plugin-owned moderator/operator guidance hardening against the frozen control evidence contract is implemented and awaiting focused reviewer acceptance after cross-repo mirror/status reconciliation. Fixed minimum plugin gates passed; focused Red/Orange/Gray review and Blue synthesis remain pending acceptance. |
 | 3 | plugin | RUNFIX3-003 | implementation_complete/review_pending | Plugin-owned planner/schema/operator-evidence support that consumes the frozen control evidence contract is implemented and awaiting focused reviewer acceptance. Exact-origin proof now fails closed on mismatched observed targets, visible-turn accounting is grounded to `max_discussion_turns + participant_count + 2`, daemon registry membership remains a live-visible start gate, and RUNFIX3 final-acceptance axes remain separate from start authority while staying fail-closed in the report surface. Fixed minimum implementation/test gates include plugin docs guardrails, core contract, test-prepare, and a completed `make test-unit` run as a deliberate tightening over the older waiver wording. Focused Red/Orange/Gray review and Blue synthesis remain pending acceptance. |
 | 4 | control | RUNFIX3-004 | implementation_complete/review_pending | Control-owned diagnostics/enforcement follow-up against frozen evidence-label semantics is implemented and under focused review. Current scope covers lifecycle, selected-runner, delivery evidence, exact thread binding, missing closeouts, missing synthesis, and unresolved closeout diagnostics. Fixed minimum gates passed; Red/Orange/Gray review plus Blue synthesis remain pending acceptance. Durable verification evidence: `docs/evidence/2026-06-26-runfix3-004-diagnostics-evidence.md`. |
+
+
+### NEXFIX selected-runner prompt envelope remediation
+
+NEXFIX records the 2026-06-26 KLM token/speed dogfood defect where lifecycle/runtime readiness passed, `agenda_locked` contained the decision question and success criteria, but selected-runner dispatch used a default prompt envelope that omitted agenda and prior-context. The participant therefore produced canonical `speech` content saying the agenda body was missing. The SOT lock is `17thHermes:40_outputs/team/macho/atn/2026-06-26-atn-selected-runner-prompt-envelope-nexfix-sot.md`.
+
+Control-owned contract impact:
+
+- `speaker_selected` may remain a compact floor-grant event, but selected-runner dispatch must build the participant prompt from authoritative daemon projection over the session event log.
+- Mandatory prompt context for `control/NEWFIX-001` includes `session_id`, locked `decision_question`, `success_criteria`, `out_of_scope_policy`, selected member id plus role/stance assignment, turn, causation event id, required response schema, bounded prior speech/claim context when present, discussion-quality/ARGUE stance rule when prior claims exist, and an explicit missing-context fail-closed instruction.
+- If the locked agenda cannot be reconstructed, control must fail closed before invoking the runner with a generic prompt and must record durable diagnostic evidence.
+- Prompt evidence must be reviewable through a redacted excerpt, deterministic fixture hash, or equivalent non-secret proof that agenda context was included.
+- The named control-to-plugin handoff target is `selected_runner_prompt_evidence`. `control/NEWFIX-001` must define and expose it through status/export, deterministic fixture output, or an equivalent non-secret prompt-capture artifact with at least: `session_id`, `speaker_selected_event_id`, `selected_member`, `turn`, `agenda_event_id` or agenda source event ids, prior-context source event ids when present, `included_context[]`, `missing_required_context[]`, `prompt_context_sha256`, redacted prompt excerpt or fixture id, and `result` (`pass` or `blocked`). Plugin/operator guidance in `plugin/NEWFIX-002` must consume this named evidence contract rather than inventing a separate proof surface.
+- Plugin hints such as `agenda_event_id` or `prompt_context_hint` are not authority in this epic unless a later approved task adds them; daemon projection remains authoritative.
+
+NEXFIX task order and current status:
+
+| Global Order | Repo | Task ID | Status | Control-owned acceptance |
+|---:|---|---|---|---|
+| 1 | control | NEWFIX-001 | planned | Projection-backed selected-runner prompt envelope and regression coverage. The fix must define the `selected_runner_prompt_evidence` handoff contract, include agenda/success-criteria/role-stance/prior-context/fail-closed-instruction prompt capture tests, missing-agenda negative diagnostics, and no hidden fallback or live-readiness claim. |
+| 2 | plugin | NEWFIX-002 | planned | Plugin-owned guidance hardening for content-plane readiness preflight and missing-context participant diagnostics. Control records dependency/status only and must not treat plugin guidance as daemon prompt authority. |
 
 
 ### MEMBR: Member runtime profile invocation

@@ -10,7 +10,7 @@ Plugin scope: Hermes plugin manifest/entrypoint, Python daemon client, tools/sla
 
 ## Epic and task ID convention
 
-Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{EPIC}-002`, and so on. For a jointly developed control/plugin capability, both repositories use the same epic ID and a single globally sequential task number stream; cite tasks with repo-qualified notation such as `control/RUNFIX-001` or `plugin/RUNFIX-002`. A repository may therefore have gaps in its local task numbers when another repo owns the intervening task. The current Release v1 and post-Release epic IDs are:
+Epic IDs are normally five-letter uppercase English slugs. Task IDs normally use `{EPIC}-001`, `{EPIC}-002`, and so on. Explicit user-approved exceptions include `ATN`, `RUNFIX2`, `RUNFIX3`, and the six-letter `NEXFIX` epic whose requested task id prefix is `NEWFIX-*`. For a jointly developed control/plugin capability, both repositories use the same epic ID and a single globally sequential task number stream; cite tasks with repo-qualified notation such as `control/RUNFIX-001` or `plugin/RUNFIX-002`. A repository may therefore have gaps in its local task numbers when another repo owns the intervening task. The current Release v1 and post-Release epic IDs are:
 
 | Epic ID | Epic Title | Scope |
 | --- | --- | --- |
@@ -32,6 +32,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | RUNFIX2 | ATN discussion runtime usability hardening | cross-repo hardening for production-default enablement semantics, selected-runner real response generation, discussion lifecycle closeout turns, clean Discord visible transcript UX, and integrated explicit discussion proof |
 | ATN | Agent Turn Network public rename | clean five-task cross-repo public rename to Agent Turn Network with no legacy aliases |
 | RUNFIX3 | Live-visible council contract hardening | post-ATN live-thread hardening for exact Discord thread binding, lifecycle closeouts, selected-runner evidence, content/audit separation, dialogue mode, and drift repair |
+| NEXFIX | Selected-runner prompt envelope remediation | post-RUNFIX3 content-plane readiness hardening for projection-backed selected-runner prompts and moderator/participant missing-context guardrails; explicit exception uses `NEWFIX-*` task ids per 주군 request |
 
 ## Epic dependency graph
 
@@ -55,6 +56,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | RUNFIX2 | RUNFIX, MEMBR, ARGUE, SURFD, ENSOT, LTRAN | 실사용 dogfood feedback depends on existing RUNFIX accounting/readiness/activation proof and hardens the remaining selected-runner, terminal readiness, turn lifecycle, and visible UX gaps before any stronger live-local readiness claim |
 | ATN | RUNFIX2 | ATN clean public rename starts after the current runtime usability hardening lane so naming churn does not mask readiness evidence; ATN-001 is docs-only and does not authorize code, binary, package, or runtime mutation |
 | RUNFIX3 | RUNFIX2, ATN | 2026-06-25 post-rename live-thread postmortem depends on RUNFIX2 lifecycle/runner accounting and the completed ATN rename surfaces, then hardens the remaining live-visible thread contract without claiming live readiness. |
+| NEXFIX | RUNFIX3, RUNFIX2, ARGUE, MEMBR | 2026-06-26 selected-runner prompt envelope defect depends on existing selected-runner dispatch, runtime readiness, discussion-quality evidence, and live-thread diagnostics, then hardens the content-plane prompt envelope without claiming live readiness. |
 
 ## Implementation phase grouping
 
@@ -78,6 +80,7 @@ Epic IDs are five-letter uppercase English slugs. Task IDs use `{EPIC}-001`, `{E
 | Phase 15 | RUNFIX2 | discussion runtime usability hardening | Five-task cross-repo hardening sequence: evidence/config semantics and terminal readiness model; selected-runner Hermes response-generation adapter fix; discussion lifecycle with moderator intro, participant discussion turns, participant closeouts, and moderator conclusion; clean visible Discord transcript/audit separation; integrated explicit discussion proof. RUNFIX2 does not force evidence labels true and does not authorize profile/provider/gateway/auth/token mutation, live pilot success, live Discord delivery, production activation, push, or broad rollout. |
 | Phase 16 | ATN | Agent Turn Network public rename | ATN-001 locks SOT/roadmap/docs-map policy, ATN-002/003 scrub public docs by repo, ATN-004 renames control code/binaries/protocol, and ATN-005 renames plugin package/tools/skills plus final guardrails. ATN-001 does not authorize live/profile/provider/gateway/auth/token mutation, hosted rename, push, package publication, or production rollout. |
 | Phase 17 | RUNFIX3 | live-visible council contract hardening | RUNFIX3-001 locks the 2026-06-25 SOT and roadmap state after Red/Orange/Gray review and Blue synthesis; RUNFIX3-002/003 are plugin-owned guidance/planner evidence tasks; RUNFIX3-004 is control-owned diagnostics/enforcement follow-up. No production activation, live Discord rollout, profile/provider/gateway/auth/token/model mutation, push, or broad rollout is authorized. |
+| Phase 18 | NEXFIX | selected-runner prompt envelope remediation | NEWFIX-001 is the control-owned blocking fix for projection-backed selected-runner prompt construction, prompt-content regression tests, and missing-agenda fail-closed diagnostics; NEWFIX-002 is plugin-owned operator guidance hardening. The epic does not authorize live Discord rollout, production activation, profile/provider/gateway/auth/token/model mutation, push, or broad rollout. |
 
 ## BOOTS — Bootstrap
 
@@ -222,6 +225,19 @@ RUNFIX3-wide completion requires the final cross-repo closeout artifact `40_outp
 
 RUNFIX3 does not authorize production activation, live Discord rollout, daemon/profile/provider/gateway/auth/token/model mutation, package publication, push, KLM runtime changes, or broad rollout.
 
+
+## NEXFIX — Selected-runner prompt envelope remediation
+
+`NEXFIX` is the 2026-06-26 follow-up from 주유's selected-runner prompt envelope defect report. It is an explicit convention exception: the epic label is `NEXFIX`, while the task ids requested by 주군 use the `NEWFIX-*` prefix. The SOT lock is `17thHermes:40_outputs/team/macho/atn/2026-06-26-atn-selected-runner-prompt-envelope-nexfix-sot.md`.
+
+Exit: selected-runner dispatch cannot produce generic canonical speech from an agenda-less content-plane prompt. Control must construct selected-runner prompts from daemon projection and fail closed when mandatory agenda context is unavailable. Plugin guidance must make runtime readiness and content-plane readiness separate operator gates.
+
+| Global Order | Repo | Task ID | Scope | Suggested paths | Verification / gate |
+|---:|---|---|---|---|---|
+| 1 | control | NEWFIX-001 | Planned: projection-backed selected-runner prompt envelope. Include `session_id`, `decision_question`, `success_criteria`, `out_of_scope_policy`, selected member id plus role/stance assignment, turn, causation id, required JSON schema, bounded prior speech/claim context, discussion-quality/ARGUE stance rule when prior claims exist, and an explicit missing-context fail-closed instruction; define the `selected_runner_prompt_evidence` handoff contract for plugin/operator consumption; fail closed instead of invoking generic runner prompt when agenda context is missing. | `internal/daemon/selected_speaker.go`, `internal/daemon/council_handlers.go`, projection/event-log helpers, selected-speaker tests, `docs/24-live-transport-control-sot.md`, `docs/13-operational-contracts.md` if prompt contract wording changes | focused fake-runner prompt capture tests for agenda/success criteria/role-stance/prior context/fail-closed instruction, deterministic `selected_runner_prompt_evidence` fixture/export proof, negative missing-agenda dispatch diagnostic test, `git diff --check`, `make docs-guardrails`, `make check-plugin-contract`, `make test-prepare`, focused Go tests, and Red/Orange/Gray review plus Blue synthesis |
+| 2 | plugin | NEWFIX-002 | Planned: plugin-packaged moderator/participant guidance for content-plane readiness preflight and missing-context diagnostics. | plugin `docs/09-skill-and-operator-guide.md`, bundled `atn-moderator` and `atn-participant` skills, plugin live-transport SOT/roadmap mirrors | plugin docs guardrails, core-contract check, skill/operator tests as applicable, and Red/Orange/Gray review plus Blue synthesis |
+
+NEXFIX does not authorize production activation, live Discord rollout, daemon/profile/provider/gateway/auth/token/model mutation, package publication, push, KLM runtime changes, or broad rollout. A future plugin transport/schema hint for `agenda_event_id` or `prompt_context_hint` is out of scope unless 주군 separately approves it.
 
 
 ## ATN — Agent Turn Network public rename
