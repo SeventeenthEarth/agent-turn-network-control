@@ -224,8 +224,14 @@ func appendRunnerSpeechForRuntimeReadinessTest(t *testing.T, sessionDir string, 
 			SourceCommandID: "cmd_" + eventID,
 			Status:          "succeeded",
 		},
-		Cost:    json.RawMessage(`{"tokens_in":1,"tokens_out":1,"usd_estimate":0.01,"source":"fixture"}`),
-		Payload: map[string]any{"turn": float64(turn), "member": member, "speech": "selected runner response", "selected_event_id": selectedEventID},
+		Cost: json.RawMessage(`{"tokens_in":1,"tokens_out":1,"usd_estimate":0.01,"source":"fixture"}`),
+		Payload: map[string]any{
+			"turn":              float64(turn),
+			"member":            member,
+			"speech":            "selected runner response",
+			"selected_event_id": selectedEventID,
+			"surface_evidence":  map[string]any{"status": "posted", "kind": "discord_thread", "thread_id": metadata.Surface.ThreadID, "message_id": "msg_" + eventID, "references_event_id": eventID},
+		},
 	}
 	if _, err := AppendEvent(sessionDir, metadata, event); err != nil {
 		t.Fatalf("AppendEvent(speech): %v", err)

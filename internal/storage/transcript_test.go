@@ -175,6 +175,75 @@ func TestUnitSURFD002TranscriptProjectsVisibleSurfaceDeliveryStates(t *testing.T
 	}
 }
 
+func TestUnitRUNFIX3004TranscriptProjectionFailsClosedOnCloseoutDiagnostics(t *testing.T) {
+	sessionDir := createBareSessionDir(t)
+	metadata := testMetadata()
+	metadata.SessionType = SessionTypeCouncil
+	metadata.Title = "RUNFIX3-004 closeout diagnostics"
+	metadata.State.Phase = "unresolved"
+	metadata.Status = StatusTerminal
+	metadata.Participants = []string{"agent-mod", "agent-1", "agent-2"}
+	metadata.Surface = &Surface{Kind: "discord_thread", Platform: "discord", ThreadID: "thread-runfix3004-transcript"}
+	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
+		t.Fatalf("WriteSessionYAMLAtomic: %v", err)
+	}
+	appendTranscriptEvent(t, sessionDir, metadata, councilTranscriptEvent(metadata, "evt_unresolved_diag", "unresolved", "council_unresolved", map[string]any{
+		"reason":           "thread mismatch",
+		"surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "thread_id": "thread-other", "final_message_id": "msg-thread-other"},
+		"closeout_diagnostics": []any{
+			map[string]any{"code": "exact_thread_mismatch", "stage": "unresolved", "expected_thread_id": "thread-runfix3004-transcript", "observed_thread_id": "thread-other", "reason": "visible closeout thread does not match the configured council thread"},
+		},
+	}))
+	out, err := RenderTranscript(sessionDir, metadata, TranscriptMarkdownFormat)
+	if err != nil {
+		t.Fatalf("RenderTranscript md: %v", err)
+	}
+	if strings.Contains(string(out), "| `evt_unresolved_diag` | `council_unresolved` | `visible_surface` | `posted` |") {
+		t.Fatalf("closeout diagnostics must override posted visible-surface status:\n%s", string(out))
+	}
+	for _, want := range []string{"missing/unproven", "closeout_diagnostics", "exact_thread_mismatch", "thread-runfix3004-transcript", "thread-other"} {
+		if !strings.Contains(string(out), want) {
+			t.Fatalf("RUNFIX3-004 transcript missing %q:\n%s", want, string(out))
+		}
+	}
+}
+
+func TestUnitRUNFIX3004ExportManifestIncludesCloseoutDiagnostics(t *testing.T) {
+	sessionDir := createBareSessionDir(t)
+	metadata := testMetadata()
+	metadata.SessionType = SessionTypeCouncil
+	metadata.Title = "RUNFIX3-004 export diagnostics"
+	metadata.State.Phase = "unresolved"
+	metadata.Status = StatusTerminal
+	metadata.Participants = []string{"agent-mod", "agent-1", "agent-2"}
+	metadata.Surface = &Surface{Kind: "discord_thread", Platform: "discord", ThreadID: "thread-runfix3004-export"}
+	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
+		t.Fatalf("WriteSessionYAMLAtomic: %v", err)
+	}
+	appendTranscriptEvent(t, sessionDir, metadata, councilTranscriptEvent(metadata, "evt_unresolved_export", "unresolved", "council_unresolved", map[string]any{
+		"reason": "proof missing",
+		"closeout_diagnostics": []any{
+			map[string]any{"code": "missing_visible_closeout_proof", "stage": "unresolved", "expected_thread_id": "thread-runfix3004-export", "reason": "surface_evidence is missing"},
+		},
+	}))
+	if err := os.WriteFile(filepath.Join(sessionDir, registry.SnapshotFileName), []byte("schema_version: 1\n"), 0o600); err != nil {
+		t.Fatalf("write snapshot: %v", err)
+	}
+	result, err := BuildExportBundle(sessionDir, metadata, ExportBundleOptions{})
+	if err != nil {
+		t.Fatalf("BuildExportBundle: %v", err)
+	}
+	manifestBytes, err := os.ReadFile(filepath.Join(result.BundleDir, "bundle_manifest.json"))
+	if err != nil {
+		t.Fatalf("read bundle_manifest.json: %v", err)
+	}
+	for _, want := range []string{"closeout_diagnostics", "missing_visible_closeout_proof", "thread-runfix3004-export"} {
+		if !strings.Contains(string(manifestBytes), want) {
+			t.Fatalf("bundle manifest missing %q:\n%s", want, string(manifestBytes))
+		}
+	}
+}
+
 func TestUnitSURFD002ExportManifestDeclaresVisibleEvidenceProjection(t *testing.T) {
 	sessionDir := createBareSessionDir(t)
 	metadata := testMetadata()

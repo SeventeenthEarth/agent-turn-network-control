@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"atn-control/internal/protocol"
 	"atn-control/internal/registry"
 
 	_ "modernc.org/sqlite"
@@ -101,7 +102,7 @@ func TestIntegrationCouncilLifecycleFailClosedGuardsAndProjection(t *testing.T) 
 	if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "vote", Actor: "agent-2", CommandID: "cmd_vote_2_duplicate", Payload: map[string]any{"draft_version": 1, "vote": "approve", "reason": "changed"}, Now: fixedRuntime().Now().Add(20 * time.Second)}); err == nil {
 		t.Fatalf("second vote by same member in same round must fail closed")
 	}
-	finalize := appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "finalize", Actor: "agent-mod", CommandID: "cmd_finalize", Payload: map[string]any{"final_summary": "Consensus reached."}, Now: fixedRuntime().Now().Add(21 * time.Second)})
+	finalize := appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "finalize", Actor: "agent-mod", CommandID: "cmd_finalize", Payload: map[string]any{"final_summary": "Consensus reached.", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "thread_id": metadata.Surface.ThreadID, "final_message_id": "msg-council-lifecycle-final"}}, Now: fixedRuntime().Now().Add(21 * time.Second)})
 	if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "poll", Actor: "agent-mod", CommandID: "cmd_poll_after_final", Payload: map[string]any{"research_timeout_sec": 10}, Now: fixedRuntime().Now().Add(22 * time.Second)}); err == nil {
 		t.Fatalf("terminal council mutation must fail closed")
 	}
@@ -171,6 +172,102 @@ func TestUnitCouncilLinkedAuthorityFinalizeRequiresEvidence(t *testing.T) {
 	if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "finalize", Actor: "agent-mod", CommandID: "cmd_linked_finalize", Payload: map[string]any{"final_summary": "done", "linked_authority_result": map[string]any{"status": "posted", "kanban_comment_id": "kc_123"}}, Now: fixedRuntime().Now().Add(7 * time.Second)}); err != nil {
 		t.Fatalf("linked authority finalize with posted evidence: %v", err)
 	}
+}
+
+func TestUnitRUNFIX3004FinalizeRequiresVisibleCloseoutProofAndExactThreadBinding(t *testing.T) {
+	sessionDir, metadata := runfix3004ConsensusVoteCouncil(t, "sess_runfix3004_finalize")
+	if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "finalize", Actor: "agent-mod", CommandID: "cmd_runfix3004_finalize_missing_surface", Payload: map[string]any{"final_summary": "done", "surface": metadata.Surface}, Now: fixedRuntime().Now().Add(90 * time.Second)}); err == nil {
+		t.Fatalf("finalize without visible closeout proof must fail closed")
+	} else {
+		assertStorageIssue(t, err, CategoryCommandConflict)
+		if !strings.Contains(err.Error(), "missing_visible_closeout_proof") {
+			t.Fatalf("missing proof finalize error = %v", err)
+		}
+	}
+	if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "finalize", Actor: "agent-mod", CommandID: "cmd_runfix3004_finalize_bad_thread", Payload: map[string]any{"final_summary": "done", "surface": metadata.Surface, "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "thread_id": "thread-other", "final_message_id": "msg-bad-thread"}}, Now: fixedRuntime().Now().Add(91 * time.Second)}); err == nil {
+		t.Fatalf("finalize with mismatched thread proof must fail closed")
+	} else {
+		assertStorageIssue(t, err, CategoryCommandConflict)
+		if !strings.Contains(err.Error(), "exact_thread_mismatch") {
+			t.Fatalf("thread mismatch finalize error = %v", err)
+		}
+	}
+	result, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "finalize", Actor: "agent-mod", CommandID: "cmd_runfix3004_finalize_ok", Payload: map[string]any{"final_summary": "done", "surface": metadata.Surface, "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "thread_id": metadata.Surface.ThreadID, "final_message_id": "msg-final-ok"}, "closeout_diagnostics": []any{map[string]any{"code": "forged_diag", "reason": "caller should not control diagnostics"}}}, Now: fixedRuntime().Now().Add(92 * time.Second)})
+	if err != nil {
+		t.Fatalf("finalize with matching closeout proof: %v", err)
+	}
+	finalized := eventByIDForTest(t, sessionDir, metadata, result.EventID)
+	if got := closeoutDiagnosticsFromPayload(finalized.Payload); len(got) != 0 {
+		t.Fatalf("successful finalize must not persist caller-supplied closeout_diagnostics: %#v", got)
+	}
+}
+
+func TestUnitRUNFIX3004UnresolvedAppendsWithCloseoutDiagnostics(t *testing.T) {
+	sessionDir, metadata := runfix3004LifecycleCouncilForTest(t, "sess_runfix3004_unresolved")
+	appendRUNFIX2LifecycleOpeningAndDiscussion(t, sessionDir, metadata)
+	appendRUNFIX2LifecycleCloseout(t, sessionDir, metadata, 3, "agent-1", 30*time.Second)
+	result, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "unresolved", Actor: "agent-mod", CommandID: "cmd_runfix3004_unresolved", Payload: map[string]any{"reason": "closeout proof incomplete"}, Now: fixedRuntime().Now().Add(40 * time.Second)})
+	if err != nil {
+		t.Fatalf("unresolved with incomplete closeout should stay appendable: %v", err)
+	}
+	event := eventByIDForTest(t, sessionDir, metadata, result.EventID)
+	diagnostics := closeoutDiagnosticsFromPayload(event.Payload)
+	if len(diagnostics) == 0 {
+		t.Fatalf("unresolved event missing closeout_diagnostics: %#v", event.Payload)
+	}
+	for _, want := range []string{"missing_participant_closeout", "missing_moderator_synthesis", "missing_visible_closeout_proof"} {
+		if !strings.Contains(mustCompactJSON(diagnostics), want) {
+			t.Fatalf("unresolved diagnostics missing %q: %#v", want, diagnostics)
+		}
+	}
+	status, err := CouncilStatusFromLogAt(sessionDir, metadata, fixedRuntime().Now().Add(41*time.Second))
+	if err != nil {
+		t.Fatalf("CouncilStatusFromLogAt: %v", err)
+	}
+	if !strings.Contains(mustCompactJSON(status["closeout_diagnostics"]), "missing_participant_closeout") {
+		t.Fatalf("status closeout_diagnostics missing unresolved details: %#v", status["closeout_diagnostics"])
+	}
+}
+
+func runfix3004ConsensusVoteCouncil(t *testing.T, sessionID string) (string, *SessionMetadata) {
+	t.Helper()
+	sessionDir, metadata := runfix3004LifecycleCouncilForTest(t, sessionID)
+	appendRUNFIX2LifecycleOpeningAndDiscussion(t, sessionDir, metadata)
+	appendRUNFIX2LifecycleCloseout(t, sessionDir, metadata, 3, "agent-1", 30*time.Second)
+	appendRUNFIX2LifecycleCloseout(t, sessionDir, metadata, 4, "agent-2", 40*time.Second)
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "propose", Actor: "agent-mod", CommandID: "cmd_" + sessionID + "_propose", Payload: map[string]any{"draft": "ready"}, Now: fixedRuntime().Now().Add(50 * time.Second)})
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "request-vote", Actor: "agent-mod", CommandID: "cmd_" + sessionID + "_request_vote", Payload: map[string]any{"draft_version": 1}, Now: fixedRuntime().Now().Add(60 * time.Second)})
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "vote", Actor: "agent-1", CommandID: "cmd_" + sessionID + "_vote_1", Payload: map[string]any{"draft_version": 1, "vote": "approve", "reason": "ok"}, Now: fixedRuntime().Now().Add(70 * time.Second)})
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "vote", Actor: "agent-2", CommandID: "cmd_" + sessionID + "_vote_2", Payload: map[string]any{"draft_version": 1, "vote": "approve", "reason": "ok"}, Now: fixedRuntime().Now().Add(80 * time.Second)})
+	return sessionDir, metadata
+}
+
+func runfix3004LifecycleCouncilForTest(t *testing.T, sessionID string) (string, *SessionMetadata) {
+	t.Helper()
+	dataHome, loaded := loadedCouncilRegistry(t)
+	metadata, _, _, err := CreateCouncil(dataHome, loaded, CouncilStartSpec{
+		Session: SessionSpec{
+			ID:        sessionID,
+			Title:     "RUNFIX3 closeout",
+			Moderator: "agent-mod",
+			Surface:   &Surface{Kind: "discord_thread", Platform: "discord", ThreadID: "thread-" + sessionID},
+			EventID:   "evt_" + sessionID + "_created",
+			CommandID: "cmd_" + sessionID + "_new",
+			Limits:    Limits{MaxDiscussionTurns: 2},
+		},
+		Members: []string{"agent-1", "agent-2"},
+		Now:     fixedRuntime().Now(),
+	}, fixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateCouncil: %v", err)
+	}
+	sessionDir, _ := SessionDir(dataHome, metadata.ID)
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "request-attendance", Actor: "agent-mod", CommandID: "cmd_" + sessionID + "_attendance", Payload: map[string]any{"timeout_sec": 60}, Now: fixedRuntime().Now().Add(time.Second)})
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "attend", Actor: "agent-1", CommandID: "cmd_" + sessionID + "_attend_1", Payload: map[string]any{"status": "present", "summary": "ready"}, Now: fixedRuntime().Now().Add(2 * time.Second)})
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "attend", Actor: "agent-2", CommandID: "cmd_" + sessionID + "_attend_2", Payload: map[string]any{"status": "present", "summary": "ready"}, Now: fixedRuntime().Now().Add(3 * time.Second)})
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "lock-agenda", Actor: "agent-mod", CommandID: "cmd_" + sessionID + "_agenda", Payload: map[string]any{"decision_question": "RUNFIX3?"}, Now: fixedRuntime().Now().Add(4 * time.Second)})
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "prepare", Actor: "agent-mod", CommandID: "cmd_" + sessionID + "_prepare", Payload: map[string]any{"timeout_sec": 60}, Now: fixedRuntime().Now().Add(5 * time.Second)})
+	return sessionDir, metadata
 }
 
 func TestUnitCouncilArgumentGraphRejectsMalformedPresentFields(t *testing.T) {
@@ -639,6 +736,65 @@ func TestUnitCouncilCommandIDRetryDeduplicatesAndConflictingPayloadFailsClosed(t
 	}
 	if afterConflict := eventCountForTest(t, sessionDir, metadata); afterConflict != beforeRetry {
 		t.Fatalf("conflicting retry appended event: before=%d after=%d", beforeRetry, afterConflict)
+	}
+}
+func TestUnitCouncilCommandIDRetryDeduplicatesLegacyCouncilPayloadWithoutInjectedMetadata(t *testing.T) {
+	dataHome, loaded := loadedCouncilRegistry(t)
+	metadata, _, _, err := CreateCouncil(dataHome, loaded, CouncilStartSpec{
+		Session: SessionSpec{
+			ID:        "sess_council_idempotency_legacy",
+			Title:     "legacy-idempotency",
+			Moderator: "agent-mod",
+			EventID:   "evt_idempotency_legacy_created",
+			CommandID: "cmd_idempotency_legacy_new",
+		},
+		Members: []string{"agent-1"},
+		Now:     fixedRuntime().Now(),
+	}, fixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateCouncil: %v", err)
+	}
+	sessionDir, _ := SessionDir(dataHome, metadata.ID)
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{
+		Action:    "prepare",
+		Actor:     "agent-mod",
+		CommandID: "cmd_council_prepare_legacy_idempotent",
+		Payload:   map[string]any{"topic": "legacy idempotency", "timeout_sec": 600},
+		Now:       fixedRuntime().Now().Add(time.Second),
+	})
+	legacyReady := EventEnvelope{
+		SchemaVersion: protocol.SchemaVersion,
+		EventID:       eventIDFromCommand("evt_member_ready", "cmd_council_ready_legacy_idempotent"),
+		CommandID:     "cmd_council_ready_legacy_idempotent",
+		CorrelationID: metadata.ID,
+		SessionID:     metadata.ID,
+		SessionType:   metadata.SessionType,
+		Phase:         "preparation",
+		Type:          "member_ready",
+		From:          "agent-1",
+		To:            []string{"agent-mod"},
+		CreatedAt:     fixedRuntime().Now().Add(2 * time.Second),
+		Payload:       map[string]any{"summary": "legacy ready payload without injected metadata"},
+	}
+	if _, err := AppendEvent(sessionDir, metadata, legacyReady); err != nil {
+		t.Fatalf("AppendEvent legacy ready: %v", err)
+	}
+	beforeRetry := eventCountForTest(t, sessionDir, metadata)
+	replayed, dedup, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{
+		Action:    "ready",
+		Actor:     "agent-1",
+		CommandID: legacyReady.CommandID,
+		Payload:   map[string]any{"summary": "legacy ready payload without injected metadata"},
+		Now:       fixedRuntime().Now().Add(3 * time.Second),
+	})
+	if err != nil {
+		t.Fatalf("RecordCouncilEvent legacy ready replay: %v", err)
+	}
+	if !dedup || replayed.EventID != legacyReady.EventID {
+		t.Fatalf("expected legacy idempotent replay, got result=%#v dedup=%v legacy=%#v", replayed, dedup, legacyReady)
+	}
+	if afterRetry := eventCountForTest(t, sessionDir, metadata); afterRetry != beforeRetry {
+		t.Fatalf("legacy idempotent retry appended duplicate event: before=%d after=%d", beforeRetry, afterRetry)
 	}
 }
 

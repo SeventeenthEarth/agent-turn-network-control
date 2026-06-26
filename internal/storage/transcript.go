@@ -121,8 +121,9 @@ func BuildExportBundle(sessionDir string, metadata *SessionMetadata, opts Export
 		"source_event_log":            ChannelJSONLName,
 		"registry_snapshot":           metadata.RegistrySnapshot,
 		"includes_operator_evidence":  true,
-		"selected_runner_accounting":  SelectedRunnerAccountingFromIndex(index),
+		"selected_runner_accounting":  SelectedRunnerAccountingFromIndex(metadata, index),
 		"discussion_lifecycle":        councilDiscussionLifecycle(metadata, index),
+		"closeout_diagnostics":        closeoutDiagnosticsForStatus(metadata, index),
 		"summary_turn_accounting":     summaryTurnAccountingRows(metadata, index),
 		"surface_delivery_projection": visibleSurfaceProjectionRows(index.Events),
 		"argument_graph_projection":   argumentGraphProjectionRows(index.Events),
@@ -186,7 +187,7 @@ func renderTranscriptMarkdown(metadata *SessionMetadata, events []EventEnvelope)
 	fmt.Fprintf(&b, "- runner_calls_total: `%d`\n", cost.RunnerCallsTotal)
 	fmt.Fprintf(&b, "- usd_estimate_total: `%.6f`\n", cost.USDEstimateTotal)
 	fmt.Fprintf(&b, "- missing_cost_runner_calls_total: `%d`\n\n", cost.MissingCostRunnerCallsTotal)
-	renderSelectedRunnerAccountingSummary(&b, SelectedRunnerAccountingFromIndex(&LogIndex{Events: events}))
+	renderSelectedRunnerAccountingSummary(&b, SelectedRunnerAccountingFromIndex(metadata, &LogIndex{Events: events}))
 	renderVisibleSurfaceProjectionSummary(&b, events)
 	renderArgumentGraphProjectionSummary(&b, events)
 	fmt.Fprintln(&b, "## Events")
@@ -206,7 +207,7 @@ func renderTranscriptMarkdown(metadata *SessionMetadata, events []EventEnvelope)
 		if len(event.Cost) > 0 {
 			fmt.Fprintf(&b, "- cost: `%s`\n", string(event.Cost))
 		}
-		for _, key := range []string{"surface", "linked_authority", "linked_authority_result", "attendance", "agenda", "blocker", "blockers", "recipients", "review", "verdict"} {
+		for _, key := range []string{"surface", "linked_authority", "linked_authority_result", "closeout_diagnostics", "attendance", "agenda", "blocker", "blockers", "recipients", "review", "verdict"} {
 			if value, ok := event.Payload[key]; ok {
 				fmt.Fprintf(&b, "- %s: `%s`\n", key, mustCompactJSON(value))
 			}
@@ -340,6 +341,7 @@ func visibleSurfaceProjectionRows(events []EventEnvelope) []surfaceProjectionRow
 			rows = append(rows, surfaceProjectionRow{EventID: event.EventID, EventType: event.Type, Target: "speech", Status: status, Evidence: evidence})
 		case "council_finalized", "council_unresolved", "session_cancelled":
 			status, evidence := deliveryEvidenceStatus(event.Payload["surface_evidence"])
+			status, evidence = closeoutProjectionStatus(event.Payload, status, evidence)
 			rows = append(rows, surfaceProjectionRow{EventID: event.EventID, EventType: event.Type, Target: "visible_surface", Status: status, Evidence: evidence})
 			if _, ok := event.Payload["linked_authority_result"]; ok {
 				linkedStatus, linkedEvidence := deliveryEvidenceStatus(event.Payload["linked_authority_result"])
@@ -388,6 +390,33 @@ func deliveryEvidenceStatus(value any) (string, string) {
 		}
 	}
 	return status, mustCompactJSON(payload)
+}
+
+func closeoutProjectionStatus(payload map[string]any, status, evidence string) (string, string) {
+	diagnostics := closeoutDiagnosticsFromPayload(payload)
+	if len(diagnostics) == 0 {
+		return status, evidence
+	}
+	overridden := status
+	for _, diagnostic := range diagnostics {
+		switch anyString(diagnostic, "code") {
+		case "visible_closeout_failed":
+			overridden = "failed"
+		case "visible_closeout_pending_followup":
+			if overridden != "failed" {
+				overridden = "pending_followup"
+			}
+		case "missing_visible_closeout_proof", "missing_thread_binding", "exact_thread_mismatch":
+			if overridden != "failed" && overridden != "pending_followup" {
+				overridden = "missing/unproven"
+			}
+		}
+	}
+	diagnosticJSON := mustCompactJSON(diagnostics)
+	if strings.TrimSpace(evidence) == "" {
+		return overridden, diagnosticJSON
+	}
+	return overridden, evidence + " diagnostics=" + diagnosticJSON
 }
 
 func payloadInt(payload map[string]any, key string) (int, bool) {

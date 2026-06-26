@@ -22,19 +22,20 @@ type SelectedRunnerAccounting struct {
 }
 
 type SelectedRunnerGrantAccounting struct {
-	SelectedEventID            string   `json:"selected_event_id"`
-	Member                     string   `json:"member,omitempty"`
-	Turn                       int      `json:"turn,omitempty"`
-	RunnerStarted              bool     `json:"runner_started"`
-	RunnerStartEventIDs        []string `json:"runner_start_event_ids,omitempty"`
-	RunnerSucceededEventIDs    []string `json:"runner_succeeded_event_ids,omitempty"`
-	RunnerInvocationIDs        []string `json:"runner_invocation_ids,omitempty"`
-	LinkedRunnerSpeechEventIDs []string `json:"linked_runner_speech_event_ids,omitempty"`
-	TerminalFailureEventIDs    []string `json:"terminal_failure_event_ids,omitempty"`
-	TerminalDiscardEventIDs    []string `json:"terminal_discard_event_ids,omitempty"`
-	DispatchFailureEventIDs    []string `json:"dispatch_failure_event_ids,omitempty"`
-	Pass                       bool     `json:"pass"`
-	Status                     string   `json:"status"`
+	SelectedEventID              string   `json:"selected_event_id"`
+	Member                       string   `json:"member,omitempty"`
+	Turn                         int      `json:"turn,omitempty"`
+	RunnerStarted                bool     `json:"runner_started"`
+	RunnerStartEventIDs          []string `json:"runner_start_event_ids,omitempty"`
+	RunnerSucceededEventIDs      []string `json:"runner_succeeded_event_ids,omitempty"`
+	RunnerInvocationIDs          []string `json:"runner_invocation_ids,omitempty"`
+	LinkedRunnerSpeechEventIDs   []string `json:"linked_runner_speech_event_ids,omitempty"`
+	LinkedRunnerDeliveryEventIDs []string `json:"linked_runner_delivery_event_ids,omitempty"`
+	TerminalFailureEventIDs      []string `json:"terminal_failure_event_ids,omitempty"`
+	TerminalDiscardEventIDs      []string `json:"terminal_discard_event_ids,omitempty"`
+	DispatchFailureEventIDs      []string `json:"dispatch_failure_event_ids,omitempty"`
+	Pass                         bool     `json:"pass"`
+	Status                       string   `json:"status"`
 }
 
 type SelectedRunnerDiagnostic struct {
@@ -46,7 +47,7 @@ type SelectedRunnerDiagnostic struct {
 	Message            string `json:"message,omitempty"`
 }
 
-func SelectedRunnerAccountingFromIndex(index *LogIndex) SelectedRunnerAccounting {
+func SelectedRunnerAccountingFromIndex(metadata *SessionMetadata, index *LogIndex) SelectedRunnerAccounting {
 	accounting := SelectedRunnerAccounting{SelectedRunnerPass: false}
 	if index == nil {
 		accounting.Diagnostics = append(accounting.Diagnostics, SelectedRunnerDiagnostic{Code: "missing_log_index", Message: "selected-runner accounting could not read channel index"})
@@ -55,6 +56,7 @@ func SelectedRunnerAccountingFromIndex(index *LogIndex) SelectedRunnerAccounting
 	grantIndex := map[string]int{}
 	invocationToGrant := map[string]string{}
 	succeededInvocations := map[string]struct{}{}
+	linkedSpeechEvents := map[string]EventEnvelope{}
 	for _, event := range index.Events {
 		switch event.Type {
 		case "speaker_selected":
@@ -176,6 +178,7 @@ func SelectedRunnerAccountingFromIndex(index *LogIndex) SelectedRunnerAccounting
 			if linkedRunnerSpeechMatchesGrant(event, *grant) {
 				accounting.LinkedRunnerSpeechCount++
 				grant.LinkedRunnerSpeechEventIDs = appendUniqueString(grant.LinkedRunnerSpeechEventIDs, event.EventID)
+				linkedSpeechEvents[event.EventID] = event
 			} else {
 				accounting.Diagnostics = append(accounting.Diagnostics, SelectedRunnerDiagnostic{
 					Code:               "linked_runner_speech_mismatch",
@@ -233,6 +236,16 @@ func SelectedRunnerAccountingFromIndex(index *LogIndex) SelectedRunnerAccounting
 				Member:          grant.Member,
 				Message:         "selected-runner start has no linked canonical speech",
 			})
+		case requiresSelectedRunnerDeliveryProof(metadata):
+			if deliveryDiagnostic, ok := selectedRunnerDeliveryDiagnostic(metadata, *grant, linkedSpeechEvents); !ok {
+				grant.Pass = false
+				grant.Status = deliveryDiagnostic.Code
+				accounting.Diagnostics = append(accounting.Diagnostics, deliveryDiagnostic)
+			} else {
+				grant.LinkedRunnerDeliveryEventIDs = appendUniqueString(grant.LinkedRunnerDeliveryEventIDs, deliveryDiagnostic.EventID)
+				grant.Pass = true
+				grant.Status = "selected_runner_pass"
+			}
 		default:
 			grant.Pass = true
 			grant.Status = "selected_runner_pass"
@@ -279,6 +292,7 @@ func selectedRunnerEvidenceFromAccounting(accounting SelectedRunnerAccounting, s
 		if grant.Pass {
 			evidence := append([]string{}, grant.RunnerSucceededEventIDs...)
 			evidence = append(evidence, grant.LinkedRunnerSpeechEventIDs...)
+			evidence = append(evidence, grant.LinkedRunnerDeliveryEventIDs...)
 			return SelectedRunnerPrerequisite{Ready: true, Status: "selected_runner_pass", Evidence: uniqueSorted(evidence)}
 		}
 		evidence := append([]string{}, grant.TerminalFailureEventIDs...)
@@ -286,6 +300,7 @@ func selectedRunnerEvidenceFromAccounting(accounting SelectedRunnerAccounting, s
 		evidence = append(evidence, grant.DispatchFailureEventIDs...)
 		evidence = append(evidence, grant.RunnerStartEventIDs...)
 		evidence = append(evidence, grant.RunnerSucceededEventIDs...)
+		evidence = append(evidence, grant.LinkedRunnerSpeechEventIDs...)
 		return SelectedRunnerPrerequisite{Ready: false, Status: grant.Status, BlockingReasons: []string{grant.Status}, Evidence: uniqueSorted(evidence)}
 	}
 	return SelectedRunnerPrerequisite{Ready: false, Status: "missing_selected_runner_prerequisite", BlockingReasons: []string{"missing_selected_runner_prerequisite"}}
@@ -357,6 +372,84 @@ func runnerMember(event EventEnvelope) string {
 	return event.Runner.Member
 }
 
+func requiresSelectedRunnerDeliveryProof(metadata *SessionMetadata) bool {
+	return metadata != nil && metadata.Surface != nil && metadata.Surface.Kind == "discord_thread"
+}
+
+func selectedRunnerDeliveryDiagnostic(metadata *SessionMetadata, grant SelectedRunnerGrantAccounting, linkedSpeechEvents map[string]EventEnvelope) (SelectedRunnerDiagnostic, bool) {
+	if !requiresSelectedRunnerDeliveryProof(metadata) {
+		return SelectedRunnerDiagnostic{}, true
+	}
+	for _, eventID := range grant.LinkedRunnerSpeechEventIDs {
+		event, ok := linkedSpeechEvents[eventID]
+		if !ok {
+			continue
+		}
+		if diagnostic, ok := selectedRunnerSpeechDeliveryDiagnostic(metadata, grant, event); ok {
+			return SelectedRunnerDiagnostic{EventID: event.EventID}, true
+		} else if diagnostic.Code != "" {
+			return diagnostic, false
+		}
+	}
+	return SelectedRunnerDiagnostic{
+		Code:            "missing_selected_runner_delivery_evidence",
+		SelectedEventID: grant.SelectedEventID,
+		Member:          grant.Member,
+		Message:         "selected-runner speech has no bound-thread visible delivery evidence",
+	}, false
+}
+
+func selectedRunnerSpeechDeliveryDiagnostic(metadata *SessionMetadata, grant SelectedRunnerGrantAccounting, event EventEnvelope) (SelectedRunnerDiagnostic, bool) {
+	diagnostic := SelectedRunnerDiagnostic{
+		SelectedEventID:    grant.SelectedEventID,
+		EventID:            event.EventID,
+		Member:             grant.Member,
+		RunnerInvocationID: firstNonEmptyString(payloadStringDefault(event.Payload, "runner_invocation_id", ""), payloadStringDefault(event.Payload, "invocation_id", "")),
+	}
+	if event.Runner != nil && strings.TrimSpace(event.Runner.InvocationID) != "" {
+		diagnostic.RunnerInvocationID = event.Runner.InvocationID
+	}
+	surfaceEvidence := anyMap(event.Payload, "surface_evidence", "plugin_evidence", "delivery_evidence", "evidence")
+	if surfaceEvidence == nil {
+		diagnostic.Code = "missing_selected_runner_delivery_evidence"
+		diagnostic.Message = "selected-runner speech has no bound-thread visible delivery evidence"
+		return diagnostic, false
+	}
+	status, _ := deliveryEvidenceStatus(surfaceEvidence)
+	if status != "posted" {
+		diagnostic.Code = "selected_runner_delivery_status_not_posted"
+		diagnostic.Message = fmt.Sprintf("selected-runner speech visible delivery is %s, not posted", status)
+		return diagnostic, false
+	}
+	if expectedThreadID := strings.TrimSpace(metadata.Surface.ThreadID); expectedThreadID != "" {
+		observedThreadID := strings.TrimSpace(anyString(surfaceEvidence, "thread_id"))
+		if observedThreadID == "" {
+			diagnostic.Code = "missing_selected_runner_delivery_thread_id"
+			diagnostic.Message = "selected-runner delivery evidence must include the configured thread_id"
+			return diagnostic, false
+		}
+		if observedThreadID != expectedThreadID {
+			diagnostic.Code = "selected_runner_delivery_thread_mismatch"
+			diagnostic.Message = "selected-runner delivery evidence thread does not match the configured council thread"
+			return diagnostic, false
+		}
+	}
+	if !selectedRunnerDeliveryLinksSpeech(surfaceEvidence, event.EventID) {
+		diagnostic.Code = "selected_runner_delivery_unlinked"
+		diagnostic.Message = "selected-runner delivery evidence must link to the canonical speech event"
+		return diagnostic, false
+	}
+	return SelectedRunnerDiagnostic{}, true
+}
+
+func selectedRunnerDeliveryLinksSpeech(surfaceEvidence map[string]any, speechEventID string) bool {
+	for _, key := range []string{"references_event_id", "speech_event_id", "event_id", "source_event_id"} {
+		if strings.TrimSpace(anyString(surfaceEvidence, key)) == speechEventID {
+			return true
+		}
+	}
+	return false
+}
 func manualOrFallbackSpeech(event EventEnvelope) bool {
 	if event.Type != "speech" || event.Runner != nil {
 		return false

@@ -61,7 +61,7 @@ func TestSelectedSpeakerDispatchInvokesSelectedMemberThroughRunnerAndRecordsSpee
 	if started.Payload["wrapper_path_sha256"] == "" || started.Payload["adapter_kind"] != runner.HermesAgentKind {
 		t.Fatalf("started payload missing redacted wrapper/backend evidence: %#v", started.Payload)
 	}
-	accounting := storage.SelectedRunnerAccountingFromIndex(index)
+	accounting := storage.SelectedRunnerAccountingFromIndex(metadata, index)
 	if !accounting.SelectedRunnerPass || accounting.RunnerSucceededCount != 1 || accounting.LinkedRunnerSpeechCount != 1 {
 		t.Fatalf("selected speaker runner success should account for succeeded invocation and linked speech: %#v", accounting)
 	}
@@ -148,7 +148,7 @@ func TestSelectedSpeakerDispatchDeliveryOutputMismatchCannotBeRepairedByFallback
 	if failure.Payload["error_class"] != runner.ErrorClassAdapterCommandMismatch || failure.Payload["reason"] != runner.ErrorClassAdapterCommandMismatch {
 		t.Fatalf("delivery mismatch failure must preserve adapter mismatch diagnostics: %#v", failure.Payload)
 	}
-	accounting := storage.SelectedRunnerAccountingFromIndex(index)
+	accounting := storage.SelectedRunnerAccountingFromIndex(metadata, index)
 	if accounting.SelectedRunnerPass || accounting.RunnerFailedCount != 1 || accounting.RunnerSucceededCount != 0 || accounting.LinkedRunnerSpeechCount != 0 || accounting.ManualOrFallbackSpeechCount != 1 {
 		t.Fatalf("fallback speech must not repair delivery-only selected runner failure: %#v", accounting)
 	}

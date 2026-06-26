@@ -119,6 +119,17 @@ func buildCouncilEvent(sessionDir string, metadata *SessionMetadata, spec Counci
 	if payload == nil {
 		payload = map[string]any{}
 	}
+	delete(payload, "closeout_diagnostics")
+	payload["session_type"] = string(metadata.SessionType)
+	payload["title"] = metadata.Title
+	payload["moderator"] = metadata.Moderator
+	payload["participants"] = append([]string(nil), metadata.Participants...)
+	if metadata.Surface != nil {
+		payload["surface"] = metadata.Surface
+	}
+	if metadata.LinkedAuthority != nil {
+		payload["linked_authority"] = metadata.LinkedAuthority
+	}
 	eventType, phase, actor, to, turn, err := councilTransition(metadata, index, current, action, spec, payload)
 	if err != nil {
 		return EventEnvelope{}, nil, err
@@ -178,9 +189,12 @@ func CouncilStatusFromLogAt(sessionDir string, metadata *SessionMetadata, now ti
 	}
 	status["discussion_quality"] = councilDiscussionQualityStatus(metadata, index, phase)
 	status["discussion_lifecycle"] = councilDiscussionLifecycle(metadata, index)
-	selectedRunnerAccounting := SelectedRunnerAccountingFromIndex(index)
+	selectedRunnerAccounting := SelectedRunnerAccountingFromIndex(metadata, index)
 	status["selected_runner_accounting"] = selectedRunnerAccounting
 	status["participant_runtime_readiness"] = ParticipantRuntimeReadinessFromIndex(metadata, index, readinessOptionsForStatus(metadata, index, now, selectedRunnerAccounting))
+	if diagnostics := closeoutDiagnosticsForStatus(metadata, index); len(diagnostics) > 0 {
+		status["closeout_diagnostics"] = diagnostics
+	}
 	if len(index.Events) > 0 {
 		last := index.Events[len(index.Events)-1]
 		status["latest_event_id"] = last.EventID
@@ -633,6 +647,9 @@ func councilTransition(metadata *SessionMetadata, index *LogIndex, current Phase
 		if current == "consensus_vote" && !hasBlockVote(index) && !hasEvidence(payload) {
 			return "", "", "", nil, nil, NewValidationError(CategoryCommandConflict, "evidence", "unresolved requires block vote or timeout evidence")
 		}
+		if diagnostics := unresolvedCloseoutDiagnostics(metadata, index, payload); len(diagnostics) > 0 {
+			payload["closeout_diagnostics"] = diagnostics
+		}
 		return "council_unresolved", "unresolved", actor, councilMembers(metadata), nil, nil
 	default:
 		return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "action", "unsupported council action")
@@ -831,6 +848,7 @@ func duplicateVote(index *LogIndex, member string, round, draft int) bool {
 	return false
 }
 func validateFinalizeReady(metadata *SessionMetadata, index *LogIndex, payload map[string]any) error {
+	diagnostics := lifecycleCloseoutDiagnostics(metadata, index, "finalization")
 	draft, round, ok := currentVoteRequest(index)
 	if !ok {
 		return NewValidationError(CategoryCommandConflict, "consensus_vote_requested", "finalize requires an open vote request")
@@ -851,6 +869,10 @@ func validateFinalizeReady(metadata *SessionMetadata, index *LogIndex, payload m
 	}
 	if strings.TrimSpace(payloadStringDefault(payload, "final_summary", "")) == "" {
 		return NewValidationError(CategoryInvalidEnvelope, "final_summary", "final_summary is required")
+	}
+	diagnostics = append(diagnostics, visibleCloseoutDiagnostics(metadata, payload, "finalization")...)
+	if len(diagnostics) > 0 {
+		return closeoutDiagnosticsError(diagnostics)
 	}
 	return validateLinkedAuthorityResult(metadata, payload)
 }
@@ -1073,6 +1095,145 @@ func latestLinkedAuthorityResult(index *LogIndex) map[string]any {
 		return anyMap(event.Payload, "linked_authority_result")
 	}
 	return nil
+}
+
+func latestTerminalCouncilEvent(index *LogIndex) *EventEnvelope {
+	for i := len(index.Events) - 1; i >= 0; i-- {
+		event := index.Events[i]
+		if event.Type == "council_finalized" || event.Type == "council_unresolved" {
+			return &index.Events[i]
+		}
+	}
+	return nil
+}
+
+func closeoutDiagnosticsForStatus(metadata *SessionMetadata, index *LogIndex) []map[string]any {
+	if event := latestTerminalCouncilEvent(index); event != nil {
+		if diagnostics := closeoutDiagnosticsFromPayload(event.Payload); len(diagnostics) > 0 {
+			return diagnostics
+		}
+	}
+	return lifecycleCloseoutDiagnostics(metadata, index, "pre_finalization")
+}
+
+func closeoutDiagnosticsFromPayload(payload map[string]any) []map[string]any {
+	if payload == nil {
+		return nil
+	}
+	value, ok := payload["closeout_diagnostics"]
+	if !ok {
+		return nil
+	}
+	switch typed := value.(type) {
+	case []map[string]any:
+		if len(typed) == 0 {
+			return nil
+		}
+		return typed
+	case []any:
+		out := make([]map[string]any, 0, len(typed))
+		for _, item := range typed {
+			row, ok := item.(map[string]any)
+			if ok {
+				out = append(out, row)
+			}
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func lifecycleCloseoutDiagnostics(metadata *SessionMetadata, index *LogIndex, stage string) []map[string]any {
+	lifecycle := councilDiscussionLifecycle(metadata, index)
+	if !lifecycle.Configured {
+		return nil
+	}
+	diagnostics := make([]map[string]any, 0, 2+len(lifecycle.MissingDiscussionTurns))
+	if lifecycle.OpeningEventID == "" {
+		diagnostics = append(diagnostics, closeoutDiagnostic("missing_moderator_opening", stage, "moderator opening event is missing", nil, "", ""))
+	}
+	for _, turn := range lifecycle.MissingDiscussionTurns {
+		diagnostics = append(diagnostics, closeoutDiagnostic("missing_discussion_turn", stage, fmt.Sprintf("turn=%d", turn), nil, "", ""))
+	}
+	if len(lifecycle.MissingCloseoutMembers) > 0 {
+		diagnostics = append(diagnostics, closeoutDiagnostic("missing_participant_closeout", stage, "selected participant closeout speech is missing", append([]string(nil), lifecycle.MissingCloseoutMembers...), "", ""))
+	}
+	if len(diagnostics) == 0 {
+		return nil
+	}
+	return diagnostics
+}
+
+func unresolvedCloseoutDiagnostics(metadata *SessionMetadata, index *LogIndex, payload map[string]any) []map[string]any {
+	diagnostics := lifecycleCloseoutDiagnostics(metadata, index, "unresolved")
+	diagnostics = append(diagnostics, closeoutDiagnostic("missing_moderator_synthesis", "unresolved", "final_summary was not recorded before unresolved closeout", nil, "", ""))
+	diagnostics = append(diagnostics, visibleCloseoutDiagnostics(metadata, payload, "unresolved")...)
+	return diagnostics
+}
+
+func visibleCloseoutDiagnostics(metadata *SessionMetadata, payload map[string]any, stage string) []map[string]any {
+	if metadata == nil || metadata.Surface == nil || metadata.Surface.Kind != "discord_thread" {
+		return nil
+	}
+	expectedThreadID := strings.TrimSpace(metadata.Surface.ThreadID)
+	surfaceEvidence := anyMap(payload, "surface_evidence")
+	if surfaceEvidence == nil {
+		return []map[string]any{closeoutDiagnostic("missing_visible_closeout_proof", stage, "surface_evidence is missing", nil, expectedThreadID, "")}
+	}
+	diagnostics := []map[string]any{}
+	status, _ := deliveryEvidenceStatus(surfaceEvidence)
+	switch status {
+	case "posted":
+		// Exact-thread binding still needs to be checked below.
+	case "failed":
+		diagnostics = append(diagnostics, closeoutDiagnostic("visible_closeout_failed", stage, firstNonEmptyString(strings.TrimSpace(anyString(surfaceEvidence, "failure_reason", "reason")), "visible closeout delivery failed"), nil, expectedThreadID, strings.TrimSpace(anyString(surfaceEvidence, "thread_id"))))
+	case "pending_followup":
+		diagnostics = append(diagnostics, closeoutDiagnostic("visible_closeout_pending_followup", stage, firstNonEmptyString(strings.TrimSpace(anyString(surfaceEvidence, "reason")), strings.TrimSpace(anyString(surfaceEvidence, "followup_card_id")), "visible closeout delivery is pending follow-up"), nil, expectedThreadID, strings.TrimSpace(anyString(surfaceEvidence, "thread_id"))))
+	default:
+		diagnostics = append(diagnostics, closeoutDiagnostic("missing_visible_closeout_proof", stage, "visible closeout evidence is missing or unproven", nil, expectedThreadID, strings.TrimSpace(anyString(surfaceEvidence, "thread_id"))))
+	}
+	if expectedThreadID != "" {
+		observedThreadID := strings.TrimSpace(anyString(surfaceEvidence, "thread_id"))
+		if observedThreadID == "" {
+			diagnostics = append(diagnostics, closeoutDiagnostic("missing_thread_binding", stage, "surface_evidence.thread_id is required for exact-thread proof", nil, expectedThreadID, observedThreadID))
+		} else if observedThreadID != expectedThreadID {
+			diagnostics = append(diagnostics, closeoutDiagnostic("exact_thread_mismatch", stage, "visible closeout thread does not match the configured council thread", nil, expectedThreadID, observedThreadID))
+		}
+	}
+	if len(diagnostics) == 0 {
+		return nil
+	}
+	return diagnostics
+}
+
+func closeoutDiagnosticsError(diagnostics []map[string]any) error {
+	return NewValidationError(CategoryCommandConflict, "closeout_diagnostics", "closeout requirements not satisfied: "+mustCompactJSON(diagnostics))
+}
+
+func closeoutDiagnostic(code, stage, reason string, memberIDs []string, expectedThreadID, observedThreadID string) map[string]any {
+	row := map[string]any{"code": code}
+	if strings.TrimSpace(stage) != "" {
+		row["stage"] = strings.TrimSpace(stage)
+	}
+	if strings.TrimSpace(reason) != "" {
+		row["reason"] = strings.TrimSpace(reason)
+	}
+	if len(memberIDs) > 0 {
+		copied := append([]string(nil), memberIDs...)
+		sort.Strings(copied)
+		row["member_ids"] = copied
+	}
+	if strings.TrimSpace(expectedThreadID) != "" {
+		row["expected_thread_id"] = strings.TrimSpace(expectedThreadID)
+	}
+	if strings.TrimSpace(observedThreadID) != "" {
+		row["observed_thread_id"] = strings.TrimSpace(observedThreadID)
+	}
+	return row
 }
 
 func firstNonEmptyString(values ...string) string {

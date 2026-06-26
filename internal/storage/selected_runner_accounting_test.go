@@ -27,7 +27,7 @@ func TestUnitRUNFIX014RunnerFailureThenFallbackSpeechDoesNotPassSelectedRunner(t
 	if err != nil {
 		t.Fatalf("ReadLogIndex: %v", err)
 	}
-	accounting := SelectedRunnerAccountingFromIndex(index)
+	accounting := SelectedRunnerAccountingFromIndex(metadata, index)
 	assertRUNFIX014FailureAccounting(t, accounting)
 
 	status, err := CouncilStatusFromLogAt(sessionDir, metadata, fixedTranscriptTime())
@@ -89,7 +89,7 @@ func TestUnitRUNFIX014RunnerDiscardThenFallbackSpeechDoesNotPassSelectedRunner(t
 	if err != nil {
 		t.Fatalf("ReadLogIndex: %v", err)
 	}
-	assertRUNFIX014TerminalAccounting(t, SelectedRunnerAccountingFromIndex(index), terminalAccountingWant{
+	assertRUNFIX014TerminalAccounting(t, SelectedRunnerAccountingFromIndex(metadata, index), terminalAccountingWant{
 		terminalDiscardCount: 1,
 		diagnosticCode:       "selected_runner_terminal_discard",
 		runnerStartedCount:   1,
@@ -110,7 +110,7 @@ func TestUnitRUNFIX014DispatchFailureThenFallbackSpeechDoesNotPassSelectedRunner
 	if err != nil {
 		t.Fatalf("ReadLogIndex: %v", err)
 	}
-	assertRUNFIX014TerminalAccounting(t, SelectedRunnerAccountingFromIndex(index), terminalAccountingWant{
+	assertRUNFIX014TerminalAccounting(t, SelectedRunnerAccountingFromIndex(metadata, index), terminalAccountingWant{
 		dispatchFailureCount: 1,
 		diagnosticCode:       "selected_runner_dispatch_failure",
 		runnerStartedCount:   0,
@@ -129,13 +129,13 @@ func TestUnitRUNFIX014LinkedRunnerSpeechPassesSelectedRunner(t *testing.T) {
 		Attempt:         1,
 		SourceCommandID: "cmd_runner_success",
 		Status:          "succeeded",
-	}, map[string]any{"speech": "Linked runner speech."}, 3*time.Second))
+	}, map[string]any{"speech": "Linked runner speech.", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "thread_id": metadata.Surface.ThreadID, "message_id": "msg-runner-success", "references_event_id": "evt_runner_speech_success"}}, 3*time.Second))
 
 	index, err := ReadLogIndex(sessionDir, metadata)
 	if err != nil {
 		t.Fatalf("ReadLogIndex: %v", err)
 	}
-	accounting := SelectedRunnerAccountingFromIndex(index)
+	accounting := SelectedRunnerAccountingFromIndex(metadata, index)
 	if !accounting.SelectedRunnerPass || accounting.SelectedSpeakerCount != 1 || accounting.RunnerStartedCount != 1 || accounting.RunnerSucceededCount != 1 || accounting.LinkedRunnerSpeechCount != 1 || accounting.RunnerFailedCount != 0 {
 		t.Fatalf("linked runner speech should pass selected-runner accounting: %#v", accounting)
 	}
@@ -150,6 +150,74 @@ func TestUnitRUNFIX014LinkedRunnerSpeechPassesSelectedRunner(t *testing.T) {
 	member := stream.ParticipantRuntimeReadiness.Members[0]
 	if member.SelectedRunnerPrerequisite == nil || !member.SelectedRunnerPrerequisite.Ready || member.SelectedRunnerPrerequisite.Status != "selected_runner_pass" {
 		t.Fatalf("selected runner readiness should pass with linked runner speech: %#v", member.SelectedRunnerPrerequisite)
+	}
+}
+func TestUnitRUNFIX3004LinkedRunnerSpeechWithoutVisibleDeliveryFailsSelectedRunner(t *testing.T) {
+	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "missing_delivery")
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeakerSelected(metadata, "evt_selected_missing_delivery", "agent-1", 1, 0))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_runner_started_missing_delivery", "runner_invocation_started", "evt_selected_missing_delivery", "run_missing_delivery", "agent-1", "started", 1*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_runner_succeeded_missing_delivery", "runner_invocation_succeeded", "evt_selected_missing_delivery", "run_missing_delivery", "agent-1", "succeeded", 2*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeech(metadata, "evt_runner_speech_missing_delivery", "evt_selected_missing_delivery", "agent-1", 1, &RunnerInfo{
+		InvocationID:    "run_missing_delivery",
+		AdapterKind:     "hermes-agent",
+		Member:          "agent-1",
+		Attempt:         1,
+		SourceCommandID: "cmd_runner_missing_delivery",
+		Status:          "succeeded",
+	}, map[string]any{"speech": "Linked runner speech without visible delivery evidence."}, 3*time.Second))
+
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	accounting := SelectedRunnerAccountingFromIndex(metadata, index)
+	if accounting.SelectedRunnerPass {
+		t.Fatalf("linked runner speech without visible delivery evidence must fail selected-runner accounting: %#v", accounting)
+	}
+	if !selectedRunnerDiagnosticsContain(accounting.Diagnostics, "missing_selected_runner_delivery_evidence") {
+		t.Fatalf("missing selected-runner delivery diagnostic missing: %#v", accounting.Diagnostics)
+	}
+	if len(accounting.SelectedRunners) != 1 || accounting.SelectedRunners[0].Status != "missing_selected_runner_delivery_evidence" {
+		t.Fatalf("grant should expose missing selected-runner delivery evidence: %#v", accounting.SelectedRunners)
+	}
+
+	stream, err := StreamStatusFromLogAt(sessionDir, metadata, fixedTranscriptTime())
+	if err != nil {
+		t.Fatalf("StreamStatusFromLogAt: %v", err)
+	}
+	member := stream.ParticipantRuntimeReadiness.Members[0]
+	if member.SelectedRunnerPrerequisite == nil || member.SelectedRunnerPrerequisite.Ready || member.SelectedRunnerPrerequisite.Status != "missing_selected_runner_delivery_evidence" {
+		t.Fatalf("selected runner readiness should fail closed without visible delivery evidence: %#v", member.SelectedRunnerPrerequisite)
+	}
+}
+
+func TestUnitRUNFIX3004LinkedRunnerSpeechWithMismatchedThreadFailsSelectedRunner(t *testing.T) {
+	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "wrong_thread")
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeakerSelected(metadata, "evt_selected_wrong_thread", "agent-1", 1, 0))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_runner_started_wrong_thread", "runner_invocation_started", "evt_selected_wrong_thread", "run_wrong_thread", "agent-1", "started", 1*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_runner_succeeded_wrong_thread", "runner_invocation_succeeded", "evt_selected_wrong_thread", "run_wrong_thread", "agent-1", "succeeded", 2*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeech(metadata, "evt_runner_speech_wrong_thread", "evt_selected_wrong_thread", "agent-1", 1, &RunnerInfo{
+		InvocationID:    "run_wrong_thread",
+		AdapterKind:     "hermes-agent",
+		Member:          "agent-1",
+		Attempt:         1,
+		SourceCommandID: "cmd_runner_wrong_thread",
+		Status:          "succeeded",
+	}, map[string]any{"speech": "Linked runner speech with mismatched thread evidence.", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "thread_id": "thread-other", "message_id": "msg-runner-wrong-thread", "references_event_id": "evt_runner_speech_wrong_thread"}}, 3*time.Second))
+
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	accounting := SelectedRunnerAccountingFromIndex(metadata, index)
+	if accounting.SelectedRunnerPass {
+		t.Fatalf("linked runner speech with mismatched thread must fail selected-runner accounting: %#v", accounting)
+	}
+	if !selectedRunnerDiagnosticsContain(accounting.Diagnostics, "selected_runner_delivery_thread_mismatch") {
+		t.Fatalf("selected-runner delivery thread mismatch diagnostic missing: %#v", accounting.Diagnostics)
+	}
+	if len(accounting.SelectedRunners) != 1 || accounting.SelectedRunners[0].Status != "selected_runner_delivery_thread_mismatch" {
+		t.Fatalf("grant should expose selected-runner delivery thread mismatch: %#v", accounting.SelectedRunners)
 	}
 }
 
@@ -170,7 +238,7 @@ func TestUnitRUNFIX014LinkedRunnerSpeechRequiresSucceededStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadLogIndex: %v", err)
 	}
-	accounting := SelectedRunnerAccountingFromIndex(index)
+	accounting := SelectedRunnerAccountingFromIndex(metadata, index)
 	if accounting.SelectedRunnerPass || accounting.LinkedRunnerSpeechCount != 0 || accounting.RunnerSucceededCount != 0 {
 		t.Fatalf("linked runner speech with failed status must not pass or count as linked success: %#v", accounting)
 	}
@@ -199,7 +267,7 @@ func TestUnitRUNFIX014LinkedRunnerSpeechWithoutRunnerSuccessDoesNotInflateSucces
 	if err != nil {
 		t.Fatalf("ReadLogIndex: %v", err)
 	}
-	accounting := SelectedRunnerAccountingFromIndex(index)
+	accounting := SelectedRunnerAccountingFromIndex(metadata, index)
 	if accounting.SelectedRunnerPass || accounting.RunnerSucceededCount != 0 || accounting.LinkedRunnerSpeechCount != 1 {
 		t.Fatalf("linked speech without runner_invocation_succeeded must remain non-passing and not count runner success: %#v", accounting)
 	}
@@ -276,6 +344,7 @@ func createSelectedRunnerAccountingSession(t *testing.T, suffix string) (string,
 	metadata.Participants = []string{"agent-mod", "agent-1"}
 	metadata.State.Phase = "discussion"
 	metadata.TurnMode = "moderator_direct"
+	metadata.Surface = &Surface{Kind: "discord_thread", Platform: "discord", ThreadID: "thread-runfix014-" + suffix}
 	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
 		t.Fatalf("WriteSessionYAMLAtomic: %v", err)
 	}

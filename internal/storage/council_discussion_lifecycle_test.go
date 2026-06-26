@@ -33,6 +33,22 @@ func TestRUNFIX2CouncilDiscussionLifecycleBlocksProposeUntilCloseouts(t *testing
 	if got := lifecycle.MissingCloseoutMembers; len(got) != 2 || got[0] != "agent-1" || got[1] != "agent-2" {
 		t.Fatalf("missing closeouts = %#v, want both members; lifecycle=%#v", got, lifecycle)
 	}
+	diagnostics, ok := status["closeout_diagnostics"].([]map[string]any)
+	if !ok || len(diagnostics) == 0 {
+		t.Fatalf("closeout_diagnostics missing before closeouts: %#v", status["closeout_diagnostics"])
+	}
+	found := false
+	for _, diagnostic := range diagnostics {
+		if anyString(diagnostic, "code") == "missing_participant_closeout" {
+			members, ok := diagnostic["member_ids"].([]string)
+			if ok && len(members) == 2 && members[0] == "agent-1" && members[1] == "agent-2" {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected missing_participant_closeout diagnostic, got %#v", diagnostics)
+	}
 }
 
 func TestRUNFIX2CouncilDiscussionLifecycleAllowsProposeAfterT0ThroughT4AndExportsAccounting(t *testing.T) {

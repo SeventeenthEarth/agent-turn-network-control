@@ -198,7 +198,7 @@ func StreamStatusFromLogAt(sessionDir string, metadata *SessionMetadata, now tim
 	for _, key := range keys {
 		status.Subscribers = append(status.Subscribers, subscribers[key])
 	}
-	selectedRunnerAccounting := SelectedRunnerAccountingFromIndex(index)
+	selectedRunnerAccounting := SelectedRunnerAccountingFromIndex(metadata, index)
 	status.SelectedRunnerAccounting = selectedRunnerAccounting
 	status.ParticipantRuntimeReadiness = ParticipantRuntimeReadinessFromIndex(metadata, index, readinessOptionsForStatus(metadata, index, now, selectedRunnerAccounting))
 	return status, nil
@@ -503,9 +503,22 @@ func commandEquivalent(a, b EventEnvelope) bool {
 	if string(leftTo) != string(rightTo) {
 		return false
 	}
-	leftPayload, _ := json.Marshal(a.Payload)
-	rightPayload, _ := json.Marshal(b.Payload)
+	leftPayload, _ := json.Marshal(normalizedCommandPayload(a))
+	rightPayload, _ := json.Marshal(normalizedCommandPayload(b))
 	return string(leftPayload) == string(rightPayload)
+}
+
+func normalizedCommandPayload(event EventEnvelope) map[string]any {
+	payload := clonePayload(event.Payload)
+	if payload == nil {
+		return nil
+	}
+	if event.SessionType == SessionTypeCouncil {
+		for _, key := range []string{"session_type", "title", "moderator", "participants", "surface", "linked_authority"} {
+			delete(payload, key)
+		}
+	}
+	return payload
 }
 
 func eventByIDAndType(index *LogIndex, eventID, eventType string) (EventEnvelope, bool) {
