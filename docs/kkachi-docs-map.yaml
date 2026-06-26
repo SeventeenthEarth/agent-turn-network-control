@@ -87,4 +87,4 @@ nexfix:
   cross_repo_sequence:
     - "control/NEWFIX-001"
     - "plugin/NEWFIX-002"
-  boundary: "NEXFIX hardens selected-runner content-plane readiness after the 2026-06-26 prompt-envelope defect. Control owns projection-backed prompt construction, prompt-content regression tests, and missing-agenda fail-closed diagnostics. Plugin owns moderator/participant packaged guidance. No live Discord rollout, production activation, profile/provider/gateway/auth/token/model mutation, hidden fallback, package publication, push, or broad rollout is authorized."
+  boundary: "NEXFIX hardens selected-runner content-plane readiness after the 2026-06-26 prompt-envelope defect. Control owns projection-backed prompt construction, prompt-content regression tests, and missing-agenda fail-closed diagnostics. Plugin owns moderator/participant packaged guidance. No live Discord rollout, default Discord activation, daemon startup/discovery or mutation, production activation, profile/provider/gateway/auth/token/model mutation, hidden fallback, package publication, push, or broad rollout is authorized."

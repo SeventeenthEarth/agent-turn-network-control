@@ -222,7 +222,7 @@ RUNFIX3 task order and current status:
 
 ### NEXFIX selected-runner prompt envelope remediation
 
-NEXFIX records the 2026-06-26 KLM token/speed dogfood defect where lifecycle/runtime readiness passed, `agenda_locked` contained the decision question and success criteria, but selected-runner dispatch used a default prompt envelope that omitted agenda and prior-context. The participant therefore produced canonical `speech` content saying the agenda body was missing. The SOT lock is `17thHermes:40_outputs/team/macho/atn/2026-06-26-atn-selected-runner-prompt-envelope-nexfix-sot.md`. Control `NEWFIX-001` and plugin `NEWFIX-002` are now implementation_complete/review_pending: implementation and fixed minimum gates are done, while focused Blue re-review and acceptance closeout remain pending.
+NEXFIX records the 2026-06-26 KLM token/speed dogfood defect where lifecycle/runtime readiness passed, `agenda_locked` contained the decision question and success criteria, but selected-runner dispatch used a default prompt envelope that omitted agenda and prior-context. The participant therefore produced canonical `speech` content saying the agenda body was missing. The SOT lock is `17thHermes:40_outputs/team/macho/atn/2026-06-26-atn-selected-runner-prompt-envelope-nexfix-sot.md`. Control `NEWFIX-001` and plugin `NEWFIX-002` are completed for local implementation/documentation scope after focused color review, traceability repair, and Blue synthesis recorded in `/Users/draccoon/Workspace/SeventeenthEarth/agent-turn-network/feedback.md`.
 
 Control-owned contract impact:
 - `speaker_selected` may remain a compact floor-grant event, but selected-runner dispatch must build the participant prompt from authoritative daemon projection over the session event log.
@@ -236,8 +236,8 @@ NEXFIX task order and current status:
 
 | Global Order | Repo | Task ID | Status | Control-owned acceptance |
 |---:|---|---|---|---|
-| 1 | control | NEWFIX-001 | implementation_complete/review_pending | Projection-backed selected-runner prompt envelope, durable `selected_runner_prompt_evidence`, and fail-closed diagnostics are implemented. Hidden generic fallback is removed from `SelectedSpeakerDispatchHandler`; nil or empty prompt-builder output now records a durable `selected_runner_dispatch_failed` instead of launching the runner. Fixed minimum control gates passed: `git diff --check`, `go test ./internal/storage ./internal/daemon -run 'NEWFIX001|SelectedRunnerPrompt|SelectedSpeaker|RUNFIX009|RUNFIX011' -count=1`, and `make test`. |
-| 2 | plugin | NEWFIX-002 | implementation_complete/review_pending | Plugin-owned content-plane readiness guidance and missing-context participant diagnostics are implemented and awaiting focused Blue re-review. Fixed minimum plugin gates passed: `git diff --check` and `make test`. Control records dependency/status only and does not treat plugin guidance as daemon prompt authority. |
+| 1 | control | NEWFIX-001 | completed | Projection-backed selected-runner prompt envelope, durable `selected_runner_prompt_evidence`, and fail-closed diagnostics are accepted after focused color review and traceability repair. Hidden generic fallback is removed from `SelectedSpeakerDispatchHandler`; nil or empty prompt-builder output now records a durable `selected_runner_dispatch_failed` instead of launching the runner. Verification passed: `git diff --check`, `go test ./internal/storage ./internal/daemon -run 'NEWFIX001|SelectedRunnerPrompt|SelectedSpeaker|RUNFIX009|RUNFIX011' -count=1`, and `make test`. |
+| 2 | plugin | NEWFIX-002 | completed | Plugin-owned content-plane readiness guidance and missing-context participant diagnostics are accepted after focused color review and traceability repair. Verification passed in plugin: `git diff --check` and `make test`. Control records dependency/status only and does not treat plugin guidance as daemon prompt authority. |
 
 
 ### MEMBR: Member runtime profile invocation
