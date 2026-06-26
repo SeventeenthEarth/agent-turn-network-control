@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"atn-control/internal/memberruntime"
+	"atn-control/internal/protocol"
 	"atn-control/internal/registry"
 	"atn-control/internal/runner"
 	"atn-control/internal/storage"
@@ -47,7 +48,13 @@ func (h SelectedSpeakerDispatchHandler) Handle(ctx context.Context, frame storag
 	if commandID == "" {
 		return fmt.Errorf("speaker_selected missing command_id")
 	}
-	prompt := h.promptFor(event)
+	prompt, err := h.promptFor(event)
+	if err != nil {
+		if appendErr := h.appendPromptDiagnostic(event, err); appendErr != nil {
+			return appendErr
+		}
+		return memberruntime.ErrDurableFailureRecorded
+	}
 	if h.Timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, h.Timeout)
@@ -111,12 +118,54 @@ func (h SelectedSpeakerDispatchHandler) validateCanonicalSpeechTerminal() Runner
 	}
 }
 
-func (h SelectedSpeakerDispatchHandler) promptFor(event storage.EventEnvelope) string {
-	if h.PromptBuilder != nil {
-		return h.PromptBuilder(event, h.Member)
+func (h SelectedSpeakerDispatchHandler) promptFor(event storage.EventEnvelope) (string, error) {
+	if h.PromptBuilder == nil {
+		return "", fmt.Errorf("selected speaker prompt builder is required")
 	}
-	turn := event.Payload["turn"]
-	return fmt.Sprintf("ATN council selected registered member %s to speak for turn %v. Use the configured participant wrapper boundary and return only a typed speech JSON object. Required shape: {\"type\":\"speech\",\"payload\":{\"speech\":\"visible participant answer\"}}. Do not use payload.message instead of payload.speech. causation_event_id=%s", h.Member.ID, turn, event.EventID)
+	prompt := strings.TrimSpace(h.PromptBuilder(event, h.Member))
+	if prompt == "" {
+		return "", fmt.Errorf("selected speaker prompt builder returned empty prompt")
+	}
+	return prompt, nil
+}
+
+func (h SelectedSpeakerDispatchHandler) appendPromptDiagnostic(event storage.EventEnvelope, validationErr error) error {
+	if h.Metadata == nil {
+		return fmt.Errorf("selected speaker metadata is required")
+	}
+	payload := map[string]any{
+		"reason":                    "selected_runner_prompt_missing",
+		"selected_member":           h.Member.ID,
+		"turn":                      event.Payload["turn"],
+		"diagnostic_owner":          "control/NEWFIX-001",
+		"diagnostic_path":           "internal/daemon/selected_speaker.go",
+		"validation_error":          validationErr.Error(),
+		"prompt_builder_configured": h.PromptBuilder != nil,
+	}
+	diagnostic := storage.EventEnvelope{
+		SchemaVersion:    protocol.SchemaVersion,
+		EventID:          eventIDFor(event.EventID, "selected_runner_dispatch_failed", 1, h.now()),
+		CommandID:        event.CommandID,
+		CausationEventID: event.EventID,
+		CorrelationID:    h.Metadata.ID,
+		SessionID:        h.Metadata.ID,
+		SessionType:      h.Metadata.SessionType,
+		Phase:            event.Phase,
+		Type:             "selected_runner_dispatch_failed",
+		From:             "atn-controld",
+		To:               []string{h.Metadata.Moderator},
+		CreatedAt:        h.now(),
+		Payload:          payload,
+	}
+	_, err := storage.AppendEvent(h.SessionDir, h.Metadata, diagnostic)
+	return err
+}
+
+func (h SelectedSpeakerDispatchHandler) now() time.Time {
+	if h.Now != nil {
+		return h.Now()
+	}
+	return time.Now().UTC()
 }
 
 func normalizeSelectedRunnerSpeechPayload(payload map[string]any) map[string]any {

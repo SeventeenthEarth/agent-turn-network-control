@@ -343,6 +343,23 @@ func (s *Server) dispatchSelectedSpeakerAfterGrant(ctx context.Context, sessionD
 	if event.Turn != nil {
 		dispatchMetadata.State.CurrentTurn = *event.Turn
 	}
+	promptEnvelope, err := storage.BuildSelectedRunnerPromptEnvelope(&dispatchMetadata, index, event, member)
+	if err != nil {
+		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "", "selected_runner_prompt_context_build_failed", "internal/storage/selected_runner_prompt_evidence.go", map[string]any{
+			"diagnostic_owner": "control/NEWFIX-001",
+			"validation_error": err.Error(),
+		})
+	}
+	if err := s.appendSelectedRunnerPromptEvidence(sessionDir, metadata, event, promptEnvelope.Evidence, index.Events); err != nil {
+		return err
+	}
+	if promptEnvelope.Evidence.Result == "blocked" {
+		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "", "selected_runner_context_missing", "internal/storage/selected_runner_prompt_evidence.go", map[string]any{
+			"diagnostic_owner":                "control/NEWFIX-001",
+			"selected_runner_prompt_evidence": selectedRunnerPromptEvidencePayload(promptEnvelope.Evidence),
+			"blocking_reasons":                append([]string(nil), promptEnvelope.Evidence.MissingRequiredContext...),
+		})
+	}
 	handler := SelectedSpeakerDispatchHandler{
 		SessionDir: sessionDir,
 		Metadata:   &dispatchMetadata,
@@ -353,12 +370,71 @@ func (s *Server) dispatchSelectedSpeakerAfterGrant(ctx context.Context, sessionD
 		Now:        s.now,
 		MaxRetries: s.selectedSpeakerMaxRetries(metadata),
 		Timeout:    s.selectedSpeakerTimeout(metadata),
+		PromptBuilder: func(storage.EventEnvelope, registry.Member) string {
+			return promptEnvelope.Prompt
+		},
 	}
 	frame := storage.StreamFrame{Cursor: result.Cursor, IsReplay: false, Event: event}
 	if err := handler.Handle(ctx, frame); err != nil && !errors.Is(err, memberruntime.ErrDurableFailureRecorded) {
 		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "", "selected_runner_dispatch_failed", "internal/daemon/selected_speaker.go")
 	}
 	return nil
+}
+
+func (s *Server) appendSelectedRunnerPromptEvidence(sessionDir string, metadata *storage.SessionMetadata, speaker storage.EventEnvelope, evidence storage.SelectedRunnerPromptEvidence, events []storage.EventEnvelope) error {
+	if selectedRunnerPromptEvidenceRecorded(events, speaker.EventID) {
+		return nil
+	}
+	event := storage.EventEnvelope{
+		SchemaVersion:    protocol.SchemaVersion,
+		EventID:          eventIDFor("prompt_"+sha256Text(speaker.EventID)[:12], "selected_runner_prompt_evidence", 1, s.now()),
+		CommandID:        speaker.CommandID,
+		CausationEventID: speaker.EventID,
+		CorrelationID:    metadata.ID,
+		SessionID:        metadata.ID,
+		SessionType:      metadata.SessionType,
+		Phase:            speaker.Phase,
+		Type:             "selected_runner_prompt_evidence",
+		From:             "atn-controld",
+		To:               []string{metadata.Moderator},
+		CreatedAt:        s.now(),
+		Payload:          selectedRunnerPromptEvidencePayload(evidence),
+	}
+	_, err := storage.AppendEvent(sessionDir, metadata, event)
+	return err
+}
+
+func selectedRunnerPromptEvidenceRecorded(events []storage.EventEnvelope, speakerEventID string) bool {
+	for _, event := range events {
+		if event.Type == "selected_runner_prompt_evidence" && event.CausationEventID == speakerEventID {
+			return true
+		}
+	}
+	return false
+}
+
+func selectedRunnerPromptEvidencePayload(evidence storage.SelectedRunnerPromptEvidence) map[string]any {
+	payload := map[string]any{
+		"session_id":                evidence.SessionID,
+		"speaker_selected_event_id": evidence.SpeakerSelectedEventID,
+		"selected_member":           evidence.SelectedMember,
+		"turn":                      evidence.Turn,
+		"causation_event_id":        evidence.CausationEventID,
+		"result":                    evidence.Result,
+		"included_context":          append([]string(nil), evidence.IncludedContext...),
+		"missing_required_context":  append([]string(nil), evidence.MissingRequiredContext...),
+		"prompt_context_sha256":     evidence.PromptContextSHA256,
+	}
+	if len(evidence.AgendaSourceEventIDs) > 0 {
+		payload["agenda_source_event_ids"] = append([]string(nil), evidence.AgendaSourceEventIDs...)
+	}
+	if len(evidence.PriorContextSourceEventIDs) > 0 {
+		payload["prior_context_source_event_ids"] = append([]string(nil), evidence.PriorContextSourceEventIDs...)
+	}
+	if evidence.RedactedPromptExcerpt != "" {
+		payload["redacted_prompt_excerpt"] = evidence.RedactedPromptExcerpt
+	}
+	return payload
 }
 
 func (s *Server) selectedSpeakerAdapter() (runner.Adapter, error) {

@@ -136,7 +136,7 @@ func createPreparedRUNFIX011Council(t *testing.T, suffix string, includeRuntimeE
 	dataHome, metadata, sessionDir := createRUNFIX011Council(t, suffix)
 	appendCouncilEventForDispatch(t, sessionDir, metadata, "request-attendance", "agent-mod", "cmd_"+suffix+"_attendance", map[string]any{"timeout_sec": 30}, time.Second)
 	appendCouncilEventForDispatch(t, sessionDir, metadata, "attend", "agent-1", "cmd_"+suffix+"_attend", map[string]any{"status": "present", "summary": "ready"}, 2*time.Second)
-	appendCouncilEventForDispatch(t, sessionDir, metadata, "lock-agenda", "agent-mod", "cmd_"+suffix+"_agenda", map[string]any{"decision_question": "What should ship?"}, 3*time.Second)
+	appendCouncilEventForDispatch(t, sessionDir, metadata, "lock-agenda", "agent-mod", "cmd_"+suffix+"_agenda", map[string]any{"decision_question": "What should ship?", "success_criteria": "Produce a canonical typed speech only when required control context is present.", "out_of_scope_policy": "Do not repair missing control context from plugin hints, fallback speech, or operator prose."}, 3*time.Second)
 	if includeRuntimeEvidence {
 		appendRuntimeEvidenceForRUNFIX011(t, sessionDir, metadata, "agent-1", 4*time.Second)
 	}

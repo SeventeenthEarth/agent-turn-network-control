@@ -191,6 +191,9 @@ func CouncilStatusFromLogAt(sessionDir string, metadata *SessionMetadata, now ti
 	status["discussion_lifecycle"] = councilDiscussionLifecycle(metadata, index)
 	selectedRunnerAccounting := SelectedRunnerAccountingFromIndex(metadata, index)
 	status["selected_runner_accounting"] = selectedRunnerAccounting
+	if evidence := LatestSelectedRunnerPromptEvidenceFromIndex(index); evidence != nil {
+		status["selected_runner_prompt_evidence"] = *evidence
+	}
 	status["participant_runtime_readiness"] = ParticipantRuntimeReadinessFromIndex(metadata, index, readinessOptionsForStatus(metadata, index, now, selectedRunnerAccounting))
 	if diagnostics := closeoutDiagnosticsForStatus(metadata, index); len(diagnostics) > 0 {
 		status["closeout_diagnostics"] = diagnostics
@@ -503,6 +506,10 @@ func councilTransition(metadata *SessionMetadata, index *LogIndex, current Phase
 		if metadata.TurnMode != "" && mode != metadata.TurnMode && strings.TrimSpace(payloadStringDefault(payload, "reason", "")) == "" {
 			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "reason", "reason is required when selection_mode deviates from turn_mode")
 		}
+		delete(payload, "stance_assignment")
+		if stanceAssignment := selectedGrantStanceAssignment(index, member, turn); strings.TrimSpace(stanceAssignment) != "" {
+			payload["stance_assignment"] = stanceAssignment
+		}
 		turnPtr = intPtr(turn)
 		return "speaker_selected", "discussion", actor, []string{member}, turnPtr, nil
 	case "speak":
@@ -797,6 +804,26 @@ func speakerGranted(index *LogIndex, member string, turn int) bool {
 	}
 	return false
 }
+func selectedGrantStanceAssignment(index *LogIndex, member string, turn int) string {
+	if index == nil || turn <= 0 || strings.TrimSpace(member) == "" {
+		return ""
+	}
+	for i := len(index.Events) - 1; i >= 0; i-- {
+		event := index.Events[i]
+		if event.Type != "hand_raise" {
+			continue
+		}
+		if strings.TrimSpace(event.From) != strings.TrimSpace(member) || anyInt(event.Payload, "turn") != turn {
+			continue
+		}
+		if intent := strings.TrimSpace(payloadStringDefault(event.Payload, "intent", "")); intent != "" {
+			return intent
+		}
+		return strings.TrimSpace(payloadStringDefault(event.Payload, "reason", ""))
+	}
+	return ""
+}
+
 func participantsExcept(metadata *SessionMetadata, except string) []string {
 	out := []string{}
 	for _, p := range metadata.Participants {

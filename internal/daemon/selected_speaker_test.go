@@ -3,6 +3,7 @@ package daemon_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,7 +26,7 @@ func TestSelectedSpeakerDispatchInvokesSelectedMemberThroughRunnerAndRecordsSpee
 	member := loaded.Registry.Members["agent-1"]
 	member.ResolvedWrapper = &registry.WrapperResolution{ResolvedPath: wrapper}
 	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": 1, "message": "isolated wrapper speech evidence"}, Cost: &runner.Cost{TokensIn: 2, TokensOut: 3, USDEstimate: 0.04, Source: runner.HermesAgentCostSource}}}}}
-	handler := daemon.SelectedSpeakerDispatchHandler{SessionDir: sessionDir, Metadata: metadata, Member: member, Adapter: adapter, Runtime: daemonFixedRuntime(), Locks: &daemon.DispatchLocks{}}
+	handler := daemon.SelectedSpeakerDispatchHandler{SessionDir: sessionDir, Metadata: metadata, Member: member, Adapter: adapter, Runtime: daemonFixedRuntime(), Locks: &daemon.DispatchLocks{}, PromptBuilder: selectedSpeakerPromptBuilder()}
 	stream := &selectedSpeakerStream{frames: framesThroughSpeaker(t, sessionDir, metadata, speaker.EventID)}
 	rt := memberruntime.Runtime{SessionID: metadata.ID, Member: "agent-1", Role: "assignee", Stream: stream, Cursors: &selectedSpeakerCursorStore{}, Policy: memberruntime.Policy{ActionTypes: memberruntime.NewPolicy("speaker_selected").ActionTypes, RecipientHints: map[string]struct{}{"self": {}}}, Handler: handler}
 
@@ -81,7 +82,7 @@ func TestSelectedSpeakerDispatchRecordsDurableFailureBeforeAck(t *testing.T) {
 	member := loaded.Registry.Members["agent-1"]
 	member.ResolvedWrapper = &registry.WrapperResolution{ResolvedPath: wrapper}
 	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: false, ErrorClass: "timeout"}, err: errors.New("timeout")}}}
-	handler := daemon.SelectedSpeakerDispatchHandler{SessionDir: sessionDir, Metadata: metadata, Member: member, Adapter: adapter, Runtime: daemonFixedRuntime(), Locks: &daemon.DispatchLocks{}}
+	handler := daemon.SelectedSpeakerDispatchHandler{SessionDir: sessionDir, Metadata: metadata, Member: member, Adapter: adapter, Runtime: daemonFixedRuntime(), Locks: &daemon.DispatchLocks{}, PromptBuilder: selectedSpeakerPromptBuilder()}
 	stream := &selectedSpeakerStream{frames: framesThroughSpeaker(t, sessionDir, metadata, speaker.EventID)}
 	rt := memberruntime.Runtime{SessionID: metadata.ID, Member: "agent-1", Stream: stream, Cursors: &selectedSpeakerCursorStore{}, Policy: memberruntime.Policy{ActionTypes: memberruntime.NewPolicy("speaker_selected").ActionTypes, RecipientHints: map[string]struct{}{"self": {}}}, Handler: handler}
 
@@ -119,7 +120,7 @@ func TestSelectedSpeakerDispatchDeliveryOutputMismatchCannotBeRepairedByFallback
 	member := loaded.Registry.Members["agent-1"]
 	member.ResolvedWrapper = &registry.WrapperResolution{ResolvedPath: wrapper}
 	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: false, ErrorClass: runner.ErrorClassAdapterCommandMismatch, Payload: map[string]any{"diagnostic_excerpt": "platform_delivery posted [redacted]"}}, err: runner.ErrSemantic}}}
-	handler := daemon.SelectedSpeakerDispatchHandler{SessionDir: sessionDir, Metadata: metadata, Member: member, Adapter: adapter, Runtime: daemonFixedRuntime(), Locks: &daemon.DispatchLocks{}}
+	handler := daemon.SelectedSpeakerDispatchHandler{SessionDir: sessionDir, Metadata: metadata, Member: member, Adapter: adapter, Runtime: daemonFixedRuntime(), Locks: &daemon.DispatchLocks{}, PromptBuilder: selectedSpeakerPromptBuilder()}
 	stream := &selectedSpeakerStream{frames: framesThroughSpeaker(t, sessionDir, metadata, speaker.EventID)}
 	rt := memberruntime.Runtime{SessionID: metadata.ID, Member: "agent-1", Stream: stream, Cursors: &selectedSpeakerCursorStore{}, Policy: memberruntime.Policy{ActionTypes: memberruntime.NewPolicy("speaker_selected").ActionTypes, RecipientHints: map[string]struct{}{"self": {}}}, Handler: handler}
 
@@ -164,7 +165,7 @@ func TestSelectedSpeakerDispatchRejectsMemberToMismatchBeforeAdapterLaunch(t *te
 	member := loaded.Registry.Members["agent-1"]
 	member.ResolvedWrapper = &registry.WrapperResolution{ResolvedPath: wrapper}
 	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: true}}}}
-	handler := daemon.SelectedSpeakerDispatchHandler{SessionDir: sessionDir, Metadata: metadata, Member: member, Adapter: adapter, Runtime: daemonFixedRuntime(), Locks: &daemon.DispatchLocks{}}
+	handler := daemon.SelectedSpeakerDispatchHandler{SessionDir: sessionDir, Metadata: metadata, Member: member, Adapter: adapter, Runtime: daemonFixedRuntime(), Locks: &daemon.DispatchLocks{}, PromptBuilder: selectedSpeakerPromptBuilder()}
 	event := storage.EventEnvelope{SchemaVersion: protocol.SchemaVersion, EventID: "evt_speaker_selected_mismatch", CommandID: "cmd_council_grant_mismatch", CorrelationID: metadata.ID, SessionID: metadata.ID, SessionType: metadata.SessionType, Phase: storage.Phase("discussion"), Type: "speaker_selected", From: metadata.Moderator, To: []string{"agent-2"}, CreatedAt: time.Date(2026, 6, 10, 21, 30, 0, 0, time.UTC), Payload: map[string]any{"turn": 1, "member": "agent-1", "selection_mode": "manual"}}
 
 	err = handler.Handle(context.Background(), storage.StreamFrame{Event: event})
@@ -173,6 +174,68 @@ func TestSelectedSpeakerDispatchRejectsMemberToMismatchBeforeAdapterLaunch(t *te
 	}
 	if adapter.calls != 0 {
 		t.Fatalf("adapter launched despite selected member mismatch")
+	}
+}
+
+func TestSelectedSpeakerDispatchFailsClosedWithoutUsablePromptBuilder(t *testing.T) {
+	tests := []struct {
+		name            string
+		promptBuilder   func(storage.EventEnvelope, registry.Member) string
+		wantConfigured  bool
+		wantErrorSubstr string
+	}{
+		{name: "missing builder", wantConfigured: false, wantErrorSubstr: "required"},
+		{name: "empty builder output", promptBuilder: func(storage.EventEnvelope, registry.Member) string { return "   " }, wantConfigured: true, wantErrorSubstr: "empty prompt"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dataHome, loaded, wrapper := dispatchDataHome(t)
+			metadata, _, err := storage.CreateSession(dataHome, loaded, storage.SessionSpec{ID: "sess_selected_speaker_prompt_" + strings.NewReplacer("/", "_", " ", "_").Replace(tt.name), SessionType: storage.SessionTypeCouncil, Title: "NEWFIX-001 prompt builder", Moderator: "agent-mod", Participants: []string{"agent-mod", "agent-1"}, EventID: "evt_created_selected_speaker_prompt_" + strings.NewReplacer("/", "_", " ", "_").Replace(tt.name), CommandID: "cmd_create_selected_speaker_prompt_" + strings.NewReplacer("/", "_", " ", "_").Replace(tt.name)}, daemonFixedRuntime())
+			if err != nil {
+				t.Fatalf("CreateSession: %v", err)
+			}
+			sessionDir, _ := storage.SessionDir(dataHome, metadata.ID)
+			speaker := appendSpeakerSelected(t, sessionDir, metadata, "evt_speaker_selected_prompt_"+strings.NewReplacer("/", "_", " ", "_").Replace(tt.name), "cmd_council_grant_prompt_"+strings.NewReplacer("/", "_", " ", "_").Replace(tt.name), "agent-1")
+			member := loaded.Registry.Members["agent-1"]
+			member.ResolvedWrapper = &registry.WrapperResolution{ResolvedPath: wrapper}
+			adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": 1, "speech": "should not run"}, Cost: &runner.Cost{Source: runner.HermesAgentCostSource}}}}}
+			handler := daemon.SelectedSpeakerDispatchHandler{SessionDir: sessionDir, Metadata: metadata, Member: member, Adapter: adapter, Runtime: daemonFixedRuntime(), Locks: &daemon.DispatchLocks{}, PromptBuilder: tt.promptBuilder}
+			stream := &selectedSpeakerStream{frames: framesThroughSpeaker(t, sessionDir, metadata, speaker.EventID)}
+			rt := memberruntime.Runtime{SessionID: metadata.ID, Member: "agent-1", Stream: stream, Cursors: &selectedSpeakerCursorStore{}, Policy: memberruntime.Policy{ActionTypes: memberruntime.NewPolicy("speaker_selected").ActionTypes, RecipientHints: map[string]struct{}{"self": {}}}, Handler: handler}
+
+			if err := rt.RunOnce(context.Background()); err != nil {
+				t.Fatalf("prompt-builder failure should let runtime ack after durable diagnostic, got: %v", err)
+			}
+			if adapter.calls != 0 {
+				t.Fatalf("prompt-builder failure must prevent runner launch, calls=%d", adapter.calls)
+			}
+			index, err := storage.ReadLogIndex(sessionDir, metadata)
+			if err != nil {
+				t.Fatalf("ReadLogIndex: %v", err)
+			}
+			if eventTypeCount(index.Events, "runner_invocation_started") != 0 {
+				t.Fatalf("prompt-builder failure must not append runner_invocation_started: %#v", index.Events)
+			}
+			diagnostic := findEvent(t, index.Events, "selected_runner_dispatch_failed")
+			if diagnostic.Payload["reason"] != "selected_runner_prompt_missing" || diagnostic.Payload["prompt_builder_configured"] != tt.wantConfigured {
+				t.Fatalf("unexpected prompt-builder diagnostic: %#v", diagnostic.Payload)
+			}
+			if validationError, _ := diagnostic.Payload["validation_error"].(string); !strings.Contains(validationError, tt.wantErrorSubstr) {
+				t.Fatalf("prompt-builder diagnostic missing %q: %#v", tt.wantErrorSubstr, diagnostic.Payload)
+			}
+			if diagnostic.CausationEventID != speaker.EventID {
+				t.Fatalf("prompt-builder diagnostic must preserve causation: %#v", diagnostic)
+			}
+			if len(stream.acks) != 2 || stream.acks[len(stream.acks)-1].EventID != speaker.EventID {
+				t.Fatalf("runtime should ack speaker_selected after durable prompt-builder diagnostic, acks=%#v", stream.acks)
+			}
+		})
+	}
+}
+
+func selectedSpeakerPromptBuilder() func(storage.EventEnvelope, registry.Member) string {
+	return func(storage.EventEnvelope, registry.Member) string {
+		return "projection-backed selected-runner prompt"
 	}
 }
 

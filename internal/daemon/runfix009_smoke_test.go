@@ -22,7 +22,7 @@ func TestRUNFIX009IntegratedControlSmokeFixture(t *testing.T) {
 	dataHome, metadata, sessionDir := createRUNFIX009Council(t)
 	appendRUNFIX009CouncilEvent(t, sessionDir, metadata, "request-attendance", "agent-mod", "cmd_runfix009_attendance", map[string]any{"timeout_sec": 30}, time.Second)
 	appendRUNFIX009CouncilEvent(t, sessionDir, metadata, "attend", "agent-1", "cmd_runfix009_attend_agent_1", map[string]any{"status": "present", "summary": "ready"}, 2*time.Second)
-	appendRUNFIX009CouncilEvent(t, sessionDir, metadata, "lock-agenda", "agent-mod", "cmd_runfix009_agenda", map[string]any{"decision_question": "What proves RUNFIX-009 locally?"}, 3*time.Second)
+	appendRUNFIX009CouncilEvent(t, sessionDir, metadata, "lock-agenda", "agent-mod", "cmd_runfix009_agenda", map[string]any{"decision_question": "What proves RUNFIX-009 locally?", "success_criteria": "Produce a canonical typed speech that references the locked local proof objective.", "out_of_scope_policy": "Do not broaden beyond local control evidence or repair missing context from fallback text."}, 3*time.Second)
 	appendRUNFIX009RuntimeEvidence(t, sessionDir, metadata, "agent-1", 3500*time.Millisecond)
 	appendRUNFIX009CouncilEvent(t, sessionDir, metadata, "prepare", "agent-mod", "cmd_runfix009_prepare", map[string]any{"timeout_sec": 30}, 4*time.Second)
 	appendRUNFIX009CouncilEvent(t, sessionDir, metadata, "ready", "agent-1", "cmd_runfix009_ready_agent_1", map[string]any{"summary": "ready for RUNFIX-009 smoke"}, 4500*time.Millisecond)
@@ -79,6 +79,7 @@ func TestRUNFIX009IntegratedControlSmokeFixture(t *testing.T) {
 		"surface_evidence": map[string]any{
 			"status":           "posted",
 			"kind":             "discord_thread",
+			"thread_id":        metadata.Surface.ThreadID,
 			"final_message_id": "msg-runfix009-final-local",
 		},
 		"linked_authority_result": map[string]any{

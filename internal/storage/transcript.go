@@ -116,12 +116,18 @@ func BuildExportBundle(sessionDir string, metadata *SessionMetadata, opts Export
 		return ExportBundleResult{}, err
 	}
 	manifest := map[string]any{
-		"session_id":                  metadata.ID,
-		"protocol_export":             "transcript-export-v1",
-		"source_event_log":            ChannelJSONLName,
-		"registry_snapshot":           metadata.RegistrySnapshot,
-		"includes_operator_evidence":  true,
-		"selected_runner_accounting":  SelectedRunnerAccountingFromIndex(metadata, index),
+		"session_id":                 metadata.ID,
+		"protocol_export":            "transcript-export-v1",
+		"source_event_log":           ChannelJSONLName,
+		"registry_snapshot":          metadata.RegistrySnapshot,
+		"includes_operator_evidence": true,
+		"selected_runner_accounting": SelectedRunnerAccountingFromIndex(metadata, index),
+		"selected_runner_prompt_evidence": func() any {
+			if evidence := LatestSelectedRunnerPromptEvidenceFromIndex(index); evidence != nil {
+				return *evidence
+			}
+			return nil
+		}(),
 		"discussion_lifecycle":        councilDiscussionLifecycle(metadata, index),
 		"closeout_diagnostics":        closeoutDiagnosticsForStatus(metadata, index),
 		"summary_turn_accounting":     summaryTurnAccountingRows(metadata, index),
@@ -188,6 +194,7 @@ func renderTranscriptMarkdown(metadata *SessionMetadata, events []EventEnvelope)
 	fmt.Fprintf(&b, "- usd_estimate_total: `%.6f`\n", cost.USDEstimateTotal)
 	fmt.Fprintf(&b, "- missing_cost_runner_calls_total: `%d`\n\n", cost.MissingCostRunnerCallsTotal)
 	renderSelectedRunnerAccountingSummary(&b, SelectedRunnerAccountingFromIndex(metadata, &LogIndex{Events: events}))
+	renderSelectedRunnerPromptEvidenceSummary(&b, LatestSelectedRunnerPromptEvidenceFromIndex(&LogIndex{Events: events}))
 	renderVisibleSurfaceProjectionSummary(&b, events)
 	renderArgumentGraphProjectionSummary(&b, events)
 	fmt.Fprintln(&b, "## Events")
@@ -293,6 +300,40 @@ func renderSelectedRunnerAccountingSummary(b *strings.Builder, accounting Select
 			}
 			fmt.Fprintln(b)
 		}
+	}
+	fmt.Fprintln(b)
+}
+
+func renderSelectedRunnerPromptEvidenceSummary(b *strings.Builder, evidence *SelectedRunnerPromptEvidence) {
+	if evidence == nil {
+		return
+	}
+	fmt.Fprintln(b, "## Selected Runner Prompt Evidence")
+	fmt.Fprintln(b)
+	fmt.Fprintf(b, "- result: `%s`\n", evidence.Result)
+	fmt.Fprintf(b, "- speaker_selected_event_id: `%s`\n", evidence.SpeakerSelectedEventID)
+	fmt.Fprintf(b, "- selected_member: `%s`\n", evidence.SelectedMember)
+	fmt.Fprintf(b, "- turn: `%d`\n", evidence.Turn)
+	if evidence.CausationEventID != "" {
+		fmt.Fprintf(b, "- causation_event_id: `%s`\n", evidence.CausationEventID)
+	}
+	if evidence.PromptContextSHA256 != "" {
+		fmt.Fprintf(b, "- prompt_context_sha256: `%s`\n", evidence.PromptContextSHA256)
+	}
+	if len(evidence.IncludedContext) > 0 {
+		fmt.Fprintf(b, "- included_context: `%s`\n", mustCompactJSON(evidence.IncludedContext))
+	}
+	if len(evidence.MissingRequiredContext) > 0 {
+		fmt.Fprintf(b, "- missing_required_context: `%s`\n", mustCompactJSON(evidence.MissingRequiredContext))
+	}
+	if len(evidence.AgendaSourceEventIDs) > 0 {
+		fmt.Fprintf(b, "- agenda_source_event_ids: `%s`\n", mustCompactJSON(evidence.AgendaSourceEventIDs))
+	}
+	if len(evidence.PriorContextSourceEventIDs) > 0 {
+		fmt.Fprintf(b, "- prior_context_source_event_ids: `%s`\n", mustCompactJSON(evidence.PriorContextSourceEventIDs))
+	}
+	if strings.TrimSpace(evidence.RedactedPromptExcerpt) != "" {
+		fmt.Fprintf(b, "- redacted_prompt_excerpt: `%s`\n", escapeMarkdownTableCell(evidence.RedactedPromptExcerpt))
 	}
 	fmt.Fprintln(b)
 }
