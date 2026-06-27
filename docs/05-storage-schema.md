@@ -136,7 +136,7 @@ limits:
   no_progress_round_limit: 3
   preparation_timeout_sec: 600
   hand_raise_research_timeout_sec: 600
-  dispatch_timeout_sec: 180
+  dispatch_timeout_sec: 30  # implemented selected-speaker default when no session override is set; live-visible councils require NEWFIX-005 policy of 120 or approved alternative
   clarification_response_timeout_sec: 3600
   escalation_response_timeout_sec: 86400
   runner_max_retries: 2

@@ -137,7 +137,7 @@ Process limits (full set in `13-operational-contracts.md`):
 - `preparation_timeout`: 10 minutes
 - `hand_raise_research_timeout`: 10 minutes
 - `delegation_update_timeout`: configurable per task
-- `dispatch_timeout_sec`: 180 per runner call
+- `dispatch_timeout_sec`: 30 seconds per selected-speaker runner call when no session override is set; Discord live-visible selected-runner councils must use the `NEWFIX-005` planned policy of `dispatch_timeout_sec=120` or an explicitly approved alternative.
 - `clarification_response_timeout_sec`: 3600
 - `escalation_response_timeout_sec`: 86400
 - Single active session only
