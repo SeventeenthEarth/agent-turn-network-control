@@ -143,7 +143,7 @@ func readinessCouncilForTest(t *testing.T, sessionID string, includeRuntimeEvide
 			ID:        sessionID,
 			Title:     "readiness",
 			Moderator: "agent-mod",
-			Surface:   &Surface{Kind: "discord_thread", Platform: "discord", ThreadID: "thread_runtime_readiness"},
+			Surface:   &Surface{Kind: "discord_thread", Platform: "discord", ChannelID: "chan_runtime_readiness", ThreadID: "thread_runtime_readiness"},
 			Limits:    Limits{StreamStaleThresholdSec: 90, StreamRepollThresholdSec: 300},
 			EventID:   "evt_" + sessionID + "_created",
 			CommandID: "cmd_" + sessionID + "_new",
@@ -230,7 +230,7 @@ func appendRunnerSpeechForRuntimeReadinessTest(t *testing.T, sessionDir string, 
 			"member":            member,
 			"speech":            "selected runner response",
 			"selected_event_id": selectedEventID,
-			"surface_evidence":  map[string]any{"status": "posted", "kind": "discord_thread", "thread_id": metadata.Surface.ThreadID, "message_id": "msg_" + eventID, "references_event_id": eventID},
+			"surface_evidence":  map[string]any{"status": "posted", "kind": "discord_thread", "platform": "discord", "channel_id": metadata.Surface.ChannelID, "thread_id": metadata.Surface.ThreadID, "message_id": "msg_" + eventID, "posting_path": "selected_member_profile_send", "sender_member": member, "references_event_id": eventID},
 		},
 	}
 	if _, err := AppendEvent(sessionDir, metadata, event); err != nil {

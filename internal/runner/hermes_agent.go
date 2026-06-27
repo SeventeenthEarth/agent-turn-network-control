@@ -33,6 +33,85 @@ func (a *HermesAgentAdapter) Cancel(ctx context.Context, handle SessionHandle) e
 	return nil
 }
 
+func (a *HermesAgentAdapter) SendVisible(ctx context.Context, req VisibleDeliveryRequest) (VisibleDeliveryResult, error) {
+	wrapper := strings.TrimSpace(req.ResolvedWrapper)
+	if wrapper == "" && req.Member.ResolvedWrapper != nil {
+		wrapper = req.Member.ResolvedWrapper.ResolvedPath
+	}
+	if wrapper == "" || !filepath.IsAbs(wrapper) {
+		return VisibleDeliveryResult{ErrorClass: "wrapper_unresolved"}, fmt.Errorf("resolved wrapper path is required")
+	}
+	if req.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, req.Timeout)
+		defer cancel()
+	}
+	if workspaceResult, workspaceErr := validateHermesWorkspace(req.Member.Workspace); workspaceErr != nil {
+		return VisibleDeliveryResult{OK: false, ExitCode: -1, ErrorClass: workspaceResult.ErrorClass, Payload: workspaceResult.Payload, DiagnosticMsg: workspaceErr.Error()}, workspaceErr
+	}
+	args := append([]string(nil), req.Args...)
+	if len(args) == 0 {
+		target := strings.TrimSpace(req.Target)
+		content := strings.TrimSpace(req.Content)
+		if target == "" {
+			return VisibleDeliveryResult{ErrorClass: ErrorClassVisibleDeliveryMalformed}, fmt.Errorf("visible delivery target is required")
+		}
+		if content == "" {
+			return VisibleDeliveryResult{ErrorClass: ErrorClassVisibleDeliveryMalformed}, fmt.Errorf("visible delivery content is required")
+		}
+		args = []string{"send", "--to", target, "--json", content}
+	}
+	cmd := exec.CommandContext(ctx, wrapper, args...)
+	cmd.Dir = req.Member.Workspace
+	cmd.Env = append([]string(nil), req.Env...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	started := time.Now()
+	err := cmd.Run()
+	duration := time.Since(started)
+	result := VisibleDeliveryResult{
+		OK:           err == nil,
+		Stdout:       stdout.Bytes(),
+		Stderr:       stderr.Bytes(),
+		ExitCode:     exitCode(err),
+		Duration:     duration,
+		Kind:         strings.TrimSpace(req.Kind),
+		Platform:     strings.TrimSpace(req.Platform),
+		ChannelID:    strings.TrimSpace(req.ChannelID),
+		ThreadID:     strings.TrimSpace(req.ThreadID),
+		PostingPath:  "selected_member_profile_send",
+		SenderMember: strings.TrimSpace(req.Member.ID),
+	}
+	if ctx.Err() != nil {
+		result.OK = false
+		result.ErrorClass = ErrorClassTimeout
+		return result, ctx.Err()
+	}
+	if err != nil {
+		result.OK = false
+		result.ErrorClass = ErrorClassVisibleDeliveryFailed
+		result.Payload = diagnosticPayload(result.ErrorClass, result.ErrorClass, stdout.Bytes(), stderr.Bytes())
+		return result, err
+	}
+	parsed, class, reason := parseHermesVisibleDeliveryOutput(stdout.Bytes())
+	if class != "" {
+		result.OK = false
+		result.ErrorClass = class
+		result.Payload = diagnosticPayload(class, reason, stdout.Bytes(), stderr.Bytes())
+		return result, fmt.Errorf("%s: %s", class, reason)
+	}
+	result.Status = firstNonEmpty(parsed.Status, result.Status)
+	result.Kind = firstNonEmpty(parsed.Kind, result.Kind)
+	result.Platform = firstNonEmpty(parsed.Platform, result.Platform)
+	result.ChannelID = firstNonEmpty(parsed.ChannelID, result.ChannelID)
+	result.ThreadID = firstNonEmpty(parsed.ThreadID, result.ThreadID)
+	result.MessageID = parsed.MessageID
+	result.Payload = parsed.Payload
+	result.OK = true
+	return result, nil
+}
+
 func (a *HermesAgentAdapter) ParseSessionHandle(stdout []byte) (*SessionHandle, error) {
 	for _, line := range strings.Split(string(stdout), "\n") {
 		line = strings.TrimSpace(line)
@@ -360,6 +439,129 @@ func jsonHasDeliveryOrFallbackOnly(raw map[string]any) bool {
 		return true
 	}
 	return false
+}
+
+type hermesVisibleDeliveryOutput struct {
+	Status    string
+	Kind      string
+	Platform  string
+	ChannelID string
+	ThreadID  string
+	MessageID string
+	Payload   map[string]any
+}
+
+func parseHermesVisibleDeliveryOutput(stdout []byte) (hermesVisibleDeliveryOutput, string, string) {
+	text := strings.TrimSpace(string(stdout))
+	if text == "" {
+		return hermesVisibleDeliveryOutput{}, ErrorClassVisibleDeliveryMalformed, "missing_visible_delivery_output"
+	}
+	var raw map[string]any
+	decoder := json.NewDecoder(strings.NewReader(text))
+	if err := decoder.Decode(&raw); err == nil {
+		var extra any
+		if err := decoder.Decode(&extra); err != io.EOF {
+			return hermesVisibleDeliveryOutput{}, ErrorClassVisibleDeliveryMalformed, ErrorClassVisibleDeliveryMalformed
+		}
+		return parseHermesVisibleDeliveryJSON(raw)
+	}
+	parsed := hermesVisibleDeliveryOutput{Payload: map[string]any{}}
+	for _, line := range nonEmptyOutputLines(stdout) {
+		if isHermesCLIControlLine(line) {
+			continue
+		}
+		for _, field := range strings.Fields(line) {
+			key, value, ok := strings.Cut(field, "=")
+			if !ok {
+				continue
+			}
+			value = strings.Trim(strings.TrimSpace(value), `"'`)
+			switch strings.TrimSpace(key) {
+			case "status", "delivery_status":
+				parsed.Status = value
+			case "kind":
+				parsed.Kind = value
+			case "platform":
+				parsed.Platform = value
+			case "channel_id", "chat_id":
+				parsed.ChannelID = value
+			case "thread_id":
+				parsed.ThreadID = value
+			case "message_id", "discord_message_id":
+				parsed.MessageID = value
+			}
+			parsed.Payload[key] = value
+		}
+	}
+	if parsed.MessageID == "" {
+		return hermesVisibleDeliveryOutput{}, ErrorClassVisibleDeliveryMalformed, "visible_delivery_message_id_missing"
+	}
+	if parsed.Status == "" {
+		parsed.Status = "posted"
+	}
+	return parsed, "", ""
+}
+
+func parseHermesVisibleDeliveryJSON(raw map[string]any) (hermesVisibleDeliveryOutput, string, string) {
+	if raw == nil {
+		return hermesVisibleDeliveryOutput{}, ErrorClassVisibleDeliveryMalformed, ErrorClassVisibleDeliveryMalformed
+	}
+	if errText := firstString(raw, "error", "error_message"); errText != "" {
+		return hermesVisibleDeliveryOutput{}, ErrorClassVisibleDeliveryFailed, "visible_delivery_error_result"
+	}
+	parsed := hermesVisibleDeliveryOutput{
+		Status:    firstStringDeep(raw, "status", "delivery_status"),
+		Kind:      firstStringDeep(raw, "kind", "surface_kind"),
+		Platform:  firstStringDeep(raw, "platform"),
+		ChannelID: firstStringDeep(raw, "channel_id", "chat_id"),
+		ThreadID:  firstStringDeep(raw, "thread_id"),
+		MessageID: firstStringDeep(raw, "message_id", "discord_message_id", "messageId"),
+		Payload:   raw,
+	}
+	if parsed.MessageID == "" {
+		if message, ok := raw["message"].(map[string]any); ok {
+			parsed.MessageID = firstString(message, "id", "message_id")
+		}
+	}
+	if parsed.MessageID == "" {
+		return hermesVisibleDeliveryOutput{}, ErrorClassVisibleDeliveryMalformed, "visible_delivery_message_id_missing"
+	}
+	if parsed.Status == "" {
+		parsed.Status = "posted"
+	}
+	return parsed, "", ""
+}
+
+func firstStringDeep(raw map[string]any, keys ...string) string {
+	if value := firstString(raw, keys...); value != "" {
+		return value
+	}
+	for _, candidate := range raw {
+		switch typed := candidate.(type) {
+		case map[string]any:
+			if value := firstStringDeep(typed, keys...); value != "" {
+				return value
+			}
+		case []any:
+			for _, item := range typed {
+				if nested, ok := item.(map[string]any); ok {
+					if value := firstStringDeep(nested, keys...); value != "" {
+						return value
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func diagnosticPayload(class, reason string, stdout, stderr []byte) map[string]any {

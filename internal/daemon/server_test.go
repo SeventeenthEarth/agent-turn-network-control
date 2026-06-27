@@ -160,6 +160,303 @@ func TestUnitDaemonSessionNewRejectsMalformedPresentLimits(t *testing.T) {
 	}
 }
 
+func TestUnitDaemonCouncilNewRequiresVisibleSurfaceForDiscordOrigin(t *testing.T) {
+	dataHome := daemonDataHome(t)
+	before := treeFingerprint(t, dataHome)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	response := server.Handle(protocol.NewRequest("discord-no-surface", "council.new", map[string]any{
+		"session_id": "sess_discord_no_surface",
+		"moderator":  "agent-mod",
+		"members":    []any{"agent-1"},
+		"title":      "discord-origin must be visible",
+		"request_context": map[string]any{
+			"source":                "discord_thread",
+			"requested_output_mode": "live_visible_thread",
+		},
+	}))
+	after := treeFingerprint(t, dataHome)
+
+	if response.OK || response.Error == nil {
+		t.Fatalf("Discord-origin council.new without surface must fail closed: %+v", response)
+	}
+	if !strings.Contains(response.Error.Message, "visible surface") {
+		t.Fatalf("surface validation error should mention visible surface, got %+v", response.Error)
+	}
+	if before != after {
+		t.Fatalf("invalid visible request wrote files\nbefore=%s\nafter=%s", before, after)
+	}
+}
+
+func TestUnitDaemonCouncilNewRejectsMissingOutputIntentWithoutSurface(t *testing.T) {
+	dataHome := enabledCouncilDataHome(t)
+	before := treeFingerprint(t, dataHome)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	response := server.Handle(protocol.NewRequest("missing-output-intent", "council.new", map[string]any{
+		"session_id": "sess_missing_output_intent",
+		"moderator":  "agent-mod",
+		"members":    []any{"agent-1"},
+		"title":      "missing output intent must not create local daemon council",
+	}))
+	after := treeFingerprint(t, dataHome)
+
+	if response.OK || response.Error == nil {
+		t.Fatalf("council.new without visible surface or explicit non-visible override must fail closed: %+v", response)
+	}
+	if !strings.Contains(response.Error.Message, "live-visible") || !strings.Contains(response.Error.Message, "requested_output_mode") {
+		t.Fatalf("missing output intent error should mention live-visible requested_output_mode, got %+v", response.Error)
+	}
+	if before != after {
+		t.Fatalf("invalid missing-output-intent request wrote files\nbefore=%s\nafter=%s", before, after)
+	}
+}
+
+func TestUnitDaemonCouncilNewRejectsDiscordSurfaceWithoutRequestedOutputMode(t *testing.T) {
+	dataHome := enabledCouncilDataHome(t)
+	before := treeFingerprint(t, dataHome)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	response := server.Handle(protocol.NewRequest("missing-output-mode-discord-surface", "council.new", map[string]any{
+		"session_id": "sess_missing_output_mode_discord_surface",
+		"moderator":  "agent-mod",
+		"members":    []any{"agent-1"},
+		"title":      "discord surface is not implicit output intent",
+		"request_context": map[string]any{
+			"source": "discord_thread",
+		},
+		"surface": map[string]any{
+			"kind":       "discord_thread",
+			"platform":   "discord",
+			"thread_id":  "thread-visible",
+			"channel_id": "chan-visible",
+		},
+	}))
+	after := treeFingerprint(t, dataHome)
+
+	if response.OK || response.Error == nil {
+		t.Fatalf("Discord surface without requested_output_mode must fail closed: %+v", response)
+	}
+	if !strings.Contains(response.Error.Message, "requested_output_mode") {
+		t.Fatalf("missing mode error should mention requested_output_mode, got %+v", response.Error)
+	}
+	if before != after {
+		t.Fatalf("invalid missing-output-mode request wrote files\nbefore=%s\nafter=%s", before, after)
+	}
+}
+
+func TestUnitDaemonCouncilNewAllowsExplicitNonVisibleOverrideWithoutSurface(t *testing.T) {
+	dataHome := enabledCouncilDataHome(t)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	response := server.Handle(protocol.NewRequest("local-only-approved", "council.new", map[string]any{
+		"session_id": "sess_local_only_approved",
+		"moderator":  "agent-mod",
+		"members":    []any{"agent-1"},
+		"title":      "explicit local-only diagnostics",
+		"request_context": map[string]any{
+			"source":                        "operator",
+			"output_mode":                   "local-daemon-only",
+			"explicit_non_visible_override": true,
+			"override_reason":               "주군 explicitly requested local-daemon-only diagnostics.",
+		},
+	}))
+	if !response.OK {
+		t.Fatalf("explicit non-visible override without surface should pass: %+v", response)
+	}
+	sessionDir, err := storage.SessionDir(dataHome, "sess_local_only_approved")
+	if err != nil {
+		t.Fatalf("SessionDir: %v", err)
+	}
+	metadata, err := storage.LoadSessionYAML(sessionDir)
+	if err != nil {
+		t.Fatalf("LoadSessionYAML: %v", err)
+	}
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	if len(index.Events) != 1 {
+		t.Fatalf("expected one session_created event, got %d", len(index.Events))
+	}
+	requestContext, ok := index.Events[0].Payload["request_context"].(map[string]any)
+	if !ok {
+		t.Fatalf("session_created payload missing request_context: %#v", index.Events[0].Payload)
+	}
+	if got := requestContext["requested_output_mode"]; got != "activation_planning_only" {
+		t.Fatalf("expected canonical requested_output_mode, got %#v", requestContext)
+	}
+	if _, ok := requestContext["output_mode"]; ok {
+		t.Fatalf("output_mode alias should not remain in canonical request_context: %#v", requestContext)
+	}
+}
+
+func TestUnitDaemonCouncilNewRejectsConflictingOutputIntentFields(t *testing.T) {
+	dataHome := enabledCouncilDataHome(t)
+	before := treeFingerprint(t, dataHome)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	response := server.Handle(protocol.NewRequest("conflicting-output-intent", "council.new", map[string]any{
+		"session_id":                    "sess_conflicting_output_intent",
+		"moderator":                     "agent-mod",
+		"members":                       []any{"agent-1"},
+		"title":                         "conflicting local-only audit trail",
+		"explicit_non_visible_override": false,
+		"request_context": map[string]any{
+			"source":                        "operator",
+			"requested_output_mode":         "local-daemon-only",
+			"explicit_non_visible_override": true,
+			"override_reason":               "주군 explicitly requested local-daemon-only diagnostics.",
+		},
+	}))
+	after := treeFingerprint(t, dataHome)
+
+	if response.OK || response.Error == nil {
+		t.Fatalf("conflicting output intent fields must fail closed: %+v", response)
+	}
+	if !strings.Contains(response.Error.Message, "must not conflict") {
+		t.Fatalf("conflict error should mention conflict, got %+v", response.Error)
+	}
+	if before != after {
+		t.Fatalf("conflicting output intent wrote files\nbefore=%s\nafter=%s", before, after)
+	}
+}
+
+func TestUnitDaemonCouncilNewRejectsConflictingOutputModeAliases(t *testing.T) {
+	dataHome := enabledCouncilDataHome(t)
+	before := treeFingerprint(t, dataHome)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	response := server.Handle(protocol.NewRequest("conflicting-output-mode-alias", "council.new", map[string]any{
+		"session_id":            "sess_conflicting_output_mode_alias",
+		"moderator":             "agent-mod",
+		"members":               []any{"agent-1"},
+		"title":                 "conflicting output mode aliases",
+		"requested_output_mode": "live_visible_thread",
+		"surface": map[string]any{
+			"kind":      "discord_thread",
+			"platform":  "discord",
+			"thread_id": "thread-conflict-alias",
+		},
+		"request_context": map[string]any{
+			"source":      "discord_thread",
+			"output_mode": "local-daemon-only",
+		},
+	}))
+	after := treeFingerprint(t, dataHome)
+
+	if response.OK || response.Error == nil {
+		t.Fatalf("conflicting output mode aliases must fail closed: %+v", response)
+	}
+	if !strings.Contains(response.Error.Message, "output-mode aliases") {
+		t.Fatalf("alias conflict error should mention output-mode aliases, got %+v", response.Error)
+	}
+	if before != after {
+		t.Fatalf("conflicting output mode aliases wrote files\nbefore=%s\nafter=%s", before, after)
+	}
+}
+
+func TestUnitDaemonCouncilNewRejectsNonVisibleDiscordModeWithoutExplicitOverride(t *testing.T) {
+	dataHome := daemonDataHome(t)
+	before := treeFingerprint(t, dataHome)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	response := server.Handle(protocol.NewRequest("discord-local-only", "council.new", map[string]any{
+		"session_id": "sess_discord_local_only",
+		"moderator":  "agent-mod",
+		"members":    []any{"agent-1"},
+		"title":      "discord-origin local-only rejected",
+		"request_context": map[string]any{
+			"source":                "discord_thread",
+			"requested_output_mode": "activation_planning_only",
+		},
+	}))
+	after := treeFingerprint(t, dataHome)
+
+	if response.OK || response.Error == nil {
+		t.Fatalf("Discord-origin non-visible mode without override must fail closed: %+v", response)
+	}
+	if !strings.Contains(response.Error.Message, "override_reason") {
+		t.Fatalf("non-visible override error should mention override_reason, got %+v", response.Error)
+	}
+	if before != after {
+		t.Fatalf("invalid non-visible request wrote files\nbefore=%s\nafter=%s", before, after)
+	}
+}
+
+func TestUnitDaemonCouncilNewRejectsIncompleteNonVisibleOverride(t *testing.T) {
+	cases := []struct {
+		name             string
+		requestContext   map[string]any
+		expectedFragment string
+	}{
+		{
+			name: "missing requested non-visible mode fails before surface classification",
+			requestContext: map[string]any{
+				"source":                        "discord_thread",
+				"explicit_non_visible_override": true,
+				"override_reason":               "주군 requested local-only diagnostics.",
+			},
+			expectedFragment: "requested_output_mode",
+		},
+		{
+			name: "unsupported requested output mode fails closed",
+			requestContext: map[string]any{
+				"source":                        "discord_thread",
+				"requested_output_mode":         "local-daemon-whatever",
+				"explicit_non_visible_override": true,
+				"override_reason":               "주군 requested local-only diagnostics.",
+			},
+			expectedFragment: "requested_output_mode",
+		},
+		{
+			name: "non-discord non-visible mode requires explicit override reason",
+			requestContext: map[string]any{
+				"source":                "operator",
+				"requested_output_mode": "artifact_only",
+			},
+			expectedFragment: "override_reason",
+		},
+		{
+			name: "blank override reason fails even for alias mode",
+			requestContext: map[string]any{
+				"source":                        "discord_thread",
+				"requested_output_mode":         "local-daemon-only",
+				"explicit_non_visible_override": true,
+				"override_reason":               "  ",
+			},
+			expectedFragment: "override_reason",
+		},
+		{
+			name: "transcript export alias still requires override reason",
+			requestContext: map[string]any{
+				"source":                "discord_thread",
+				"requested_output_mode": "transcript/export-only",
+			},
+			expectedFragment: "override_reason",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dataHome := daemonDataHome(t)
+			before := treeFingerprint(t, dataHome)
+			server := daemon.NewServer(dataHome, daemonFixedRuntime())
+			response := server.Handle(protocol.NewRequest("discord-incomplete-override", "council.new", map[string]any{
+				"session_id":      "sess_discord_incomplete_override",
+				"moderator":       "agent-mod",
+				"members":         []any{"agent-1"},
+				"title":           "discord-origin incomplete override rejected",
+				"request_context": tc.requestContext,
+			}))
+			after := treeFingerprint(t, dataHome)
+
+			if response.OK || response.Error == nil {
+				t.Fatalf("Discord-origin incomplete override must fail closed: %+v", response)
+			}
+			if !strings.Contains(response.Error.Message, tc.expectedFragment) {
+				t.Fatalf("validation error should mention %q, got %+v", tc.expectedFragment, response.Error)
+			}
+			if before != after {
+				t.Fatalf("invalid override request wrote files\nbefore=%s\nafter=%s", before, after)
+			}
+		})
+	}
+}
+
 func TestUnitDaemonCouncilNewAutoReconcilesExplicitMissingRegistryMember(t *testing.T) {
 	dataHome, err := os.MkdirTemp("/private/tmp", "kan-daemon-reconcile-")
 	if err != nil {
@@ -201,6 +498,17 @@ members:
 		"moderator":  "agent-mod",
 		"members":    []any{"agent-new"},
 		"title":      "auto reconcile",
+		"request_context": map[string]any{
+			"source":                  "discord_thread",
+			"requested_output_mode":   "live_visible_thread",
+			"visible_output_required": true,
+		},
+		"surface": map[string]any{
+			"kind":       "discord_thread",
+			"platform":   "discord",
+			"channel_id": "chan-visible",
+			"thread_id":  "thread-visible",
+		},
 	}))
 	if !response.OK {
 		t.Fatalf("council.new should auto-reconcile explicit missing member: %+v", response)
@@ -214,6 +522,28 @@ members:
 	}
 	if _, ok := response.Result["registry_reconcile"]; !ok {
 		t.Fatalf("expected registry_reconcile evidence in response: %+v", response.Result)
+	}
+	sessionDir, err := storage.SessionDir(dataHome, "sess_reconciled")
+	if err != nil {
+		t.Fatalf("session dir: %v", err)
+	}
+	metadata, err := storage.LoadSessionYAML(sessionDir)
+	if err != nil {
+		t.Fatalf("load session metadata: %v", err)
+	}
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("read log index: %v", err)
+	}
+	if len(index.Events) == 0 {
+		t.Fatalf("expected session_created event")
+	}
+	createdContext, ok := index.Events[0].Payload["request_context"].(map[string]any)
+	if !ok {
+		t.Fatalf("session_created must preserve request_context audit trail: %+v", index.Events[0].Payload)
+	}
+	if createdContext["requested_output_mode"] != "live_visible_thread" || createdContext["source"] != "discord_thread" {
+		t.Fatalf("unexpected request_context in session_created: %+v", createdContext)
 	}
 }
 
@@ -693,6 +1023,52 @@ members:
 `
 	if err := os.WriteFile(registry.RegistryPath(dataHome), []byte(registryYAML), 0o600); err != nil {
 		t.Fatalf("write registry: %v", err)
+	}
+	return dataHome
+}
+
+func enabledCouncilDataHome(t *testing.T) string {
+	t.Helper()
+	dataHome, err := os.MkdirTemp("/private/tmp", "kan-daemon-enabled-council-")
+	if err != nil {
+		t.Fatalf("make enabled council temp data home: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dataHome) })
+	if err := os.Chmod(dataHome, 0o700); err != nil {
+		t.Fatalf("chmod data home: %v", err)
+	}
+	binDir := filepath.Join(dataHome, "bin")
+	if err := os.Mkdir(binDir, 0o700); err != nil {
+		t.Fatalf("mkdir bin: %v", err)
+	}
+	for _, wrapper := range []string{"agent-mod", "agent-1"} {
+		if err := os.WriteFile(filepath.Join(binDir, wrapper), []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
+			t.Fatalf("write wrapper %s: %v", wrapper, err)
+		}
+	}
+	registryYAML := fmt.Sprintf(`schema_version: 1
+wrapper_path_allowlist:
+  - %s
+members:
+  agent-mod:
+    display_name: Moderator
+    wrapper: agent-mod
+    workspace: /tmp/agent-mod
+    role: moderator
+    enabled: true
+    adapter_kind: hermes-agent
+    runtime_kind: hermes-cli-stream
+  agent-1:
+    display_name: Agent One
+    wrapper: agent-1
+    workspace: /tmp/agent-1
+    role: assignee
+    enabled: true
+    adapter_kind: hermes-agent
+    runtime_kind: hermes-cli-stream
+`, binDir)
+	if err := os.WriteFile(registry.RegistryPath(dataHome), []byte(registryYAML), 0o600); err != nil {
+		t.Fatalf("write enabled council registry: %v", err)
 	}
 	return dataHome
 }

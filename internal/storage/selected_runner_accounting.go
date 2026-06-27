@@ -421,6 +421,52 @@ func selectedRunnerSpeechDeliveryDiagnostic(metadata *SessionMetadata, grant Sel
 		diagnostic.Message = fmt.Sprintf("selected-runner speech visible delivery is %s, not posted", status)
 		return diagnostic, false
 	}
+	if strings.TrimSpace(anyString(surfaceEvidence, "kind")) != "discord_thread" {
+		diagnostic.Code = "selected_runner_delivery_kind_invalid"
+		diagnostic.Message = "selected-runner delivery evidence must identify kind=discord_thread"
+		return diagnostic, false
+	}
+	if expectedPlatform := strings.TrimSpace(metadata.Surface.Platform); expectedPlatform != "" {
+		observedPlatform := strings.TrimSpace(anyString(surfaceEvidence, "platform"))
+		if observedPlatform == "" {
+			diagnostic.Code = "missing_selected_runner_delivery_platform"
+			diagnostic.Message = "selected-runner delivery evidence must include platform"
+			return diagnostic, false
+		}
+		if observedPlatform != expectedPlatform {
+			diagnostic.Code = "selected_runner_delivery_platform_mismatch"
+			diagnostic.Message = "selected-runner delivery evidence platform does not match the configured council surface"
+			return diagnostic, false
+		}
+	}
+	if expectedChannelID := strings.TrimSpace(metadata.Surface.ChannelID); expectedChannelID != "" {
+		observedChannelID := strings.TrimSpace(anyString(surfaceEvidence, "channel_id"))
+		if observedChannelID == "" {
+			diagnostic.Code = "missing_selected_runner_delivery_channel_id"
+			diagnostic.Message = "selected-runner delivery evidence must include the configured channel_id"
+			return diagnostic, false
+		}
+		if observedChannelID != expectedChannelID {
+			diagnostic.Code = "selected_runner_delivery_channel_mismatch"
+			diagnostic.Message = "selected-runner delivery evidence channel does not match the configured council channel"
+			return diagnostic, false
+		}
+	}
+	if strings.TrimSpace(anyString(surfaceEvidence, "message_id")) == "" {
+		diagnostic.Code = "missing_selected_runner_delivery_message_id"
+		diagnostic.Message = "selected-runner delivery evidence must include a real message_id"
+		return diagnostic, false
+	}
+	if postingPath := strings.TrimSpace(anyString(surfaceEvidence, "posting_path")); postingPath != "selected_member_profile_send" {
+		diagnostic.Code = "selected_runner_delivery_posting_path_invalid"
+		diagnostic.Message = "selected-runner delivery evidence must use selected_member_profile_send posting path"
+		return diagnostic, false
+	}
+	if senderMember := strings.TrimSpace(anyString(surfaceEvidence, "sender_member")); senderMember != grant.Member {
+		diagnostic.Code = "selected_runner_delivery_sender_mismatch"
+		diagnostic.Message = "selected-runner delivery evidence sender_member must match the selected member"
+		return diagnostic, false
+	}
 	if expectedThreadID := strings.TrimSpace(metadata.Surface.ThreadID); expectedThreadID != "" {
 		observedThreadID := strings.TrimSpace(anyString(surfaceEvidence, "thread_id"))
 		if observedThreadID == "" {

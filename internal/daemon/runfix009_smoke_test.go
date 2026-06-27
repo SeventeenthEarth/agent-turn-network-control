@@ -189,9 +189,10 @@ func createRUNFIX009Council(t *testing.T) (string, *storage.SessionMetadata, str
 			Title:     "RUNFIX-009 integrated smoke",
 			Moderator: "agent-mod",
 			Surface: &storage.Surface{
-				Kind:     "discord_thread",
-				Platform: "discord",
-				ThreadID: "thread-runfix009-local",
+				Kind:      "discord_thread",
+				Platform:  "discord",
+				ChannelID: "chan-runfix009-local",
+				ThreadID:  "thread-runfix009-local",
 			},
 			LinkedAuthority: &storage.LinkedAuthority{KanbanCardID: "t_runfix009"},
 			Limits: storage.Limits{Council: storage.CouncilLimits{DiscussionQuality: &storage.DiscussionQualityLimits{

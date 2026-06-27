@@ -24,6 +24,8 @@ const (
 	ErrorClassStalePhaseEvidence         = "stale_phase_evidence"
 	ErrorClassWorkspaceMissing           = "workspace_missing"
 	ErrorClassWorkspaceInvalid           = "workspace_invalid"
+	ErrorClassVisibleDeliveryFailed      = "visible_delivery_failed"
+	ErrorClassVisibleDeliveryMalformed   = "visible_delivery_malformed"
 )
 
 type SessionHandle string
@@ -62,6 +64,44 @@ type Result struct {
 	Payload           map[string]any
 	ErrorClass        string
 	Discarded         bool
+}
+
+type VisibleDeliveryRequest struct {
+	SessionID       string
+	Member          registry.Member
+	ResolvedWrapper string
+	Target          string
+	Content         string
+	Kind            string
+	Platform        string
+	ChannelID       string
+	ThreadID        string
+	Timeout         time.Duration
+	Env             []string
+	Args            []string
+}
+
+type VisibleDeliveryResult struct {
+	OK            bool
+	Stdout        []byte
+	Stderr        []byte
+	ExitCode      int
+	Duration      time.Duration
+	Status        string
+	Kind          string
+	Platform      string
+	ChannelID     string
+	ThreadID      string
+	MessageID     string
+	PostingPath   string
+	SenderMember  string
+	Payload       map[string]any
+	ErrorClass    string
+	DiagnosticMsg string
+}
+
+type VisibleSender interface {
+	SendVisible(ctx context.Context, req VisibleDeliveryRequest) (VisibleDeliveryResult, error)
 }
 
 type Adapter interface {

@@ -97,6 +97,52 @@ func TestIntegrationHermesAdapterUsesResolvedWrapperArgvAndParsesCost(t *testing
 	}
 }
 
+func TestIntegrationHermesAdapterSendVisibleUsesProfileSendAndParsesMessageID(t *testing.T) {
+	dir := t.TempDir()
+	wrapper := filepath.Join(dir, "fake-hermes")
+	log := filepath.Join(dir, "visible-argv.log")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$0|$1|$2|$3|$4|$5|$KEEP_ME|${SECRET_TOKEN-unset}\" > " + shellQuote(log) + "\nprintf '%s\\n' '{\"ok\":true,\"status\":\"posted\",\"kind\":\"discord_thread\",\"platform\":\"discord\",\"channel_id\":\"chan-live\",\"thread_id\":\"thread-live\",\"message_id\":\"msg-live\"}'\n"
+	if err := os.WriteFile(wrapper, []byte(script), 0o700); err != nil {
+		t.Fatalf("write wrapper: %v", err)
+	}
+	result, err := NewHermesAgentAdapter().SendVisible(context.Background(), VisibleDeliveryRequest{
+		ResolvedWrapper: wrapper,
+		Member:          registry.Member{ID: "jangbi", Workspace: dir},
+		Target:          "discord:chan-live:thread-live",
+		Content:         "visible speech",
+		Kind:            "discord_thread",
+		Platform:        "discord",
+		ChannelID:       "chan-live",
+		ThreadID:        "thread-live",
+		Env:             []string{"KEEP_ME=yes"},
+	})
+	if err != nil || !result.OK {
+		t.Fatalf("SendVisible failed: result=%#v err=%v", result, err)
+	}
+	argv, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatalf("read argv log: %v", err)
+	}
+	if got := strings.TrimSpace(string(argv)); got != wrapper+"|send|--to|discord:chan-live:thread-live|--json|visible speech|yes|unset" {
+		t.Fatalf("visible delivery wrapper argv/env mismatch: %q", got)
+	}
+	if result.MessageID != "msg-live" || result.Status != "posted" || result.PostingPath != "selected_member_profile_send" || result.SenderMember != "jangbi" {
+		t.Fatalf("visible delivery result did not parse/bind message evidence: %#v", result)
+	}
+}
+
+func TestIntegrationHermesAdapterSendVisibleFailsClosedWithoutMessageID(t *testing.T) {
+	dir := t.TempDir()
+	wrapper := filepath.Join(dir, "fake-hermes")
+	if err := os.WriteFile(wrapper, []byte("#!/bin/sh\nprintf '%s\\n' '{\"ok\":true,\"status\":\"posted\"}'\n"), 0o700); err != nil {
+		t.Fatalf("write wrapper: %v", err)
+	}
+	result, err := NewHermesAgentAdapter().SendVisible(context.Background(), VisibleDeliveryRequest{ResolvedWrapper: wrapper, Member: registry.Member{ID: "jangbi", Workspace: dir}, Target: "discord:chan-live:thread-live", Content: "visible speech"})
+	if err == nil || result.OK || result.ErrorClass != ErrorClassVisibleDeliveryMalformed {
+		t.Fatalf("SendVisible without message_id should fail closed, result=%#v err=%v", result, err)
+	}
+}
+
 func TestIntegrationHermesAdapterTimeoutReportsMissingCost(t *testing.T) {
 	dir := t.TempDir()
 	wrapper := filepath.Join(dir, "fake-hermes")

@@ -35,13 +35,18 @@ func (s *Server) handleCouncilNew(request protocol.CommandRequest) protocol.Comm
 	if eventID == "" {
 		eventID = "evt_session_created_" + sessionID
 	}
+	surface := surfaceParam(request)
+	if err := validateCouncilNewVisibleSurface(request, surface); err != nil {
+		return protocol.ErrorResponse(request, daemonProtocolError(err))
+	}
 	startSpec := storage.CouncilStartSpec{
 		Session: storage.SessionSpec{
 			ID:              sessionID,
 			SessionType:     storage.SessionTypeCouncil,
 			Title:           stringParam(request, "title"),
 			Moderator:       moderator,
-			Surface:         surfaceParam(request),
+			Surface:         surface,
+			RequestContext:  councilRequestContextParam(request),
 			LinkedAuthority: linkedAuthorityParam(request),
 			TurnMode:        stringParam(request, "turn_mode"),
 			Limits:          limits,
@@ -107,9 +112,251 @@ func (s *Server) handleCouncilEvent(request protocol.CommandRequest) protocol.Co
 	return eventAppendResponse(request, result, dedup)
 }
 
+func councilRequestContextParam(request protocol.CommandRequest) map[string]any {
+	context := mapParam(request, "request_context")
+	if len(context) == 0 {
+		context = map[string]any{}
+	}
+	if value := stringParam(request, "source"); value != "" {
+		context["source"] = value
+	}
+	for key, param := range map[string]string{
+		"source":          "request_source",
+		"override_reason": "override_reason",
+	} {
+		if value := stringParam(request, param); value != "" {
+			context[key] = value
+		}
+	}
+	if value := firstNonEmpty(
+		stringParam(request, "requested_output_mode"),
+		stringParam(request, "output_mode"),
+		stringParam(request, "requested_output"),
+		mapString(context, "requested_output_mode"),
+		mapString(context, "output_mode"),
+		mapString(context, "requested_output"),
+	); value != "" {
+		if normalized, supported := normalizeCouncilOutputMode(value); supported {
+			context["requested_output_mode"] = normalized
+		} else {
+			context["requested_output_mode"] = value
+		}
+		delete(context, "output_mode")
+		delete(context, "requested_output")
+	}
+	for key, param := range map[string]string{
+		"visible_output_required":       "visible_output_required",
+		"explicit_non_visible_override": "explicit_non_visible_override",
+	} {
+		if value, ok := request.Params[param].(bool); ok {
+			context[key] = value
+		}
+	}
+	if len(context) == 0 {
+		return nil
+	}
+	return context
+}
+
 func councilActionFromCommand(command string) string {
 	action := strings.TrimPrefix(command, "council.")
 	return strings.ReplaceAll(action, "_", "-")
+}
+
+func validateCouncilNewVisibleSurface(request protocol.CommandRequest, surface *storage.Surface) error {
+	context := mapParam(request, "request_context")
+	if err := validateCouncilNewIntentFieldConsistency(request, context); err != nil {
+		return err
+	}
+	requestSource := firstNonEmpty(
+		stringParam(request, "request_source"),
+		stringParam(request, "source"),
+		mapString(context, "source"),
+	)
+	requestedOutputModeRaw := firstNonEmpty(
+		stringParam(request, "requested_output_mode"),
+		stringParam(request, "output_mode"),
+		stringParam(request, "requested_output"),
+		mapString(context, "requested_output_mode"),
+		mapString(context, "output_mode"),
+		mapString(context, "requested_output"),
+	)
+	requestedOutputMode, outputModeSupported := normalizeCouncilOutputMode(requestedOutputModeRaw)
+	explicitNonVisibleOverride := boolParam(request, "explicit_non_visible_override") || mapBool(context, "explicit_non_visible_override")
+	overrideReason := firstNonEmpty(stringParam(request, "override_reason"), mapString(context, "override_reason"))
+	discordOrigin := strings.HasPrefix(requestSource, "discord")
+	nonVisibleRequested := requestedOutputMode == "artifact_only" || requestedOutputMode == "daemon_cli_actor_speech" || requestedOutputMode == "activation_planning_only"
+	overrideComplete := explicitNonVisibleOverride && strings.TrimSpace(overrideReason) != ""
+	if strings.TrimSpace(requestedOutputModeRaw) != "" && !outputModeSupported {
+		return storage.NewValidationError(
+			storage.CategoryInvalidEnvelope,
+			"request_context.requested_output_mode",
+			"ATN council requested_output_mode must be live_visible_thread, artifact_only, daemon_cli_actor_speech, transcript/export-only, transcript_export_only, local-daemon-only, local_daemon_only, or activation_planning_only",
+		)
+	}
+	if strings.TrimSpace(requestedOutputModeRaw) == "" {
+		return storage.NewValidationError(
+			storage.CategoryInvalidEnvelope,
+			"request_context.requested_output_mode",
+			"ATN council.new must declare live-visible requested_output_mode=live_visible_thread with a Discord surface, or a supported non-visible/local-daemon-only mode with explicit_non_visible_override and override_reason before council.new",
+		)
+	}
+	if nonVisibleRequested && !overrideComplete {
+		return storage.NewValidationError(
+			storage.CategoryInvalidEnvelope,
+			"request_context.explicit_non_visible_override",
+			"ATN councils require live-visible output unless the user explicitly requested a supported non-visible/local-daemon-only mode with override_reason before council.new",
+		)
+	}
+	visibleFlag := boolParam(request, "visible_output_required") || mapBool(context, "visible_output_required")
+	visibleRequired := visibleFlag || requestedOutputMode == "live_visible_thread" || surface != nil || (discordOrigin && (!nonVisibleRequested || !overrideComplete))
+	if !visibleRequired {
+		return nil
+	}
+	if surface == nil {
+		return storage.NewValidationError(
+			storage.CategoryInvalidEnvelope,
+			"surface",
+			"Discord-origin or live-visible ATN council requires a Discord visible surface before council.new",
+		)
+	}
+	if surface.Platform != "discord" {
+		return storage.NewValidationError(
+			storage.CategoryInvalidEnvelope,
+			"surface.platform",
+			"live-visible ATN council surface.platform must be discord",
+		)
+	}
+	switch surface.Kind {
+	case "discord_thread":
+		if strings.TrimSpace(surface.ThreadID) == "" {
+			return storage.NewValidationError(storage.CategoryInvalidEnvelope, "surface.thread_id", "discord_thread live-visible surface requires thread_id")
+		}
+	case "discord_channel", "discord_parent_channel":
+		if strings.TrimSpace(surface.ChannelID) == "" {
+			return storage.NewValidationError(storage.CategoryInvalidEnvelope, "surface.channel_id", "Discord parent-channel fallback surface requires channel_id")
+		}
+	default:
+		return storage.NewValidationError(
+			storage.CategoryInvalidEnvelope,
+			"surface.kind",
+			"live-visible ATN council surface.kind must be discord_thread or approved Discord channel fallback",
+		)
+	}
+	return nil
+}
+
+func normalizeCouncilOutputMode(mode string) (string, bool) {
+	switch strings.TrimSpace(mode) {
+	case "":
+		return "", true
+	case "live_visible_thread", "artifact_only", "daemon_cli_actor_speech", "activation_planning_only":
+		return strings.TrimSpace(mode), true
+	case "transcript/export-only", "transcript_export_only":
+		return "artifact_only", true
+	case "local-daemon-only", "local_daemon_only":
+		return "activation_planning_only", true
+	default:
+		return strings.TrimSpace(mode), false
+	}
+}
+
+func validateCouncilNewIntentFieldConsistency(request protocol.CommandRequest, context map[string]any) error {
+	if err := validateCouncilNewOutputModeAliasConsistency(request, context); err != nil {
+		return err
+	}
+	for key, param := range map[string]string{
+		"override_reason": "override_reason",
+	} {
+		top := stringParam(request, param)
+		nested := mapString(context, key)
+		if top != "" && nested != "" && top != nested {
+			return storage.NewValidationError(
+				storage.CategoryInvalidEnvelope,
+				"request_context."+key,
+				"ATN council.new output-intent fields must not conflict between top-level params and request_context",
+			)
+		}
+	}
+	for key, param := range map[string]string{
+		"visible_output_required":       "visible_output_required",
+		"explicit_non_visible_override": "explicit_non_visible_override",
+	} {
+		if nestedRaw, ok := context[key]; ok {
+			if _, nestedOK := nestedRaw.(bool); !nestedOK {
+				return storage.NewValidationError(storage.CategoryInvalidEnvelope, "request_context."+key, "ATN council.new boolean output-intent fields must be true or false")
+			}
+		}
+		topRaw, topExists := request.Params[param]
+		if !topExists {
+			continue
+		}
+		topBool, topOK := topRaw.(bool)
+		if !topOK {
+			return storage.NewValidationError(storage.CategoryInvalidEnvelope, param, "ATN council.new boolean output-intent fields must be true or false")
+		}
+		if nestedRaw, nestedExists := context[key]; nestedExists {
+			nestedBool := nestedRaw.(bool)
+			if topBool != nestedBool {
+				return storage.NewValidationError(
+					storage.CategoryInvalidEnvelope,
+					"request_context."+key,
+					"ATN council.new output-intent fields must not conflict between top-level params and request_context",
+				)
+			}
+		}
+	}
+	return nil
+}
+
+func validateCouncilNewOutputModeAliasConsistency(request protocol.CommandRequest, context map[string]any) error {
+	seen := map[string]string{}
+	for _, value := range []string{
+		stringParam(request, "requested_output_mode"),
+		stringParam(request, "output_mode"),
+		stringParam(request, "requested_output"),
+		mapString(context, "requested_output_mode"),
+		mapString(context, "output_mode"),
+		mapString(context, "requested_output"),
+	} {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		normalized, supported := normalizeCouncilOutputMode(trimmed)
+		if !supported {
+			normalized = trimmed
+		}
+		seen[normalized] = trimmed
+	}
+	if len(seen) > 1 {
+		return storage.NewValidationError(
+			storage.CategoryInvalidEnvelope,
+			"request_context.requested_output_mode",
+			"ATN council.new output-mode aliases must not declare conflicting requested output modes",
+		)
+	}
+	return nil
+}
+
+func mapString(value map[string]any, key string) string {
+	if value == nil {
+		return ""
+	}
+	if text, ok := value[key].(string); ok {
+		return text
+	}
+	return ""
+}
+
+func mapBool(value map[string]any, key string) bool {
+	if value == nil {
+		return false
+	}
+	if flag, ok := value[key].(bool); ok {
+		return flag
+	}
+	return false
 }
 
 func (s *Server) applyCouncilRuntimePreflight(request protocol.CommandRequest, sessionDir string, metadata *storage.SessionMetadata, action string) error {

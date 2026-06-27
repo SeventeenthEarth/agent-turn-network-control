@@ -704,28 +704,48 @@ This is a manual block, distinct from daemon-originated `session_budget_exceeded
 ```bash
 atn-control council new "Discuss topic A" \
   --members agent-1,agent-2,agent-3 \
-  --moderator agent-mod
+  --moderator agent-mod \
+  --request-source discord_thread \
+  --requested-output-mode live_visible_thread \
+  --visible-output-required true \
+  --surface discord-thread \
+  --surface-platform discord \
+  --thread-id 1507515847227215932
 ```
 
 Emits: `session_created`.
 
 `--members` defines the council member list. Broadcast council events (`preparation_requested`, `hand_raise_requested`, `draft_conclusion`, `consensus_vote_requested`) use explicit `to` arrays derived from this list. The daemon must not emit `"to": ["all"]` or an omitted `to` field for those events.
 
-
-Optional Discord-thread council binding flags:
+Explicit non-visible/local-daemon-only diagnostic creation is a separate approved path and must carry a supported non-visible output mode plus override evidence:
 
 ```bash
 atn-control council new "Discuss topic A" \
   --members agent-1,agent-2,agent-3 \
   --moderator agent-mod \
+  --requested-output-mode local-daemon-only \
+  --explicit-non-visible-override true \
+  --override-reason "주군 explicitly requested local-daemon-only diagnostics"
+```
+
+Discord-thread council binding flags for live-visible mode:
+
+```bash
+atn-control council new "Discuss topic A" \
+  --members agent-1,agent-2,agent-3 \
+  --moderator agent-mod \
+  --request-source discord_thread \
+  --requested-output-mode live_visible_thread \
+  --visible-output-required true \
   --surface discord-thread \
+  --surface-platform discord \
   --thread-id 1507515847227215932 \
   --kanban-card t_xxxxx \
   --vault-decision-note docs/decisions/topic-a.md \
   --turn-mode role_order
 ```
 
-These flags populate optional `session_created.payload.surface`, `session_created.payload.linked_authority`, and `session_created.payload.turn_mode`. They do not authorize Discord API access by `atn-controld`, and they do not make Discord the source of truth. `--turn-mode` is the session-level intended/default floor policy only; each actual floor grant still records `speaker_selected.payload.selection_mode` as the per-turn audit fact.
+These flags populate `session_created.payload.request_context`, optional `session_created.payload.surface`, `session_created.payload.linked_authority`, and `session_created.payload.turn_mode`. They do not authorize Discord API access by `atn-controld`, and they do not make Discord the source of truth. `--turn-mode` is the session-level intended/default floor policy only; each actual floor grant still records `speaker_selected.payload.selection_mode` as the per-turn audit fact.
 
 ### Attendance and agenda lock
 

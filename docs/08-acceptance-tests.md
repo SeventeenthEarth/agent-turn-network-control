@@ -69,7 +69,7 @@ then the moderator can issue `atn-control delegate revise`, which records `revis
 ## Scenario 4: Full council consensus path
 
 Given no active session exists,
-when the moderator creates a council with agent-1, agent-2, and agent-3 through `atn-control council new`,
+when the moderator creates a council with agent-1, agent-2, and agent-3 through `atn-control council new` with an explicit `requested_output_mode` and either live-visible Discord surface fields or explicit non-visible override evidence,
 then the daemon records `session_created` and the council remains in `created`.
 
 When the moderator starts preparation through `atn-control council prepare`,
@@ -119,8 +119,8 @@ The final report must not claim consensus.
 ## Scenario 7A: Discord-thread council surface binding
 
 Given no active session exists,
-when the moderator creates a council through `atn-control council new` with `--surface discord-thread`, `--thread-id`, and `--kanban-card`,
-then `session_created.payload.surface.kind` is `discord_thread`, `session_created.payload.surface.thread_id` is set, and `channel.jsonl` remains the source of truth.
+when the moderator creates a council through `atn-control council new` with `--request-source discord_thread`, `--requested-output-mode live_visible_thread`, `--visible-output-required true`, `--surface discord-thread`, `--surface-platform discord`, `--thread-id`, and `--kanban-card`,
+then `session_created.payload.request_context.requested_output_mode` is `live_visible_thread`, `session_created.payload.surface.kind` is `discord_thread`, `session_created.payload.surface.platform` is `discord`, `session_created.payload.surface.thread_id` is set, and `channel.jsonl` remains the source of truth.
 
 When the moderator records `attendance_requested`, members record one terminal `member_attended` record each (`present`, `partial`, `unavailable`, or `no_response_timeout`), and the moderator records `agenda_locked`,
 then those events remain in the `created` phase and `council prepare` is still the event that enters `preparation`.

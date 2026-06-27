@@ -301,7 +301,11 @@ Minimal additive CLI changes:
 atn-control council new "<topic>" \
   --members macho,seohwang,jonghoe,manchong \
   --moderator wolong \
+  --request-source discord_thread \
+  --requested-output-mode live_visible_thread \
+  --visible-output-required true \
   --surface discord-thread \
+  --surface-platform discord \
   --thread-id 1507515847227215932 \
   --kanban-card t_xxxxx \
   --turn-mode role_order

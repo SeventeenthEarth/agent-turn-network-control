@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -257,9 +258,17 @@ type fakeRunRTResult struct {
 	err    error
 }
 type fakeRunRTAdapter struct {
-	results []fakeRunRTResult
-	calls   int
-	reqs    []runner.Request
+	results        []fakeRunRTResult
+	visibleResults []fakeVisibleDeliveryResult
+	calls          int
+	visibleCalls   int
+	reqs           []runner.Request
+	visibleReqs    []runner.VisibleDeliveryRequest
+}
+
+type fakeVisibleDeliveryResult struct {
+	result runner.VisibleDeliveryResult
+	err    error
 }
 
 func (f *fakeRunRTAdapter) Kind() string       { return runner.HermesAgentKind }
@@ -274,6 +283,16 @@ func (f *fakeRunRTAdapter) Send(ctx context.Context, req runner.Request) (runner
 	r := f.results[idx]
 	return r.result, r.err
 }
+func (f *fakeRunRTAdapter) SendVisible(ctx context.Context, req runner.VisibleDeliveryRequest) (runner.VisibleDeliveryResult, error) {
+	idx := f.visibleCalls
+	f.visibleCalls++
+	f.visibleReqs = append(f.visibleReqs, req)
+	if idx >= len(f.visibleResults) {
+		return runner.VisibleDeliveryResult{OK: true, Status: "posted", Kind: req.Kind, Platform: req.Platform, ChannelID: req.ChannelID, ThreadID: req.ThreadID, MessageID: "msg_fake_visible", PostingPath: "selected_member_profile_send", SenderMember: req.Member.ID}, nil
+	}
+	r := f.visibleResults[idx]
+	return r.result, r.err
+}
 func (f *fakeRunRTAdapter) Resume(context.Context, runner.Request) (runner.Result, error) {
 	return f.Send(context.Background(), runner.Request{})
 }
@@ -281,6 +300,11 @@ func (f *fakeRunRTAdapter) Cancel(context.Context, runner.SessionHandle) error  
 func (f *fakeRunRTAdapter) ParseSessionHandle([]byte) (*runner.SessionHandle, error) { return nil, nil }
 
 func dispatchDataHome(t *testing.T) (string, *registry.LoadedRegistry, string) {
+	t.Helper()
+	return dispatchDataHomeWithMembers(t, "agent-1")
+}
+
+func dispatchDataHomeWithMembers(t *testing.T, members ...string) (string, *registry.LoadedRegistry, string) {
 	t.Helper()
 	dataHome := t.TempDir()
 	if err := os.Chmod(dataHome, 0o700); err != nil {
@@ -298,8 +322,15 @@ func dispatchDataHome(t *testing.T) (string, *registry.LoadedRegistry, string) {
 	if err := os.Mkdir(workspace, 0o700); err != nil {
 		t.Fatalf("mkdir workspace: %v", err)
 	}
-	content := "schema_version: 1\nwrapper_path_allowlist:\n  - " + bin + "\nmembers:\n  agent-mod:\n    display_name: Moderator\n    wrapper: fake-hermes\n    workspace: " + workspace + "\n    role: moderator\n    enabled: true\n    adapter_kind: hermes-agent\n    runtime_kind: hermes-cli-stream\n  agent-1:\n    display_name: Agent One\n    wrapper: fake-hermes\n    workspace: " + workspace + "\n    role: assignee\n    enabled: true\n    adapter_kind: hermes-agent\n    runtime_kind: hermes-cli-stream\n    env_allowlist:\n      - KEEP_ME\n"
-	if err := os.WriteFile(registry.RegistryPath(dataHome), []byte(content), 0o600); err != nil {
+	if len(members) == 0 {
+		members = []string{"agent-1"}
+	}
+	var b strings.Builder
+	b.WriteString("schema_version: 1\nwrapper_path_allowlist:\n  - " + bin + "\nmembers:\n  agent-mod:\n    display_name: Moderator\n    wrapper: fake-hermes\n    workspace: " + workspace + "\n    role: moderator\n    enabled: true\n    adapter_kind: hermes-agent\n    runtime_kind: hermes-cli-stream\n")
+	for _, member := range members {
+		b.WriteString("  " + member + ":\n    display_name: " + member + "\n    wrapper: fake-hermes\n    workspace: " + workspace + "\n    role: assignee\n    enabled: true\n    adapter_kind: hermes-agent\n    runtime_kind: hermes-cli-stream\n    env_allowlist:\n      - KEEP_ME\n")
+	}
+	if err := os.WriteFile(registry.RegistryPath(dataHome), []byte(b.String()), 0o600); err != nil {
 		t.Fatalf("write registry: %v", err)
 	}
 	loaded, err := registry.Load(dataHome, daemonFixedRuntime())

@@ -77,7 +77,7 @@ func (h SelectedSpeakerDispatchHandler) Handle(ctx context.Context, frame storag
 		CausationEventID:         event.EventID,
 		AllowedTerminalTypes:     []string{"speech"},
 		DisallowedTerminalReason: "selected_runner_requires_canonical_speech",
-		TerminalValidator:        validator.validateCanonicalSpeechTerminal(),
+		TerminalValidator:        validator.validateCanonicalSpeechTerminal(ctx),
 		PayloadMissingReason:     "selected_runner_speech_payload_missing",
 		PayloadInvalidReason:     "selected_runner_speech_payload_invalid",
 	})
@@ -92,7 +92,7 @@ func (h SelectedSpeakerDispatchHandler) Handle(ctx context.Context, frame storag
 	}
 }
 
-func (h SelectedSpeakerDispatchHandler) validateCanonicalSpeechTerminal() RunnerTerminalValidator {
+func (h SelectedSpeakerDispatchHandler) validateCanonicalSpeechTerminal(ctx context.Context) RunnerTerminalValidator {
 	return func(event storage.EventEnvelope) (storage.EventEnvelope, error) {
 		if event.Payload == nil {
 			return storage.EventEnvelope{}, fmt.Errorf("selected runner speech payload is required")
@@ -109,12 +109,150 @@ func (h SelectedSpeakerDispatchHandler) validateCanonicalSpeechTerminal() Runner
 		if err != nil {
 			return storage.EventEnvelope{}, err
 		}
+		if err := h.bindSelectedMemberVisibleDelivery(ctx, canonical.Payload, event.EventID); err != nil {
+			return storage.EventEnvelope{}, err
+		}
+		bindSelectedRunnerSurfaceEvidence(canonical.Payload, event.EventID)
 		event.Phase = canonical.Phase
 		event.From = canonical.From
 		event.To = canonical.To
 		event.Turn = canonical.Turn
 		event.Payload = canonical.Payload
 		return event, nil
+	}
+}
+
+func (h SelectedSpeakerDispatchHandler) bindSelectedMemberVisibleDelivery(ctx context.Context, payload map[string]any, speechEventID string) error {
+	if !selectedRunnerRequiresVisibleDiscordDelivery(h.Metadata) {
+		return nil
+	}
+	if payload == nil {
+		return fmt.Errorf("selected runner visible delivery payload is required")
+	}
+	speech := strings.TrimSpace(payloadString(payload, "speech"))
+	if speech == "" {
+		return fmt.Errorf("selected runner visible delivery speech is required")
+	}
+	sender, ok := h.Adapter.(runner.VisibleSender)
+	if !ok {
+		return fmt.Errorf("selected runner adapter cannot perform participant profile visible delivery")
+	}
+	surface := h.Metadata.Surface
+	target, err := selectedRunnerVisibleDeliveryTarget(surface)
+	if err != nil {
+		return err
+	}
+	result, err := sender.SendVisible(ctx, runner.VisibleDeliveryRequest{
+		SessionID:       h.Metadata.ID,
+		Member:          h.Member,
+		ResolvedWrapper: resolvedWrapper(h.Member),
+		Target:          target,
+		Content:         speech,
+		Kind:            surface.Kind,
+		Platform:        surface.Platform,
+		ChannelID:       surface.ChannelID,
+		ThreadID:        surface.ThreadID,
+		Timeout:         h.Timeout,
+		Env:             runner.EnvForMember(h.Member, h.Runtime),
+	})
+	if err != nil {
+		return fmt.Errorf("selected member visible delivery failed: %w", err)
+	}
+	evidence, err := selectedRunnerVisibleDeliveryEvidence(h.Member.ID, surface, speechEventID, result)
+	if err != nil {
+		return err
+	}
+	payload["surface_evidence"] = evidence
+	return nil
+}
+
+func selectedRunnerRequiresVisibleDiscordDelivery(metadata *storage.SessionMetadata) bool {
+	if metadata == nil || metadata.Surface == nil {
+		return false
+	}
+	return strings.TrimSpace(metadata.Surface.Kind) == "discord_thread" || strings.TrimSpace(metadata.Surface.Platform) == "discord"
+}
+
+func selectedRunnerVisibleDeliveryTarget(surface *storage.Surface) (string, error) {
+	if surface == nil {
+		return "", fmt.Errorf("selected runner visible delivery surface is required")
+	}
+	if strings.TrimSpace(surface.Kind) != "discord_thread" {
+		return "", fmt.Errorf("selected runner visible delivery requires discord_thread surface")
+	}
+	if strings.TrimSpace(surface.Platform) != "discord" {
+		return "", fmt.Errorf("selected runner visible delivery requires discord platform")
+	}
+	channelID := strings.TrimSpace(surface.ChannelID)
+	threadID := strings.TrimSpace(surface.ThreadID)
+	if channelID == "" || threadID == "" {
+		return "", fmt.Errorf("selected runner visible delivery requires channel_id and thread_id")
+	}
+	return "discord:" + channelID + ":" + threadID, nil
+}
+
+func selectedRunnerVisibleDeliveryEvidence(memberID string, surface *storage.Surface, speechEventID string, result runner.VisibleDeliveryResult) (map[string]any, error) {
+	if !result.OK {
+		return nil, fmt.Errorf("selected member visible delivery did not return ok status: %s", result.ErrorClass)
+	}
+	if strings.TrimSpace(result.Status) != "posted" {
+		return nil, fmt.Errorf("selected member visible delivery status %q is not posted", result.Status)
+	}
+	if strings.TrimSpace(result.MessageID) == "" {
+		return nil, fmt.Errorf("selected member visible delivery message_id missing")
+	}
+	if strings.TrimSpace(result.PostingPath) != "selected_member_profile_send" {
+		return nil, fmt.Errorf("selected member visible delivery used disallowed posting_path %q", result.PostingPath)
+	}
+	if strings.TrimSpace(result.SenderMember) != strings.TrimSpace(memberID) {
+		return nil, fmt.Errorf("selected member visible delivery sender_member %q does not match selected member %q", result.SenderMember, memberID)
+	}
+	if observed := strings.TrimSpace(result.Kind); observed != "" && observed != strings.TrimSpace(surface.Kind) {
+		return nil, fmt.Errorf("selected member visible delivery kind %q does not match configured surface", observed)
+	}
+	if observed := strings.TrimSpace(result.Platform); observed != "" && observed != strings.TrimSpace(surface.Platform) {
+		return nil, fmt.Errorf("selected member visible delivery platform %q does not match configured surface", observed)
+	}
+	if observed := strings.TrimSpace(result.ChannelID); observed != "" && observed != strings.TrimSpace(surface.ChannelID) {
+		return nil, fmt.Errorf("selected member visible delivery channel_id mismatch")
+	}
+	if observed := strings.TrimSpace(result.ThreadID); observed != "" && observed != strings.TrimSpace(surface.ThreadID) {
+		return nil, fmt.Errorf("selected member visible delivery thread_id mismatch")
+	}
+	return map[string]any{
+		"status":              "posted",
+		"kind":                "discord_thread",
+		"platform":            "discord",
+		"channel_id":          strings.TrimSpace(surface.ChannelID),
+		"thread_id":           strings.TrimSpace(surface.ThreadID),
+		"message_id":          strings.TrimSpace(result.MessageID),
+		"posting_path":        "selected_member_profile_send",
+		"sender_member":       strings.TrimSpace(memberID),
+		"references_event_id": strings.TrimSpace(speechEventID),
+		"speech_event_id":     strings.TrimSpace(speechEventID),
+	}, nil
+}
+
+func bindSelectedRunnerSurfaceEvidence(payload map[string]any, speechEventID string) {
+	if payload == nil || strings.TrimSpace(speechEventID) == "" {
+		return
+	}
+	for _, key := range []string{"surface_evidence", "plugin_evidence", "delivery_evidence", "evidence"} {
+		value, ok := payload[key]
+		if !ok {
+			continue
+		}
+		surfaceEvidence, ok := value.(map[string]any)
+		if !ok || surfaceEvidence == nil {
+			continue
+		}
+		if _, exists := surfaceEvidence["references_event_id"]; !exists {
+			surfaceEvidence["references_event_id"] = speechEventID
+		}
+		if _, exists := surfaceEvidence["speech_event_id"]; !exists {
+			surfaceEvidence["speech_event_id"] = speechEventID
+		}
+		return
 	}
 }
 

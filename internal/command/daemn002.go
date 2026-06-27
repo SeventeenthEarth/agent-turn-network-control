@@ -673,12 +673,20 @@ func splitKeyValue(value string) (string, string, bool) {
 	return key, val, true
 }
 
-func parseScalar(value string) any {
-	if value == "true" {
-		return true
+func parseBoolArg(value string) (bool, bool) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "1", "yes", "y":
+		return true, true
+	case "false", "0", "no", "n":
+		return false, true
+	default:
+		return false, false
 	}
-	if value == "false" {
-		return false
+}
+
+func parseScalar(value string) any {
+	if parsed, ok := parseBoolArg(value); ok {
+		return parsed
 	}
 	if i, err := strconv.Atoi(value); err == nil {
 		return i
@@ -687,6 +695,42 @@ func parseScalar(value string) any {
 		return f
 	}
 	return value
+}
+
+func normalizeCouncilSurfaceKind(kind string) string {
+	switch strings.TrimSpace(kind) {
+	case "discord-thread":
+		return "discord_thread"
+	case "discord-channel":
+		return "discord_channel"
+	case "discord-parent-channel":
+		return "discord_parent_channel"
+	default:
+		return strings.TrimSpace(kind)
+	}
+}
+
+func setCouncilRequestedOutputModeArg(requestContext map[string]any, value string) error {
+	newValue := normalizeCouncilRequestedOutputModeForCLI(value)
+	if existingRaw, ok := requestContext["requested_output_mode"].(string); ok && existingRaw != "" {
+		existing := normalizeCouncilRequestedOutputModeForCLI(existingRaw)
+		if existing != newValue {
+			return protocol.NewError(protocol.ErrorValidation, "council new output-mode aliases must not conflict", protocol.ExitUsage, nil)
+		}
+	}
+	requestContext["requested_output_mode"] = newValue
+	return nil
+}
+
+func normalizeCouncilRequestedOutputModeForCLI(mode string) string {
+	switch strings.TrimSpace(mode) {
+	case "transcript/export-only", "transcript_export_only":
+		return "artifact_only"
+	case "local-daemon-only", "local_daemon_only":
+		return "activation_planning_only"
+	default:
+		return strings.TrimSpace(mode)
+	}
 }
 
 func payloadKey(flag string) string {
@@ -840,7 +884,7 @@ func repoRootForConformance() (string, error) {
 
 func (a App) runCouncil(args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 || isHelp(args[0]) {
-		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s council new <title> --members <member[,member...]> --moderator <member> [--session-id <id>]\n  %s council <action> <session_id> [--from <member>] [--command-id <id>] [action flags]\n", a.Name, a.Name)
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s council new <title> --members <member[,member...]> --moderator <member> --requested-output-mode live_visible_thread --surface discord_thread --surface-platform discord --thread-id <id> [--request-source discord_thread] [--visible-output-required true]\n  %s council new <title> --members <member[,member...]> --moderator <member> --requested-output-mode local-daemon-only --explicit-non-visible-override true --override-reason <reason>\n  %s council <action> <session_id> [--from <member>] [--command-id <id>] [action flags]\n", a.Name, a.Name, a.Name)
 		return protocol.ExitOK
 	}
 	sub := args[0]
@@ -860,6 +904,7 @@ func (a App) runCouncilNew(args []string, stdout io.Writer, stderr io.Writer) in
 	params := map[string]any{"title": args[0]}
 	var members []string
 	surface := map[string]any{}
+	requestContext := map[string]any{}
 	linked := map[string]any{}
 	limits := map[string]any{}
 	for i := 1; i < len(args); i++ {
@@ -888,15 +933,53 @@ func (a App) runCouncilNew(args []string, stdout io.Writer, stderr io.Writer) in
 			}
 			params[payloadKey(args[i])] = args[i+1]
 			i++
+		case "--request-source", "--source":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
+			}
+			requestContext["source"] = args[i+1]
+			i++
+		case "--requested-output-mode", "--output-mode", "--requested-output":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
+			}
+			if err := setCouncilRequestedOutputModeArg(requestContext, args[i+1]); err != nil {
+				return writeProtocolError(stderr, err)
+			}
+			i++
+		case "--override-reason":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--override-reason requires a value", protocol.ExitUsage, nil))
+			}
+			requestContext["override_reason"] = args[i+1]
+			i++
+		case "--explicit-non-visible-override", "--visible-output-required":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires true or false", protocol.ExitUsage, nil))
+			}
+			value, ok := parseBoolArg(args[i+1])
+			if !ok {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires true or false", protocol.ExitUsage, nil))
+			}
+			requestContext[payloadKey(args[i])] = value
+			i++
 		case "--surface":
 			if i+1 >= len(args) {
 				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--surface requires a value", protocol.ExitUsage, nil))
 			}
-			kind := args[i+1]
-			if kind == "discord-thread" {
-				kind = "discord_thread"
+			surface["kind"] = normalizeCouncilSurfaceKind(args[i+1])
+			i++
+		case "--surface-platform":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--surface-platform requires a value", protocol.ExitUsage, nil))
 			}
-			surface["kind"] = kind
+			surface["platform"] = args[i+1]
+			i++
+		case "--channel-id":
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--channel-id requires a value", protocol.ExitUsage, nil))
+			}
+			surface["channel_id"] = args[i+1]
 			i++
 		case "--thread-id":
 			if i+1 >= len(args) {
@@ -935,6 +1018,9 @@ func (a App) runCouncilNew(args []string, stdout io.Writer, stderr io.Writer) in
 	}
 	if len(surface) > 0 {
 		params["surface"] = surface
+	}
+	if len(requestContext) > 0 {
+		params["request_context"] = requestContext
 	}
 	if len(linked) > 0 {
 		params["linked_authority"] = linked

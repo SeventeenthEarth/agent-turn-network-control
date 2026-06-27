@@ -46,7 +46,7 @@ The CLI creates a sample disabled registry only when missing. Edit `registry.yam
 atn-control delegate new sess_example_delegation --moderator agent-mod --assignee agent-1 --title "Implement task A" --task "Implement task A"
 atn-control delegate submit sess_example_delegation --actor agent-1 --summary "Done" --command-id cmd_submit_example
 atn-control delegate review sess_example_delegation --actor agent-mod --command-id cmd_review_example
-atn-control council new "Decide release gate" --members agent-mod,agent-1,agent-2 --moderator agent-mod --session-id sess_example_council
+atn-control council new "Decide release gate" --members agent-mod,agent-1,agent-2 --moderator agent-mod --session-id sess_example_council --requested-output-mode local-daemon-only --explicit-non-visible-override true --override-reason "operator requested local daemon diagnostics"
 ```
 
 Transcript and export commands are deterministic and do not append session events:

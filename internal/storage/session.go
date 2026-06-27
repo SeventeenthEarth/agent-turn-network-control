@@ -205,6 +205,9 @@ func sessionCreatedEvent(metadata *SessionMetadata, spec SessionSpec, now time.T
 	if metadata.Surface != nil {
 		payload["surface"] = metadata.Surface
 	}
+	if len(spec.RequestContext) > 0 {
+		payload["request_context"] = cloneMap(spec.RequestContext)
+	}
 	if metadata.LinkedAuthority != nil {
 		payload["linked_authority"] = metadata.LinkedAuthority
 	}
@@ -229,6 +232,17 @@ func sessionCreatedEvent(metadata *SessionMetadata, spec SessionSpec, now time.T
 		CreatedAt:     now,
 		Payload:       payload,
 	}
+}
+
+func cloneMap(source map[string]any) map[string]any {
+	if len(source) == 0 {
+		return nil
+	}
+	cloned := make(map[string]any, len(source))
+	for key, value := range source {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func runtimeWithDefaults(runtime registry.Runtime) registry.Runtime {

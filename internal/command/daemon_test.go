@@ -448,6 +448,11 @@ func TestIntegrationLTRAN003LiveLocalCLIProof(t *testing.T) {
 		return stderr.String()
 	}
 
+	aliasConflict := runFail("council", "new", "Conflicting output mode aliases", "--members", "agent-1,agent-2", "--moderator", "agent-mod", "--requested-output-mode", "live_visible_thread", "--output-mode", "local-daemon-only", "--explicit-non-visible-override", "true", "--override-reason", "operator explicitly requested local diagnostics")
+	if !strings.Contains(aliasConflict, "output-mode aliases") {
+		t.Fatalf("CLI alias conflict should fail closed before daemon write, got %s", aliasConflict)
+	}
+
 	for _, args := range [][]string{
 		{"compat", "version", "--format", "json"},
 		{"compat", "status", "--format", "json"},

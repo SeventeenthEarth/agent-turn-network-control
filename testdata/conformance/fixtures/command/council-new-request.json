@@ -10,8 +10,14 @@
       "agent-2"
     ],
     "title": "Conformance council fixture",
+    "request_context": {
+      "source": "discord_thread",
+      "requested_output_mode": "live_visible_thread",
+      "visible_output_required": true
+    },
     "surface": {
       "kind": "discord_thread",
+      "platform": "discord",
       "thread_id": "thread_static_conformance"
     },
     "turn_mode": "moderator_direct",

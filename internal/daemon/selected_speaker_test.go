@@ -36,6 +36,9 @@ func TestSelectedSpeakerDispatchInvokesSelectedMemberThroughRunnerAndRecordsSpee
 	if adapter.calls != 1 || len(adapter.reqs) != 1 {
 		t.Fatalf("selected speaker should invoke runner once, calls=%d reqs=%#v", adapter.calls, adapter.reqs)
 	}
+	if adapter.visibleCalls != 0 {
+		t.Fatalf("non-discord selected speaker dispatch must not post visible delivery, calls=%d", adapter.visibleCalls)
+	}
 	if got := adapter.reqs[0].Member.ID; got != "agent-1" {
 		t.Fatalf("runner must use selected registry member, got %q", got)
 	}
@@ -68,6 +71,114 @@ func TestSelectedSpeakerDispatchInvokesSelectedMemberThroughRunnerAndRecordsSpee
 	}
 	if len(stream.acks) != 2 || stream.acks[len(stream.acks)-1].EventID != speaker.EventID {
 		t.Fatalf("runtime should ack speaker_selected after durable success evidence, acks=%#v", stream.acks)
+	}
+}
+
+func TestSelectedSpeakerDispatchLiveVisiblePostsThroughSelectedMemberProfileSend(t *testing.T) {
+	for _, memberID := range []string{"jangbi", "janghap", "beopjeong", "jangso"} {
+		t.Run(memberID, func(t *testing.T) {
+			dataHome, loaded, wrapper := dispatchDataHomeWithMembers(t, memberID)
+			surface := &storage.Surface{Kind: "discord_thread", Platform: "discord", ChannelID: "chan-live", ThreadID: "thread-live"}
+			metadata, _, err := storage.CreateSession(dataHome, loaded, storage.SessionSpec{ID: "sess_visible_" + memberID, SessionType: storage.SessionTypeCouncil, Title: "selected profile send", Moderator: "agent-mod", Participants: []string{"agent-mod", memberID}, Surface: surface, EventID: "evt_created_visible_" + memberID, CommandID: "cmd_create_visible_" + memberID}, daemonFixedRuntime())
+			if err != nil {
+				t.Fatalf("CreateSession: %v", err)
+			}
+			sessionDir, _ := storage.SessionDir(dataHome, metadata.ID)
+			speaker := appendSpeakerSelected(t, sessionDir, metadata, "evt_speaker_selected_visible_"+memberID, "cmd_council_grant_visible_"+memberID, memberID)
+			member := loaded.Registry.Members[memberID]
+			member.ResolvedWrapper = &registry.WrapperResolution{ResolvedPath: wrapper}
+			adapter := &fakeRunRTAdapter{
+				results:        []fakeRunRTResult{{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": 1, "speech": "visible speech from " + memberID}, Cost: &runner.Cost{Source: runner.HermesAgentCostSource}}}},
+				visibleResults: []fakeVisibleDeliveryResult{{result: runner.VisibleDeliveryResult{OK: true, Status: "posted", Kind: "discord_thread", Platform: "discord", ChannelID: "chan-live", ThreadID: "thread-live", MessageID: "msg_" + memberID, PostingPath: "selected_member_profile_send", SenderMember: memberID}}},
+			}
+			handler := daemon.SelectedSpeakerDispatchHandler{SessionDir: sessionDir, Metadata: metadata, Member: member, Adapter: adapter, Runtime: daemonFixedRuntime(), Locks: &daemon.DispatchLocks{}, PromptBuilder: selectedSpeakerPromptBuilder()}
+			stream := &selectedSpeakerStream{frames: framesThroughSpeaker(t, sessionDir, metadata, speaker.EventID)}
+			rt := memberruntime.Runtime{SessionID: metadata.ID, Member: memberID, Role: "assignee", Stream: stream, Cursors: &selectedSpeakerCursorStore{}, Policy: memberruntime.Policy{ActionTypes: memberruntime.NewPolicy("speaker_selected").ActionTypes, RecipientHints: map[string]struct{}{"self": {}}}, Handler: handler}
+
+			if err := rt.RunOnce(context.Background()); err != nil {
+				t.Fatalf("RunOnce selected speaker visible delivery failed: %v", err)
+			}
+			if adapter.calls != 1 || adapter.visibleCalls != 1 {
+				t.Fatalf("selected visible dispatch must call semantic chat and visible send once, chat=%d visible=%d", adapter.calls, adapter.visibleCalls)
+			}
+			visibleReq := adapter.visibleReqs[0]
+			if visibleReq.Member.ID != memberID || visibleReq.ResolvedWrapper != wrapper || visibleReq.Target != "discord:chan-live:thread-live" || visibleReq.Content != "visible speech from "+memberID {
+				t.Fatalf("visible send must use selected member wrapper, bound Discord thread, and final speech: %#v", visibleReq)
+			}
+			index, err := storage.ReadLogIndex(sessionDir, metadata)
+			if err != nil {
+				t.Fatalf("ReadLogIndex: %v", err)
+			}
+			speech := findEvent(t, index.Events, "speech")
+			evidence, ok := speech.Payload["surface_evidence"].(map[string]any)
+			if !ok {
+				t.Fatalf("speech missing surface_evidence: %#v", speech.Payload)
+			}
+			if evidence["message_id"] != "msg_"+memberID || evidence["posting_path"] != "selected_member_profile_send" || evidence["sender_member"] != memberID || evidence["channel_id"] != "chan-live" || evidence["thread_id"] != "thread-live" || evidence["references_event_id"] != speech.EventID {
+				t.Fatalf("surface evidence not bound to selected member profile send and canonical speech: %#v speech=%s", evidence, speech.EventID)
+			}
+			accounting := storage.SelectedRunnerAccountingFromIndex(metadata, index)
+			if !accounting.SelectedRunnerPass || accounting.LinkedRunnerSpeechCount != 1 {
+				t.Fatalf("live-visible selected profile send must satisfy selected-runner accounting: %#v", accounting)
+			}
+		})
+	}
+}
+
+func TestSelectedSpeakerDispatchLiveVisibleFailsClosedOnInvalidDeliveryEvidence(t *testing.T) {
+	tests := []struct {
+		name    string
+		result  runner.VisibleDeliveryResult
+		wantErr string
+	}{
+		{name: "missing message id", result: runner.VisibleDeliveryResult{OK: true, Status: "posted", Kind: "discord_thread", Platform: "discord", ChannelID: "chan-live", ThreadID: "thread-live", PostingPath: "selected_member_profile_send", SenderMember: "jangbi"}, wantErr: "message_id"},
+		{name: "wrong thread", result: runner.VisibleDeliveryResult{OK: true, Status: "posted", Kind: "discord_thread", Platform: "discord", ChannelID: "chan-live", ThreadID: "thread-other", MessageID: "msg_wrong_thread", PostingPath: "selected_member_profile_send", SenderMember: "jangbi"}, wantErr: "thread_id mismatch"},
+		{name: "operator bridge", result: runner.VisibleDeliveryResult{OK: true, Status: "posted", Kind: "discord_thread", Platform: "discord", ChannelID: "chan-live", ThreadID: "thread-live", MessageID: "msg_operator", PostingPath: "hermes_send_message_operator_bridge", SenderMember: "jangbi"}, wantErr: "posting_path"},
+		{name: "sender mismatch", result: runner.VisibleDeliveryResult{OK: true, Status: "posted", Kind: "discord_thread", Platform: "discord", ChannelID: "chan-live", ThreadID: "thread-live", MessageID: "msg_sender", PostingPath: "selected_member_profile_send", SenderMember: "agent-mod"}, wantErr: "sender_member"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dataHome, loaded, wrapper := dispatchDataHomeWithMembers(t, "jangbi")
+			surface := &storage.Surface{Kind: "discord_thread", Platform: "discord", ChannelID: "chan-live", ThreadID: "thread-live"}
+			metadata, _, err := storage.CreateSession(dataHome, loaded, storage.SessionSpec{ID: "sess_visible_fail_" + strings.NewReplacer(" ", "_").Replace(tt.name), SessionType: storage.SessionTypeCouncil, Title: "selected profile send fail", Moderator: "agent-mod", Participants: []string{"agent-mod", "jangbi"}, Surface: surface, EventID: "evt_created_visible_fail_" + strings.NewReplacer(" ", "_").Replace(tt.name), CommandID: "cmd_create_visible_fail_" + strings.NewReplacer(" ", "_").Replace(tt.name)}, daemonFixedRuntime())
+			if err != nil {
+				t.Fatalf("CreateSession: %v", err)
+			}
+			sessionDir, _ := storage.SessionDir(dataHome, metadata.ID)
+			speaker := appendSpeakerSelected(t, sessionDir, metadata, "evt_speaker_selected_visible_fail_"+strings.NewReplacer(" ", "_").Replace(tt.name), "cmd_council_grant_visible_fail_"+strings.NewReplacer(" ", "_").Replace(tt.name), "jangbi")
+			member := loaded.Registry.Members["jangbi"]
+			member.ResolvedWrapper = &registry.WrapperResolution{ResolvedPath: wrapper}
+			adapter := &fakeRunRTAdapter{
+				results:        []fakeRunRTResult{{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": 1, "speech": "visible speech"}, Cost: &runner.Cost{Source: runner.HermesAgentCostSource}}}},
+				visibleResults: []fakeVisibleDeliveryResult{{result: tt.result}},
+			}
+			handler := daemon.SelectedSpeakerDispatchHandler{SessionDir: sessionDir, Metadata: metadata, Member: member, Adapter: adapter, Runtime: daemonFixedRuntime(), Locks: &daemon.DispatchLocks{}, PromptBuilder: selectedSpeakerPromptBuilder()}
+			stream := &selectedSpeakerStream{frames: framesThroughSpeaker(t, sessionDir, metadata, speaker.EventID)}
+			rt := memberruntime.Runtime{SessionID: metadata.ID, Member: "jangbi", Role: "assignee", Stream: stream, Cursors: &selectedSpeakerCursorStore{}, Policy: memberruntime.Policy{ActionTypes: memberruntime.NewPolicy("speaker_selected").ActionTypes, RecipientHints: map[string]struct{}{"self": {}}}, Handler: handler}
+
+			if err := rt.RunOnce(context.Background()); err != nil {
+				t.Fatalf("invalid visible delivery should be recorded durably and acked, got: %v", err)
+			}
+			if adapter.calls != 1 || adapter.visibleCalls != 1 {
+				t.Fatalf("expected one semantic and one visible send attempt, chat=%d visible=%d", adapter.calls, adapter.visibleCalls)
+			}
+			index, err := storage.ReadLogIndex(sessionDir, metadata)
+			if err != nil {
+				t.Fatalf("ReadLogIndex: %v", err)
+			}
+			if eventTypeCount(index.Events, "speech") != 0 {
+				t.Fatalf("invalid visible delivery must not append canonical speech: %#v", index.Events)
+			}
+			discarded := findEvent(t, index.Events, "runner_result_discarded")
+			validationError, _ := discarded.Payload["validation_error"].(string)
+			if !strings.Contains(validationError, tt.wantErr) {
+				t.Fatalf("discard diagnostic missing %q: %#v", tt.wantErr, discarded.Payload)
+			}
+			accounting := storage.SelectedRunnerAccountingFromIndex(metadata, index)
+			if accounting.SelectedRunnerPass || accounting.LinkedRunnerSpeechCount != 0 {
+				t.Fatalf("invalid visible delivery must not satisfy selected-runner pass: %#v", accounting)
+			}
+		})
 	}
 }
 

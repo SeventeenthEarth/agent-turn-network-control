@@ -129,7 +129,7 @@ func TestUnitRUNFIX014LinkedRunnerSpeechPassesSelectedRunner(t *testing.T) {
 		Attempt:         1,
 		SourceCommandID: "cmd_runner_success",
 		Status:          "succeeded",
-	}, map[string]any{"speech": "Linked runner speech.", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "thread_id": metadata.Surface.ThreadID, "message_id": "msg-runner-success", "references_event_id": "evt_runner_speech_success"}}, 3*time.Second))
+	}, map[string]any{"speech": "Linked runner speech.", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "platform": "discord", "channel_id": metadata.Surface.ChannelID, "thread_id": metadata.Surface.ThreadID, "message_id": "msg-runner-success", "posting_path": "selected_member_profile_send", "sender_member": "agent-1", "references_event_id": "evt_runner_speech_success"}}, 3*time.Second))
 
 	index, err := ReadLogIndex(sessionDir, metadata)
 	if err != nil {
@@ -203,7 +203,7 @@ func TestUnitRUNFIX3004LinkedRunnerSpeechWithMismatchedThreadFailsSelectedRunner
 		Attempt:         1,
 		SourceCommandID: "cmd_runner_wrong_thread",
 		Status:          "succeeded",
-	}, map[string]any{"speech": "Linked runner speech with mismatched thread evidence.", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "thread_id": "thread-other", "message_id": "msg-runner-wrong-thread", "references_event_id": "evt_runner_speech_wrong_thread"}}, 3*time.Second))
+	}, map[string]any{"speech": "Linked runner speech with mismatched thread evidence.", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "platform": "discord", "channel_id": metadata.Surface.ChannelID, "thread_id": "thread-other", "message_id": "msg-runner-wrong-thread", "posting_path": "selected_member_profile_send", "sender_member": "agent-1", "references_event_id": "evt_runner_speech_wrong_thread"}}, 3*time.Second))
 
 	index, err := ReadLogIndex(sessionDir, metadata)
 	if err != nil {
@@ -344,7 +344,7 @@ func createSelectedRunnerAccountingSession(t *testing.T, suffix string) (string,
 	metadata.Participants = []string{"agent-mod", "agent-1"}
 	metadata.State.Phase = "discussion"
 	metadata.TurnMode = "moderator_direct"
-	metadata.Surface = &Surface{Kind: "discord_thread", Platform: "discord", ThreadID: "thread-runfix014-" + suffix}
+	metadata.Surface = &Surface{Kind: "discord_thread", Platform: "discord", ChannelID: "chan-runfix014-" + suffix, ThreadID: "thread-runfix014-" + suffix}
 	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
 		t.Fatalf("WriteSessionYAMLAtomic: %v", err)
 	}

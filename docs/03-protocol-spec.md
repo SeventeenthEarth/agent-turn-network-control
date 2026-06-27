@@ -179,6 +179,11 @@ Council variant has `to` listing every council member:
       "started_by": "user",
       "delivery_owner": "moderator_runtime"
     },
+    "request_context": {
+      "source": "discord_thread",
+      "requested_output_mode": "live_visible_thread",
+      "visible_output_required": true
+    },
     "linked_authority": {
       "kanban_card_id": "t_xxxxx",
       "vault_decision_note": "optional"
@@ -189,7 +194,7 @@ Council variant has `to` listing every council member:
 }
 ```
 
-`surface` and `linked_authority` are optional. When `surface.kind` is `discord_thread`, `thread_id` is required and Discord identifiers are evidence pointers, not ordering or state authority. `linked_authority.kanban_card_id` means the final council result must be returned to the named Kanban card or a clearly linked follow-up/review card. `linked_authority.vault_decision_note` is a decision-record target, not proof that the note already exists. Optional `turn_mode` is the session-level intended/default floor policy (`relevance`, `targeted`, `random`, `moderator_direct`, or `role_order`). It is not per-turn audit evidence; each actual floor grant records its own `speaker_selected.payload.selection_mode`. Optional `limits.max_discussion_turns` is the explicit council participant discussion-turn limit; legacy `limits.max_turns` is not reinterpreted as lifecycle enforcement.
+`surface` and `linked_authority` are optional. Council `session_created.payload.request_context` preserves the accepted `council.new` output intent; every council creation must declare `requested_output_mode` before session creation. Discord-origin councils default to `live_visible_thread`, while non-visible/local-daemon-only modes require explicit override evidence. When `surface.kind` is `discord_thread`, `thread_id` is required and Discord identifiers are evidence pointers, not ordering or state authority. `linked_authority.kanban_card_id` means the final council result must be returned to the named Kanban card or a clearly linked follow-up/review card. `linked_authority.vault_decision_note` is a decision-record target, not proof that the note already exists. Optional `turn_mode` is the session-level intended/default floor policy (`relevance`, `targeted`, `random`, `moderator_direct`, or `role_order`). It is not per-turn audit evidence; each actual floor grant records its own `speaker_selected.payload.selection_mode`. Optional `limits.max_discussion_turns` is the explicit council participant discussion-turn limit; legacy `limits.max_turns` is not reinterpreted as lifecycle enforcement.
 
 When `limits.max_discussion_turns` is configured, the derived council discussion lifecycle is:
 

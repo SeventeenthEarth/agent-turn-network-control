@@ -129,6 +129,7 @@ type SessionSpec struct {
 	Moderator       string
 	Participants    []string
 	Surface         *Surface
+	RequestContext  map[string]any
 	LinkedAuthority *LinkedAuthority
 	TurnMode        string
 	Limits          Limits
