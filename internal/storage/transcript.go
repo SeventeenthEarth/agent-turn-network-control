@@ -128,6 +128,12 @@ func BuildExportBundle(sessionDir string, metadata *SessionMetadata, opts Export
 			}
 			return nil
 		}(),
+		"selected_runner_timeout_evidence": func() any {
+			if evidence := selectedRunnerTimeoutEvidenceProjection(metadata); evidence != nil {
+				return *evidence
+			}
+			return nil
+		}(),
 		"discussion_lifecycle":        councilDiscussionLifecycle(metadata, index),
 		"closeout_diagnostics":        closeoutDiagnosticsForStatus(metadata, index),
 		"summary_turn_accounting":     summaryTurnAccountingRows(metadata, index),
@@ -331,6 +337,15 @@ func renderSelectedRunnerPromptEvidenceSummary(b *strings.Builder, evidence *Sel
 	}
 	if len(evidence.PriorContextSourceEventIDs) > 0 {
 		fmt.Fprintf(b, "- prior_context_source_event_ids: `%s`\n", mustCompactJSON(evidence.PriorContextSourceEventIDs))
+	}
+	if len(evidence.OwnHistorySourceEventIDs) > 0 {
+		fmt.Fprintf(b, "- own_history_source_event_ids: `%s`\n", mustCompactJSON(evidence.OwnHistorySourceEventIDs))
+	}
+	if len(evidence.OwnLatestClaimSourceEventIDs) > 0 {
+		fmt.Fprintf(b, "- own_latest_claim_source_event_ids: `%s`\n", mustCompactJSON(evidence.OwnLatestClaimSourceEventIDs))
+	}
+	if len(evidence.OwnClaimIndexSourceEventIDs) > 0 {
+		fmt.Fprintf(b, "- own_claim_index_source_event_ids: `%s`\n", mustCompactJSON(evidence.OwnClaimIndexSourceEventIDs))
 	}
 	if strings.TrimSpace(evidence.RedactedPromptExcerpt) != "" {
 		fmt.Fprintf(b, "- redacted_prompt_excerpt: `%s`\n", escapeMarkdownTableCell(evidence.RedactedPromptExcerpt))

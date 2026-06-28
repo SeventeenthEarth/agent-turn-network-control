@@ -18,21 +18,24 @@ const selectedRunnerMissingContextInstruction = "If any required agenda or conte
 
 const selectedRunnerArgueRule = "When prior claims exist, respond using the current council speech contract. Link through stance_links to the relevant prior claims, or use contribution_type=new_axis with new_axis_reason only when introducing a justified new axis."
 
-const selectedRunnerPromptContextWindow = 3
+const selectedRunnerPromptContextWindow = 6
 
 type SelectedRunnerPromptEvidence struct {
-	SessionID                  string   `json:"session_id"`
-	SpeakerSelectedEventID     string   `json:"speaker_selected_event_id"`
-	SelectedMember             string   `json:"selected_member"`
-	Turn                       int      `json:"turn,omitempty"`
-	CausationEventID           string   `json:"causation_event_id,omitempty"`
-	Result                     string   `json:"result"`
-	IncludedContext            []string `json:"included_context,omitempty"`
-	MissingRequiredContext     []string `json:"missing_required_context,omitempty"`
-	AgendaSourceEventIDs       []string `json:"agenda_source_event_ids,omitempty"`
-	PriorContextSourceEventIDs []string `json:"prior_context_source_event_ids,omitempty"`
-	PromptContextSHA256        string   `json:"prompt_context_sha256,omitempty"`
-	RedactedPromptExcerpt      string   `json:"redacted_prompt_excerpt,omitempty"`
+	SessionID                    string   `json:"session_id"`
+	SpeakerSelectedEventID       string   `json:"speaker_selected_event_id"`
+	SelectedMember               string   `json:"selected_member"`
+	Turn                         int      `json:"turn,omitempty"`
+	CausationEventID             string   `json:"causation_event_id,omitempty"`
+	Result                       string   `json:"result"`
+	IncludedContext              []string `json:"included_context,omitempty"`
+	MissingRequiredContext       []string `json:"missing_required_context,omitempty"`
+	AgendaSourceEventIDs         []string `json:"agenda_source_event_ids,omitempty"`
+	PriorContextSourceEventIDs   []string `json:"prior_context_source_event_ids,omitempty"`
+	OwnHistorySourceEventIDs     []string `json:"own_history_source_event_ids,omitempty"`
+	OwnLatestClaimSourceEventIDs []string `json:"own_latest_claim_source_event_ids,omitempty"`
+	OwnClaimIndexSourceEventIDs  []string `json:"own_claim_index_source_event_ids,omitempty"`
+	PromptContextSHA256          string   `json:"prompt_context_sha256,omitempty"`
+	RedactedPromptExcerpt        string   `json:"redacted_prompt_excerpt,omitempty"`
 }
 
 type SelectedRunnerPromptEnvelope struct {
@@ -46,6 +49,25 @@ type selectedRunnerPromptSource struct {
 	Member  string
 	Speech  string
 	Claims  []map[string]any
+}
+
+type selectedRunnerPromptClaim struct {
+	ID      string
+	Summary string
+}
+
+type selectedRunnerOwnHistoryContext struct {
+	PriorSpeeches             string
+	LatestClaims              string
+	ClaimIndex                string
+	HistorySourceEventIDs     []string
+	LatestClaimSourceEventIDs []string
+	ClaimIndexSourceEventIDs  []string
+	HasPriorSpeechHistory     bool
+	HasPriorClaimHistory      bool
+	PriorSpeechesMissing      bool
+	LatestClaimsMissing       bool
+	ClaimIndexMissing         bool
 }
 
 func BuildSelectedRunnerPromptEnvelope(metadata *SessionMetadata, index *LogIndex, speaker EventEnvelope, member registry.Member) (SelectedRunnerPromptEnvelope, error) {
@@ -134,6 +156,39 @@ func BuildSelectedRunnerPromptEnvelope(metadata *SessionMetadata, index *LogInde
 		evidence.PriorContextSourceEventIDs = appendUniqueString(evidence.PriorContextSourceEventIDs, eventID)
 	}
 
+	ownHistory := selectedMemberOwnHistoryContext(index.Events, speaker.EventID, member.ID)
+	if ownHistory.HasPriorSpeechHistory {
+		if strings.TrimSpace(ownHistory.PriorSpeeches) == "" || ownHistory.PriorSpeechesMissing {
+			evidence.MissingRequiredContext = appendUniqueString(evidence.MissingRequiredContext, "selected_member_prior_speeches")
+		} else {
+			evidence.IncludedContext = appendUniqueString(evidence.IncludedContext, "selected_member_prior_speeches")
+			contextPayload["selected_member_prior_speeches"] = ownHistory.PriorSpeeches
+		}
+	}
+	if ownHistory.HasPriorClaimHistory {
+		if strings.TrimSpace(ownHistory.LatestClaims) == "" || ownHistory.LatestClaimsMissing {
+			evidence.MissingRequiredContext = appendUniqueString(evidence.MissingRequiredContext, "selected_member_latest_claims")
+		} else {
+			evidence.IncludedContext = appendUniqueString(evidence.IncludedContext, "selected_member_latest_claims")
+			contextPayload["selected_member_latest_claims"] = ownHistory.LatestClaims
+		}
+		if strings.TrimSpace(ownHistory.ClaimIndex) == "" || ownHistory.ClaimIndexMissing {
+			evidence.MissingRequiredContext = appendUniqueString(evidence.MissingRequiredContext, "selected_member_claim_index")
+		} else {
+			evidence.IncludedContext = appendUniqueString(evidence.IncludedContext, "selected_member_claim_index")
+			contextPayload["selected_member_claim_index"] = ownHistory.ClaimIndex
+		}
+	}
+	for _, eventID := range ownHistory.HistorySourceEventIDs {
+		evidence.OwnHistorySourceEventIDs = appendUniqueString(evidence.OwnHistorySourceEventIDs, eventID)
+	}
+	for _, eventID := range ownHistory.LatestClaimSourceEventIDs {
+		evidence.OwnLatestClaimSourceEventIDs = appendUniqueString(evidence.OwnLatestClaimSourceEventIDs, eventID)
+	}
+	for _, eventID := range ownHistory.ClaimIndexSourceEventIDs {
+		evidence.OwnClaimIndexSourceEventIDs = appendUniqueString(evidence.OwnClaimIndexSourceEventIDs, eventID)
+	}
+
 	if len(evidence.MissingRequiredContext) > 0 {
 		evidence.Result = "blocked"
 	} else {
@@ -143,6 +198,9 @@ func BuildSelectedRunnerPromptEnvelope(metadata *SessionMetadata, index *LogInde
 	contextPayload["missing_required_context"] = append([]string(nil), evidence.MissingRequiredContext...)
 	contextPayload["agenda_source_event_ids"] = append([]string(nil), evidence.AgendaSourceEventIDs...)
 	contextPayload["prior_context_source_event_ids"] = append([]string(nil), evidence.PriorContextSourceEventIDs...)
+	contextPayload["own_history_source_event_ids"] = append([]string(nil), evidence.OwnHistorySourceEventIDs...)
+	contextPayload["own_latest_claim_source_event_ids"] = append([]string(nil), evidence.OwnLatestClaimSourceEventIDs...)
+	contextPayload["own_claim_index_source_event_ids"] = append([]string(nil), evidence.OwnClaimIndexSourceEventIDs...)
 	contextPayload["selected_member"] = evidence.SelectedMember
 	contextPayload["speaker_selected_event_id"] = evidence.SpeakerSelectedEventID
 	contextPayload["result"] = evidence.Result
@@ -185,18 +243,21 @@ func selectedRunnerPromptEvidenceFromPayload(payload map[string]any) *SelectedRu
 		return nil
 	}
 	evidence := &SelectedRunnerPromptEvidence{
-		SessionID:                  anyString(payload, "session_id"),
-		SpeakerSelectedEventID:     anyString(payload, "speaker_selected_event_id"),
-		SelectedMember:             anyString(payload, "selected_member"),
-		Turn:                       anyInt(payload, "turn"),
-		CausationEventID:           anyString(payload, "causation_event_id"),
-		Result:                     anyString(payload, "result"),
-		IncludedContext:            selectedRunnerStringSlice(payload["included_context"]),
-		MissingRequiredContext:     selectedRunnerStringSlice(payload["missing_required_context"]),
-		AgendaSourceEventIDs:       selectedRunnerStringSlice(payload["agenda_source_event_ids"]),
-		PriorContextSourceEventIDs: selectedRunnerStringSlice(payload["prior_context_source_event_ids"]),
-		PromptContextSHA256:        anyString(payload, "prompt_context_sha256"),
-		RedactedPromptExcerpt:      anyString(payload, "redacted_prompt_excerpt"),
+		SessionID:                    anyString(payload, "session_id"),
+		SpeakerSelectedEventID:       anyString(payload, "speaker_selected_event_id"),
+		SelectedMember:               anyString(payload, "selected_member"),
+		Turn:                         anyInt(payload, "turn"),
+		CausationEventID:             anyString(payload, "causation_event_id"),
+		Result:                       anyString(payload, "result"),
+		IncludedContext:              selectedRunnerStringSlice(payload["included_context"]),
+		MissingRequiredContext:       selectedRunnerStringSlice(payload["missing_required_context"]),
+		AgendaSourceEventIDs:         selectedRunnerStringSlice(payload["agenda_source_event_ids"]),
+		PriorContextSourceEventIDs:   selectedRunnerStringSlice(payload["prior_context_source_event_ids"]),
+		OwnHistorySourceEventIDs:     selectedRunnerStringSlice(payload["own_history_source_event_ids"]),
+		OwnLatestClaimSourceEventIDs: selectedRunnerStringSlice(payload["own_latest_claim_source_event_ids"]),
+		OwnClaimIndexSourceEventIDs:  selectedRunnerStringSlice(payload["own_claim_index_source_event_ids"]),
+		PromptContextSHA256:          anyString(payload, "prompt_context_sha256"),
+		RedactedPromptExcerpt:        anyString(payload, "redacted_prompt_excerpt"),
 	}
 	if evidence.SessionID == "" && evidence.SpeakerSelectedEventID == "" && evidence.SelectedMember == "" && evidence.Result == "" {
 		return nil
@@ -273,48 +334,9 @@ func selectedRunnerStanceAssignment(events []EventEnvelope, speaker EventEnvelop
 }
 
 func boundedPriorPromptContext(events []EventEnvelope, speakerEventID string) (string, string, []string, bool, bool, bool, bool) {
-	position := -1
-	for i, event := range events {
-		if event.EventID == speakerEventID {
-			position = i
-			break
-		}
-	}
-	if position <= 0 {
-		return "", "", nil, false, false, false, false
-	}
-	prior := make([]selectedRunnerPromptSource, 0)
-	for i := position - 1; i >= 0 && len(prior) < selectedRunnerPromptContextWindow; i-- {
-		event := events[i]
-		if event.Type != "speech" {
-			continue
-		}
-		source := selectedRunnerPromptSource{
-			EventID: event.EventID,
-			Turn:    anyInt(event.Payload, "turn"),
-			Member:  strings.TrimSpace(event.From),
-			Speech:  strings.TrimSpace(payloadStringDefault(event.Payload, "speech", "")),
-		}
-		claims := anySlice(event.Payload, "claims")
-		if len(claims) > 0 {
-			source.Claims = make([]map[string]any, 0, len(claims))
-			for _, claim := range claims {
-				typed, ok := claim.(map[string]any)
-				if !ok {
-					source.Claims = append(source.Claims, map[string]any{"malformed": true})
-					continue
-				}
-				source.Claims = append(source.Claims, typed)
-			}
-		}
-		prior = append(prior, source)
-	}
+	prior := selectedRunnerPromptSourcesBeforeSelected(events, speakerEventID, selectedRunnerPromptContextWindow, "")
 	if len(prior) == 0 {
 		return "", "", nil, false, false, false, false
-	}
-
-	for left, right := 0, len(prior)-1; left < right; left, right = left+1, right-1 {
-		prior[left], prior[right] = prior[right], prior[left]
 	}
 
 	speechParts := make([]string, 0, len(prior))
@@ -336,27 +358,179 @@ func boundedPriorPromptContext(events []EventEnvelope, speakerEventID string) (s
 			continue
 		}
 		hasPriorClaimHistory = true
-		claimsForEvent := make([]string, 0, len(source.Claims))
-		for _, claim := range source.Claims {
-			if claim["malformed"] == true {
-				priorClaimMissing = true
-				continue
-			}
-			claimID := strings.TrimSpace(anyString(claim, "claim_id"))
-			summary := strings.TrimSpace(anyString(claim, "summary"))
-			if claimID == "" || summary == "" {
-				priorClaimMissing = true
-				continue
-			}
-			claimsForEvent = append(claimsForEvent, claimID+":"+summary)
-		}
-		if len(claimsForEvent) == 0 {
+		claimsForEvent, malformed := selectedRunnerClaimsForSource(source)
+		if malformed || len(claimsForEvent) == 0 {
 			priorClaimMissing = true
 			continue
 		}
-		claimParts = append(claimParts, fmt.Sprintf("event=%s claims=%s", source.EventID, strings.Join(claimsForEvent, "; ")))
+		claimPartsForEvent := make([]string, 0, len(claimsForEvent))
+		for _, claim := range claimsForEvent {
+			claimPartsForEvent = append(claimPartsForEvent, claim.ID+":"+claim.Summary)
+		}
+		claimParts = append(claimParts, fmt.Sprintf("event=%s claims=%s", source.EventID, strings.Join(claimPartsForEvent, "; ")))
 	}
 	return strings.Join(speechParts, "\n"), strings.Join(claimParts, "\n"), sourceIDs, hasPriorSpeechHistory, hasPriorClaimHistory, priorSpeechMissing, priorClaimMissing
+}
+
+func selectedRunnerPromptSourcesBeforeSelected(events []EventEnvelope, speakerEventID string, limit int, memberID string) []selectedRunnerPromptSource {
+	position := -1
+	for i, event := range events {
+		if event.EventID == speakerEventID {
+			position = i
+			break
+		}
+	}
+	if position <= 0 {
+		return nil
+	}
+	prior := make([]selectedRunnerPromptSource, 0)
+	for i := position - 1; i >= 0; i-- {
+		event := events[i]
+		if event.Type != "speech" {
+			continue
+		}
+		if memberID != "" && strings.TrimSpace(event.From) != strings.TrimSpace(memberID) {
+			continue
+		}
+		prior = append(prior, selectedRunnerPromptSourceFromEvent(event))
+		if limit > 0 && len(prior) >= limit {
+			break
+		}
+	}
+	if len(prior) == 0 {
+		return nil
+	}
+	for left, right := 0, len(prior)-1; left < right; left, right = left+1, right-1 {
+		prior[left], prior[right] = prior[right], prior[left]
+	}
+	return prior
+}
+
+func selectedRunnerPromptSourceFromEvent(event EventEnvelope) selectedRunnerPromptSource {
+	turn := anyInt(event.Payload, "turn")
+	if turn <= 0 && event.Turn != nil && *event.Turn > 0 {
+		turn = *event.Turn
+	}
+	source := selectedRunnerPromptSource{
+		EventID: strings.TrimSpace(event.EventID),
+		Turn:    turn,
+		Member:  strings.TrimSpace(event.From),
+		Speech:  strings.TrimSpace(payloadStringDefault(event.Payload, "speech", "")),
+	}
+	claims := anySlice(event.Payload, "claims")
+	if len(claims) == 0 {
+		return source
+	}
+	source.Claims = make([]map[string]any, 0, len(claims))
+	for _, claim := range claims {
+		typed, ok := claim.(map[string]any)
+		if !ok {
+			source.Claims = append(source.Claims, map[string]any{"malformed": true})
+			continue
+		}
+		source.Claims = append(source.Claims, typed)
+	}
+	return source
+}
+
+func selectedRunnerSourceHasRequiredProvenance(source selectedRunnerPromptSource) bool {
+	return strings.TrimSpace(source.EventID) != "" && strings.TrimSpace(source.Member) != "" && source.Turn > 0 && strings.TrimSpace(source.Speech) != ""
+}
+
+func selectedRunnerClaimsForSource(source selectedRunnerPromptSource) ([]selectedRunnerPromptClaim, bool) {
+	if len(source.Claims) == 0 {
+		return nil, false
+	}
+	claims := make([]selectedRunnerPromptClaim, 0, len(source.Claims))
+	malformed := false
+	for _, claim := range source.Claims {
+		if claim["malformed"] == true {
+			malformed = true
+			continue
+		}
+		claimID := strings.TrimSpace(anyString(claim, "claim_id"))
+		summary := strings.TrimSpace(anyString(claim, "summary"))
+		if claimID == "" || summary == "" {
+			malformed = true
+			continue
+		}
+		claims = append(claims, selectedRunnerPromptClaim{ID: claimID, Summary: summary})
+	}
+	if len(claims) == 0 {
+		malformed = true
+	}
+	return claims, malformed
+}
+
+func selectedMemberOwnHistoryContext(events []EventEnvelope, speakerEventID, memberID string) selectedRunnerOwnHistoryContext {
+	context := selectedRunnerOwnHistoryContext{}
+	sources := selectedRunnerPromptSourcesBeforeSelected(events, speakerEventID, 0, memberID)
+	if len(sources) == 0 {
+		return context
+	}
+
+	context.HasPriorSpeechHistory = true
+	speechParts := make([]string, 0, len(sources))
+	claimIndexParts := make([]string, 0)
+	latestClaimsParts := make([]string, 0)
+	latestClaimsEventID := ""
+	for _, source := range sources {
+		context.HistorySourceEventIDs = appendUniqueString(context.HistorySourceEventIDs, source.EventID)
+		if !selectedRunnerSourceHasRequiredProvenance(source) {
+			context.PriorSpeechesMissing = true
+			if len(source.Claims) > 0 {
+				context.HasPriorClaimHistory = true
+				context.ClaimIndexMissing = true
+				latestClaimsEventID = ""
+				latestClaimsParts = latestClaimsParts[:0]
+				context.LatestClaimSourceEventIDs = nil
+			}
+			continue
+		}
+		speechParts = append(speechParts, fmt.Sprintf("event_id=%s member=%s turn=%d speech=%s", source.EventID, source.Member, source.Turn, source.Speech))
+		if len(source.Claims) == 0 {
+			continue
+		}
+		context.HasPriorClaimHistory = true
+		claimsForEvent, malformed := selectedRunnerClaimsForSource(source)
+		if malformed {
+			context.ClaimIndexMissing = true
+			latestClaimsEventID = ""
+			latestClaimsParts = latestClaimsParts[:0]
+			context.LatestClaimSourceEventIDs = nil
+			continue
+		}
+		if len(claimsForEvent) == 0 {
+			continue
+		}
+		latestClaimsEventID = source.EventID
+		latestClaimsParts = latestClaimsParts[:0]
+		context.LatestClaimSourceEventIDs = []string{source.EventID}
+		context.ClaimIndexSourceEventIDs = appendUniqueString(context.ClaimIndexSourceEventIDs, source.EventID)
+		for _, claim := range claimsForEvent {
+			latestClaimsParts = append(latestClaimsParts, claim.ID+":"+claim.Summary)
+			claimIndexParts = append(claimIndexParts, fmt.Sprintf("event=%s claim=%s summary=%s", source.EventID, claim.ID, claim.Summary))
+		}
+	}
+
+	context.PriorSpeeches = strings.Join(speechParts, "\n")
+	if context.HasPriorClaimHistory {
+		if latestClaimsEventID == "" {
+			context.LatestClaimsMissing = true
+			context.LatestClaimSourceEventIDs = nil
+		} else {
+			context.LatestClaims = fmt.Sprintf("event=%s claims=%s", latestClaimsEventID, strings.Join(latestClaimsParts, "; "))
+		}
+		if len(claimIndexParts) == 0 {
+			context.ClaimIndexMissing = true
+		}
+		if context.ClaimIndexMissing {
+			context.ClaimIndexSourceEventIDs = nil
+		} else {
+			context.ClaimIndex = strings.Join(claimIndexParts, "\n")
+		}
+	}
+	return context
 }
 
 func selectedRunnerRedactedPromptExcerpt(evidence SelectedRunnerPromptEvidence) string {
@@ -372,6 +546,15 @@ func selectedRunnerRedactedPromptExcerpt(evidence SelectedRunnerPromptEvidence) 
 	}
 	if len(evidence.PriorContextSourceEventIDs) > 0 {
 		fmt.Fprintf(&b, "prior_context_source_event_ids=%s\n", mustCompactJSON(evidence.PriorContextSourceEventIDs))
+	}
+	if len(evidence.OwnHistorySourceEventIDs) > 0 {
+		fmt.Fprintf(&b, "own_history_source_event_ids=%s\n", mustCompactJSON(evidence.OwnHistorySourceEventIDs))
+	}
+	if len(evidence.OwnLatestClaimSourceEventIDs) > 0 {
+		fmt.Fprintf(&b, "own_latest_claim_source_event_ids=%s\n", mustCompactJSON(evidence.OwnLatestClaimSourceEventIDs))
+	}
+	if len(evidence.OwnClaimIndexSourceEventIDs) > 0 {
+		fmt.Fprintf(&b, "own_claim_index_source_event_ids=%s\n", mustCompactJSON(evidence.OwnClaimIndexSourceEventIDs))
 	}
 	return strings.TrimSpace(b.String())
 }
@@ -393,6 +576,9 @@ func selectedRunnerPromptFromContext(contextPayload map[string]any) string {
 		"required_response_schema",
 		"prior_speech_context",
 		"prior_claim_context",
+		"selected_member_prior_speeches",
+		"selected_member_latest_claims",
+		"selected_member_claim_index",
 		"argue_stance_rule",
 		"missing_context_instruction",
 	} {

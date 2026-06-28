@@ -456,6 +456,232 @@ func TestUnitDaemonCouncilNewRejectsIncompleteNonVisibleOverride(t *testing.T) {
 		})
 	}
 }
+func TestUnitDaemonCouncilNewRejectsLiveVisibleSelectedRunnerWithoutDispatchTimeout(t *testing.T) {
+	dataHome := enabledCouncilDataHome(t)
+	before := treeFingerprint(t, dataHome)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	response := server.Handle(protocol.NewRequest("missing-dispatch-timeout", "council.new", map[string]any{
+		"session_id": "sess_missing_dispatch_timeout",
+		"moderator":  "agent-mod",
+		"members":    []any{"agent-1"},
+		"title":      "missing selected-runner timeout rejected",
+		"request_context": map[string]any{
+			"source":                "discord_thread",
+			"requested_output_mode": "live_visible_thread",
+		},
+		"surface": map[string]any{
+			"kind":       "discord_thread",
+			"platform":   "discord",
+			"channel_id": "chan-visible",
+			"thread_id":  "thread-visible",
+		},
+	}))
+	after := treeFingerprint(t, dataHome)
+	if response.OK || response.Error == nil {
+		t.Fatalf("live-visible council.new without dispatch_timeout_sec must fail closed: %+v", response)
+	}
+	if !strings.Contains(response.Error.Message, "dispatch_timeout_sec") {
+		t.Fatalf("validation error should mention dispatch_timeout_sec, got %+v", response.Error)
+	}
+	if before != after {
+		t.Fatalf("invalid timeout request wrote files\nbefore=%s\nafter=%s", before, after)
+	}
+}
+
+func TestUnitDaemonCouncilNewAcceptsDefaultLiveVisibleDispatchTimeoutAndPersistsEvidence(t *testing.T) {
+	dataHome := enabledCouncilDataHome(t)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	response := server.Handle(protocol.NewRequest("dispatch-timeout-120", "council.new", map[string]any{
+		"session_id": "sess_dispatch_timeout_120",
+		"moderator":  "agent-mod",
+		"members":    []any{"agent-1"},
+		"title":      "default live-visible timeout accepted",
+		"request_context": map[string]any{
+			"source":                "discord_thread",
+			"requested_output_mode": "live_visible_thread",
+		},
+		"surface": map[string]any{
+			"kind":       "discord_thread",
+			"platform":   "discord",
+			"channel_id": "chan-visible",
+			"thread_id":  "thread-visible",
+		},
+		"limits": map[string]any{"dispatch_timeout_sec": 120},
+	}))
+	if !response.OK {
+		t.Fatalf("live-visible council.new with dispatch_timeout_sec=120 should pass: %+v", response)
+	}
+	sessionDir, err := storage.SessionDir(dataHome, "sess_dispatch_timeout_120")
+	if err != nil {
+		t.Fatalf("SessionDir: %v", err)
+	}
+	metadata, err := storage.LoadSessionYAML(sessionDir)
+	if err != nil {
+		t.Fatalf("LoadSessionYAML: %v", err)
+	}
+	if metadata.SelectedRunnerTimeoutEvidence == nil || !metadata.SelectedRunnerTimeoutEvidence.PolicyRequired || metadata.SelectedRunnerTimeoutEvidence.ConfiguredTimeoutSec != 120 || metadata.SelectedRunnerTimeoutEvidence.ApprovedAlternative {
+		t.Fatalf("unexpected selected_runner_timeout_evidence in metadata: %#v", metadata.SelectedRunnerTimeoutEvidence)
+	}
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	created, ok := index.Events[0].Payload["selected_runner_timeout_evidence"].(map[string]any)
+	if !ok {
+		t.Fatalf("session_created payload missing selected_runner_timeout_evidence: %#v", index.Events[0].Payload)
+	}
+	if created["configured_timeout_sec"] != float64(120) || created["approved_alternative"] != false {
+		t.Fatalf("unexpected selected_runner_timeout_evidence payload: %#v", created)
+	}
+}
+
+func TestUnitDaemonCouncilNewRejectsNonDefaultLiveVisibleDispatchTimeoutWithoutApprovedAlternative(t *testing.T) {
+	dataHome := enabledCouncilDataHome(t)
+	before := treeFingerprint(t, dataHome)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	response := server.Handle(protocol.NewRequest("dispatch-timeout-150-no-override", "council.new", map[string]any{
+		"session_id": "sess_dispatch_timeout_150_no_override",
+		"moderator":  "agent-mod",
+		"members":    []any{"agent-1"},
+		"title":      "missing approved alternative rejected",
+		"request_context": map[string]any{
+			"source":                "discord_thread",
+			"requested_output_mode": "live_visible_thread",
+		},
+		"surface": map[string]any{
+			"kind":       "discord_thread",
+			"platform":   "discord",
+			"channel_id": "chan-visible",
+			"thread_id":  "thread-visible",
+		},
+		"limits": map[string]any{"dispatch_timeout_sec": 150},
+	}))
+	after := treeFingerprint(t, dataHome)
+	if response.OK || response.Error == nil {
+		t.Fatalf("non-120 live-visible timeout without approved alternative must fail closed: %+v", response)
+	}
+	if !strings.Contains(response.Error.Message, "selected_runner_timeout_override") {
+		t.Fatalf("validation error should mention selected_runner_timeout_override, got %+v", response.Error)
+	}
+	if before != after {
+		t.Fatalf("invalid approved-alternative request wrote files\nbefore=%s\nafter=%s", before, after)
+	}
+}
+
+func TestUnitDaemonCouncilNewAcceptsApprovedAlternativeDispatchTimeoutAndNormalizesContext(t *testing.T) {
+	dataHome := enabledCouncilDataHome(t)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	response := server.Handle(protocol.NewRequest("dispatch-timeout-150-approved", "council.new", map[string]any{
+		"session_id": "sess_dispatch_timeout_150_approved",
+		"moderator":  "agent-mod",
+		"members":    []any{"agent-1"},
+		"title":      "approved alternative accepted",
+		"request_context": map[string]any{
+			"source":                "discord_thread",
+			"requested_output_mode": "live_visible_thread",
+			"selected_runner_timeout_override": map[string]any{
+				"timeout_sec":    150,
+				"approval_basis": "Approved live-visible exception.",
+			},
+		},
+		"surface": map[string]any{
+			"kind":       "discord_thread",
+			"platform":   "discord",
+			"channel_id": "chan-visible",
+			"thread_id":  "thread-visible",
+		},
+		"limits": map[string]any{"dispatch_timeout_sec": 150},
+	}))
+	if !response.OK {
+		t.Fatalf("approved alternative timeout should pass: %+v", response)
+	}
+	sessionDir, err := storage.SessionDir(dataHome, "sess_dispatch_timeout_150_approved")
+	if err != nil {
+		t.Fatalf("SessionDir: %v", err)
+	}
+	metadata, err := storage.LoadSessionYAML(sessionDir)
+	if err != nil {
+		t.Fatalf("LoadSessionYAML: %v", err)
+	}
+	if metadata.SelectedRunnerTimeoutEvidence == nil || !metadata.SelectedRunnerTimeoutEvidence.ApprovedAlternative || metadata.SelectedRunnerTimeoutEvidence.ConfiguredTimeoutSec != 150 || metadata.SelectedRunnerTimeoutEvidence.ApprovalBasis != "Approved live-visible exception." {
+		t.Fatalf("unexpected selected_runner_timeout_evidence in metadata: %#v", metadata.SelectedRunnerTimeoutEvidence)
+	}
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	requestContext, ok := index.Events[0].Payload["request_context"].(map[string]any)
+	if !ok {
+		t.Fatalf("session_created payload missing request_context: %#v", index.Events[0].Payload)
+	}
+	override, ok := requestContext["selected_runner_timeout_override"].(map[string]any)
+	if !ok || override["timeout_sec"] != float64(150) || override["approval_basis"] != "Approved live-visible exception." {
+		t.Fatalf("selected_runner_timeout_override should be normalized in request_context: %#v", requestContext)
+	}
+}
+
+func TestUnitDaemonCouncilNewRejectsApprovedAlternativeMismatchAndDaemonOverrideConflict(t *testing.T) {
+	dataHome := enabledCouncilDataHome(t)
+	before := treeFingerprint(t, dataHome)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	response := server.Handle(protocol.NewRequest("dispatch-timeout-mismatch", "council.new", map[string]any{
+		"session_id": "sess_dispatch_timeout_mismatch",
+		"moderator":  "agent-mod",
+		"members":    []any{"agent-1"},
+		"title":      "approved alternative mismatch rejected",
+		"request_context": map[string]any{
+			"source":                "discord_thread",
+			"requested_output_mode": "live_visible_thread",
+			"selected_runner_timeout_override": map[string]any{
+				"timeout_sec":    180,
+				"approval_basis": "Approved live-visible exception.",
+			},
+		},
+		"surface": map[string]any{
+			"kind":       "discord_thread",
+			"platform":   "discord",
+			"channel_id": "chan-visible",
+			"thread_id":  "thread-visible",
+		},
+		"limits": map[string]any{"dispatch_timeout_sec": 150},
+	}))
+	after := treeFingerprint(t, dataHome)
+	if response.OK || response.Error == nil {
+		t.Fatalf("mismatched approved alternative must fail closed: %+v", response)
+	}
+	if !strings.Contains(response.Error.Message, "must match limits.dispatch_timeout_sec") {
+		t.Fatalf("validation error should mention matching dispatch_timeout_sec, got %+v", response.Error)
+	}
+	if before != after {
+		t.Fatalf("invalid approved-alternative mismatch wrote files\nbefore=%s\nafter=%s", before, after)
+	}
+
+	server = daemon.NewServer(dataHome, daemonFixedRuntime())
+	server.SelectedSpeakerTimeout = 45 * time.Second
+	response = server.Handle(protocol.NewRequest("dispatch-timeout-daemon-conflict", "council.new", map[string]any{
+		"session_id": "sess_dispatch_timeout_daemon_conflict",
+		"moderator":  "agent-mod",
+		"members":    []any{"agent-1"},
+		"title":      "daemon override conflict rejected",
+		"request_context": map[string]any{
+			"source":                "discord_thread",
+			"requested_output_mode": "live_visible_thread",
+		},
+		"surface": map[string]any{
+			"kind":       "discord_thread",
+			"platform":   "discord",
+			"channel_id": "chan-visible",
+			"thread_id":  "thread-visible",
+		},
+		"limits": map[string]any{"dispatch_timeout_sec": 120},
+	}))
+	if response.OK || response.Error == nil {
+		t.Fatalf("daemon timeout conflict must fail closed: %+v", response)
+	}
+	if !strings.Contains(response.Error.Message, "SelectedSpeakerTimeout") {
+		t.Fatalf("daemon conflict error should mention SelectedSpeakerTimeout, got %+v", response.Error)
+	}
+}
 
 func TestUnitDaemonCouncilNewAutoReconcilesExplicitMissingRegistryMember(t *testing.T) {
 	dataHome, err := os.MkdirTemp("/private/tmp", "kan-daemon-reconcile-")
@@ -509,6 +735,7 @@ members:
 			"channel_id": "chan-visible",
 			"thread_id":  "thread-visible",
 		},
+		"limits": map[string]any{"dispatch_timeout_sec": 120},
 	}))
 	if !response.OK {
 		t.Fatalf("council.new should auto-reconcile explicit missing member: %+v", response)

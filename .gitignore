@@ -16,6 +16,7 @@ coverage.out
 .omc/
 .claude/
 .claude-octopus/
+.gjc/
 
 # Python test/runtime cache
 __pycache__/

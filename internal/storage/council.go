@@ -194,6 +194,9 @@ func CouncilStatusFromLogAt(sessionDir string, metadata *SessionMetadata, now ti
 	if evidence := LatestSelectedRunnerPromptEvidenceFromIndex(index); evidence != nil {
 		status["selected_runner_prompt_evidence"] = *evidence
 	}
+	if evidence := selectedRunnerTimeoutEvidenceProjection(metadata); evidence != nil {
+		status["selected_runner_timeout_evidence"] = *evidence
+	}
 	status["participant_runtime_readiness"] = ParticipantRuntimeReadinessFromIndex(metadata, index, readinessOptionsForStatus(metadata, index, now, selectedRunnerAccounting))
 	if diagnostics := closeoutDiagnosticsForStatus(metadata, index); len(diagnostics) > 0 {
 		status["closeout_diagnostics"] = diagnostics

@@ -136,7 +136,7 @@ limits:
   no_progress_round_limit: 3
   preparation_timeout_sec: 600
   hand_raise_research_timeout_sec: 600
-  dispatch_timeout_sec: 30  # implemented selected-speaker default when no session override is set; live-visible councils require NEWFIX-005 policy of 120 or approved alternative
+  dispatch_timeout_sec: 30  # implemented selected-speaker default when no session override is set; live-visible councils now require the implemented NEWFIX-005 policy of 120 or an approved explicit alternative
   clarification_response_timeout_sec: 3600
   escalation_response_timeout_sec: 86400
   runner_max_retries: 2
@@ -175,6 +175,17 @@ escalations:
 ```
 
 `surface` and `linked_authority` are optional session metadata projected from `session_created.payload`. Projection preserves these values for status, transcript, and export convenience only; replay authority remains the original `channel.jsonl` event. Discord message ids and thread ids are evidence pointers and must not be used for event ordering.
+
+`selected_runner_timeout_evidence` is optional council session metadata persisted from `session_created.payload` when `NEWFIX-005` applies. Its typed object has:
+- `policy_required`
+- `configured_timeout_sec`
+- `effective_timeout_sec`
+- `effective_source`
+- `approved_alternative`
+- `approval_basis`
+- `compliant`
+
+`configured_timeout_sec` is the persisted guarded timeout, and the persisted `effective_timeout_sec` / `effective_source` fields record the normalized timeout snapshot accepted at session creation. Later guarded-lane drift is checked separately at selected-runner launch time; when the daemon detects drift it emits `selected_runner_dispatch_failed` with `reason=selected_runner_timeout_policy_blocked` plus a re-evaluated timeout-evidence payload instead of rewriting the stored session snapshot.
 
 For a Discord-thread-bound council, storage and projection are mandatory for the whole authority trail, not optional display polish. The event log must persist `attendance_requested`, one terminal `member_attended` event for each required participant, `agenda_locked`, and `council_finalized.payload.linked_authority_result` when `linked_authority` is configured. SQLite/status projections, transcript, and export must expose those facts so an operator can verify attendance, locked agenda, and Kanban/Vault return evidence without reinterpreting Discord messages.
 
@@ -503,6 +514,7 @@ Renderer rules:
 - JSONL transcript rendering is a deterministic re-emission of persisted event envelopes from `channel.jsonl`; it does not add status fields or plugin-only fields.
 - Export bundles are local directories containing `transcript.md`, `transcript.jsonl`, `brief.md`, `session.json`, `channel.jsonl`, `registry_snapshot.yaml`, and `bundle_manifest.json`.
 - `stream status`, council status, Markdown transcripts, and `bundle_manifest.json` include the additive `selected_runner_accounting` object for council logs. It reports selected speakers, runner starts/successes/failures/discards/dispatch failures, linked succeeded runner speech, runnerless/manual/fallback speech, diagnostics, and `selected_runner_pass`. Runnerless/manual/fallback speech and linked speech whose `runner.status` is not `succeeded` must not repair selected-runner pass after terminal failure or missing succeeded runner speech.
+- Council status and `bundle_manifest.json` also project the exact stored `selected_runner_timeout_evidence` object when it is persisted on the session. For `NEWFIX-005`, this object is intentionally not part of `stream status` or transcript rendering; those surfaces remain unchanged. Later guarded timeout drift is emitted as `selected_runner_dispatch_failed.reason = selected_runner_timeout_policy_blocked` with a re-evaluated timeout-evidence payload rather than by mutating the projected status/export snapshot.
 - `bundle_manifest.json` includes additive `surface_delivery_projection` and `argument_graph_projection` arrays. `argument_graph_projection` is built only from cursor-ordered `speech` events and preserves `claims[]`, `stance_links[]`, `contribution_type`, `new_axis_reason`, `evidence[]`, `quality_diagnostics`, and relation audit data where present. Missing or malformed ARGUE relation shapes are marked diagnostic; renderers must not infer links from `responds_to_event_id`, author, timestamps, Discord order, visible-surface order, or floor-grant ordering.
 - Default export output is `<session_dir>/exports/<session_id>-bundle`. Explicit output paths must not contain NUL or dot-dot segments and must resolve to regular non-symlink files/directories. Existing regular generated files are overwritten deterministically.
 - Transcript/export/status/tail are side-effect free for session state: they do not append events, rebuild projections, invoke runners, deliver escalations, or write any linked-authority external system.

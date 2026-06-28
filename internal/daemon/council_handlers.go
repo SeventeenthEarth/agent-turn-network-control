@@ -14,7 +14,10 @@ import (
 	"atn-control/internal/storage"
 )
 
-const defaultSelectedSpeakerDispatchTimeout = 30 * time.Second
+const (
+	defaultSelectedSpeakerDispatchTimeout = 30 * time.Second
+	requiredLiveVisibleDispatchTimeoutSec = 120
+)
 
 func (s *Server) handleCouncilNew(request protocol.CommandRequest) protocol.CommandResponse {
 	limits, err := limitsParam(request)
@@ -39,20 +42,26 @@ func (s *Server) handleCouncilNew(request protocol.CommandRequest) protocol.Comm
 	if err := validateCouncilNewVisibleSurface(request, surface); err != nil {
 		return protocol.ErrorResponse(request, daemonProtocolError(err))
 	}
+	requestContext := councilRequestContextParam(request)
+	requestContext, timeoutEvidence, err := s.normalizeSelectedRunnerTimeoutRequestContext(surface, limits, requestContext)
+	if err != nil {
+		return protocol.ErrorResponse(request, daemonProtocolError(err))
+	}
 	startSpec := storage.CouncilStartSpec{
 		Session: storage.SessionSpec{
-			ID:              sessionID,
-			SessionType:     storage.SessionTypeCouncil,
-			Title:           stringParam(request, "title"),
-			Moderator:       moderator,
-			Surface:         surface,
-			RequestContext:  councilRequestContextParam(request),
-			LinkedAuthority: linkedAuthorityParam(request),
-			TurnMode:        stringParam(request, "turn_mode"),
-			Limits:          limits,
-			EventID:         eventID,
-			CommandID:       commandID,
-			CorrelationID:   stringParam(request, "correlation_id"),
+			ID:                            sessionID,
+			SessionType:                   storage.SessionTypeCouncil,
+			Title:                         stringParam(request, "title"),
+			Moderator:                     moderator,
+			Surface:                       surface,
+			RequestContext:                requestContext,
+			LinkedAuthority:               linkedAuthorityParam(request),
+			SelectedRunnerTimeoutEvidence: timeoutEvidence,
+			TurnMode:                      stringParam(request, "turn_mode"),
+			Limits:                        limits,
+			EventID:                       eventID,
+			CommandID:                     commandID,
+			CorrelationID:                 stringParam(request, "correlation_id"),
 		},
 		Members: members,
 		Now:     s.now(),
@@ -244,6 +253,131 @@ func validateCouncilNewVisibleSurface(request protocol.CommandRequest, surface *
 		)
 	}
 	return nil
+}
+
+type selectedRunnerTimeoutOverride struct {
+	TimeoutSec    int
+	ApprovalBasis string
+}
+
+type selectedSpeakerTimeoutResolution struct {
+	Duration time.Duration
+	Source   string
+}
+
+func (s *Server) normalizeSelectedRunnerTimeoutRequestContext(surface *storage.Surface, limits storage.Limits, context map[string]any) (map[string]any, *storage.SelectedRunnerTimeoutEvidence, error) {
+	if !selectedRunnerTimeoutPolicyRequired(surface, context) {
+		return context, nil, nil
+	}
+	configured := limits.DispatchTimeoutSec
+	if configured <= 0 {
+		return nil, nil, storage.NewValidationError(storage.CategoryInvalidEnvelope, "limits.dispatch_timeout_sec", "Discord live-visible selected-runner councils require explicit limits.dispatch_timeout_sec")
+	}
+	override, present, err := selectedRunnerTimeoutOverrideFromContext(context)
+	if err != nil {
+		return nil, nil, err
+	}
+	approvedAlternative := false
+	approvalBasis := ""
+	if configured == requiredLiveVisibleDispatchTimeoutSec {
+		if present {
+			delete(context, "selected_runner_timeout_override")
+		}
+	} else {
+		if !present {
+			return nil, nil, storage.NewValidationError(storage.CategoryInvalidEnvelope, "request_context.selected_runner_timeout_override", "non-120 dispatch_timeout_sec for Discord live-visible selected-runner councils requires request_context.selected_runner_timeout_override")
+		}
+		if override.TimeoutSec != configured {
+			return nil, nil, storage.NewValidationError(storage.CategoryInvalidEnvelope, "request_context.selected_runner_timeout_override.timeout_sec", "selected_runner_timeout_override.timeout_sec must match limits.dispatch_timeout_sec")
+		}
+		approvedAlternative = true
+		approvalBasis = override.ApprovalBasis
+		context["selected_runner_timeout_override"] = map[string]any{
+			"timeout_sec":    override.TimeoutSec,
+			"approval_basis": override.ApprovalBasis,
+		}
+	}
+	resolution := s.selectedSpeakerTimeoutResolutionForLimits(limits)
+	if resolution.Duration != time.Duration(configured)*time.Second {
+		return nil, nil, storage.NewValidationError(storage.CategoryCommandConflict, "limits.dispatch_timeout_sec", "guarded live-visible selected-runner timeout must match the current daemon SelectedSpeakerTimeout override before council.new")
+	}
+	return context, &storage.SelectedRunnerTimeoutEvidence{
+		PolicyRequired:       true,
+		ConfiguredTimeoutSec: configured,
+		EffectiveTimeoutSec:  configured,
+		EffectiveSource:      resolution.Source,
+		ApprovedAlternative:  approvedAlternative,
+		ApprovalBasis:        approvalBasis,
+		Compliant:            true,
+	}, nil
+}
+
+func selectedRunnerTimeoutPolicyRequired(surface *storage.Surface, context map[string]any) bool {
+	if surface == nil || strings.TrimSpace(surface.Platform) != "discord" {
+		return false
+	}
+	requestedOutputMode := strings.TrimSpace(mapString(context, "requested_output_mode"))
+	if requestedOutputMode == "" {
+		return false
+	}
+	overrideComplete := mapBool(context, "explicit_non_visible_override") && strings.TrimSpace(mapString(context, "override_reason")) != ""
+	if selectedRunnerNonVisibleRequested(requestedOutputMode) && overrideComplete {
+		return false
+	}
+	return true
+}
+
+func selectedRunnerNonVisibleRequested(mode string) bool {
+	switch strings.TrimSpace(mode) {
+	case "artifact_only", "daemon_cli_actor_speech", "activation_planning_only":
+		return true
+	default:
+		return false
+	}
+}
+
+func selectedRunnerTimeoutOverrideFromContext(context map[string]any) (selectedRunnerTimeoutOverride, bool, error) {
+	if context == nil {
+		return selectedRunnerTimeoutOverride{}, false, nil
+	}
+	raw, ok := context["selected_runner_timeout_override"]
+	if !ok || raw == nil {
+		return selectedRunnerTimeoutOverride{}, false, nil
+	}
+	value, ok := raw.(map[string]any)
+	if !ok {
+		return selectedRunnerTimeoutOverride{}, true, storage.NewValidationError(storage.CategoryInvalidEnvelope, "request_context.selected_runner_timeout_override", "selected_runner_timeout_override must be an object")
+	}
+	timeoutSec, ok := mapPositiveInt(value, "timeout_sec")
+	if !ok {
+		return selectedRunnerTimeoutOverride{}, true, storage.NewValidationError(storage.CategoryInvalidEnvelope, "request_context.selected_runner_timeout_override.timeout_sec", "selected_runner_timeout_override.timeout_sec must be a positive integer")
+	}
+	approvalBasis := strings.TrimSpace(mapString(value, "approval_basis"))
+	if approvalBasis == "" {
+		return selectedRunnerTimeoutOverride{}, true, storage.NewValidationError(storage.CategoryInvalidEnvelope, "request_context.selected_runner_timeout_override.approval_basis", "selected_runner_timeout_override.approval_basis is required")
+	}
+	return selectedRunnerTimeoutOverride{TimeoutSec: timeoutSec, ApprovalBasis: approvalBasis}, true, nil
+}
+
+func mapPositiveInt(value map[string]any, key string) (int, bool) {
+	if value == nil {
+		return 0, false
+	}
+	raw, ok := value[key]
+	if !ok {
+		return 0, false
+	}
+	switch typed := raw.(type) {
+	case int:
+		return typed, typed > 0
+	case int64:
+		return int(typed), typed > 0
+	case float64:
+		if typed == float64(int(typed)) {
+			return int(typed), typed > 0
+		}
+	}
+	return 0, false
 }
 
 func normalizeCouncilOutputMode(mode string) (string, bool) {
@@ -551,6 +685,13 @@ func (s *Server) dispatchSelectedSpeakerAfterGrant(ctx context.Context, sessionD
 	if selected == "" {
 		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "", "selected_member_missing", "internal/daemon/selected_speaker.go")
 	}
+	if timeoutEvidence, blocked := s.selectedRunnerTimeoutRuntimeEvidence(metadata); blocked {
+		return s.appendSelectedSpeakerDispatchDiagnostic(sessionDir, metadata, event, "", "selected_runner_timeout_policy_blocked", "internal/daemon/council_handlers.go", map[string]any{
+			"diagnostic_owner":                 "control/NEWFIX-005",
+			"selected_runner_timeout_evidence": selectedRunnerTimeoutEvidencePayload(timeoutEvidence),
+			"blocking_reasons":                 []string{"selected_runner_timeout_policy_mismatch"},
+		})
+	}
 	if metadata.Surface != nil && metadata.Surface.Kind == "discord_thread" {
 		prereq := s.selectedRunnerPrerequisite(sessionDir, selected)
 		report, err := storage.ParticipantRuntimeReadinessFromLog(sessionDir, metadata, storage.ParticipantRuntimeReadinessOptions{
@@ -678,10 +819,34 @@ func selectedRunnerPromptEvidencePayload(evidence storage.SelectedRunnerPromptEv
 	if len(evidence.PriorContextSourceEventIDs) > 0 {
 		payload["prior_context_source_event_ids"] = append([]string(nil), evidence.PriorContextSourceEventIDs...)
 	}
+	if len(evidence.OwnHistorySourceEventIDs) > 0 {
+		payload["own_history_source_event_ids"] = append([]string(nil), evidence.OwnHistorySourceEventIDs...)
+	}
+	if len(evidence.OwnLatestClaimSourceEventIDs) > 0 {
+		payload["own_latest_claim_source_event_ids"] = append([]string(nil), evidence.OwnLatestClaimSourceEventIDs...)
+	}
+	if len(evidence.OwnClaimIndexSourceEventIDs) > 0 {
+		payload["own_claim_index_source_event_ids"] = append([]string(nil), evidence.OwnClaimIndexSourceEventIDs...)
+	}
 	if evidence.RedactedPromptExcerpt != "" {
 		payload["redacted_prompt_excerpt"] = evidence.RedactedPromptExcerpt
 	}
 	return payload
+}
+
+func selectedRunnerTimeoutEvidencePayload(evidence *storage.SelectedRunnerTimeoutEvidence) map[string]any {
+	if evidence == nil {
+		return nil
+	}
+	return map[string]any{
+		"policy_required":        evidence.PolicyRequired,
+		"configured_timeout_sec": evidence.ConfiguredTimeoutSec,
+		"effective_timeout_sec":  evidence.EffectiveTimeoutSec,
+		"effective_source":       evidence.EffectiveSource,
+		"approved_alternative":   evidence.ApprovedAlternative,
+		"approval_basis":         evidence.ApprovalBasis,
+		"compliant":              evidence.Compliant,
+	}
 }
 
 func (s *Server) selectedSpeakerAdapter() (runner.Adapter, error) {
@@ -698,14 +863,38 @@ func (s *Server) selectedSpeakerAdapter() (runner.Adapter, error) {
 	return registry.Get(runner.HermesAgentKind)
 }
 
-func (s *Server) selectedSpeakerTimeout(metadata *storage.SessionMetadata) time.Duration {
+func (s *Server) selectedSpeakerTimeoutResolution(metadata *storage.SessionMetadata) selectedSpeakerTimeoutResolution {
+	if metadata == nil {
+		return s.selectedSpeakerTimeoutResolutionForLimits(storage.Limits{})
+	}
+	return s.selectedSpeakerTimeoutResolutionForLimits(metadata.Limits)
+}
+
+func (s *Server) selectedSpeakerTimeoutResolutionForLimits(limits storage.Limits) selectedSpeakerTimeoutResolution {
 	if s.SelectedSpeakerTimeout > 0 {
-		return s.SelectedSpeakerTimeout
+		return selectedSpeakerTimeoutResolution{Duration: s.SelectedSpeakerTimeout, Source: "daemon_override"}
 	}
-	if metadata != nil && metadata.Limits.DispatchTimeoutSec > 0 {
-		return time.Duration(metadata.Limits.DispatchTimeoutSec) * time.Second
+	if limits.DispatchTimeoutSec > 0 {
+		return selectedSpeakerTimeoutResolution{Duration: time.Duration(limits.DispatchTimeoutSec) * time.Second, Source: "session_limit"}
 	}
-	return defaultSelectedSpeakerDispatchTimeout
+	return selectedSpeakerTimeoutResolution{Duration: defaultSelectedSpeakerDispatchTimeout, Source: "default_fallback_30s"}
+}
+
+func (s *Server) selectedRunnerTimeoutRuntimeEvidence(metadata *storage.SessionMetadata) (*storage.SelectedRunnerTimeoutEvidence, bool) {
+	if metadata == nil || metadata.SelectedRunnerTimeoutEvidence == nil || !metadata.SelectedRunnerTimeoutEvidence.PolicyRequired {
+		return nil, false
+	}
+	resolution := s.selectedSpeakerTimeoutResolution(metadata)
+	allowed := time.Duration(metadata.SelectedRunnerTimeoutEvidence.ConfiguredTimeoutSec) * time.Second
+	copy := *metadata.SelectedRunnerTimeoutEvidence
+	copy.EffectiveTimeoutSec = int(resolution.Duration / time.Second)
+	copy.EffectiveSource = resolution.Source
+	copy.Compliant = resolution.Duration == allowed
+	return &copy, !copy.Compliant
+}
+
+func (s *Server) selectedSpeakerTimeout(metadata *storage.SessionMetadata) time.Duration {
+	return s.selectedSpeakerTimeoutResolution(metadata).Duration
 }
 
 func (s *Server) selectedSpeakerMaxRetries(metadata *storage.SessionMetadata) int {

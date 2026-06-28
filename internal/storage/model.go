@@ -44,6 +44,16 @@ type LinkedAuthority struct {
 	VaultDecisionNote string `yaml:"vault_decision_note,omitempty" json:"vault_decision_note,omitempty"`
 }
 
+type SelectedRunnerTimeoutEvidence struct {
+	PolicyRequired       bool   `yaml:"policy_required" json:"policy_required"`
+	ConfiguredTimeoutSec int    `yaml:"configured_timeout_sec" json:"configured_timeout_sec"`
+	EffectiveTimeoutSec  int    `yaml:"effective_timeout_sec" json:"effective_timeout_sec"`
+	EffectiveSource      string `yaml:"effective_source" json:"effective_source"`
+	ApprovedAlternative  bool   `yaml:"approved_alternative" json:"approved_alternative"`
+	ApprovalBasis        string `yaml:"approval_basis,omitempty" json:"approval_basis,omitempty"`
+	Compliant            bool   `yaml:"compliant" json:"compliant"`
+}
+
 type Limits struct {
 	MaxTurns                        int            `yaml:"max_turns,omitempty" json:"max_turns,omitempty"`
 	MaxDiscussionTurns              int            `yaml:"max_discussion_turns,omitempty" json:"max_discussion_turns,omitempty"`
@@ -105,39 +115,40 @@ type EscalationSummary struct {
 }
 
 type SessionMetadata struct {
-	ID               string                    `yaml:"id" json:"id"`
-	SessionType      SessionType               `yaml:"session_type" json:"session_type"`
-	Status           Status                    `yaml:"status" json:"status"`
-	Title            string                    `yaml:"title" json:"title"`
-	Moderator        string                    `yaml:"moderator" json:"moderator"`
-	Participants     []string                  `yaml:"participants" json:"participants"`
-	Surface          *Surface                  `yaml:"surface,omitempty" json:"surface,omitempty"`
-	LinkedAuthority  *LinkedAuthority          `yaml:"linked_authority,omitempty" json:"linked_authority,omitempty"`
-	TurnMode         string                    `yaml:"turn_mode,omitempty" json:"turn_mode,omitempty"`
-	CreatedAt        time.Time                 `yaml:"created_at" json:"created_at"`
-	Limits           Limits                    `yaml:"limits" json:"limits"`
-	State            SessionState              `yaml:"state" json:"state"`
-	Cost             CostSummary               `yaml:"cost" json:"cost"`
-	Escalations      EscalationSummary         `yaml:"escalations" json:"escalations"`
-	RegistrySnapshot registry.SnapshotMetadata `yaml:"registry_snapshot" json:"registry_snapshot"`
+	ID                            string                         `yaml:"id" json:"id"`
+	SessionType                   SessionType                    `yaml:"session_type" json:"session_type"`
+	Status                        Status                         `yaml:"status" json:"status"`
+	Title                         string                         `yaml:"title" json:"title"`
+	Moderator                     string                         `yaml:"moderator" json:"moderator"`
+	Participants                  []string                       `yaml:"participants" json:"participants"`
+	Surface                       *Surface                       `yaml:"surface,omitempty" json:"surface,omitempty"`
+	LinkedAuthority               *LinkedAuthority               `yaml:"linked_authority,omitempty" json:"linked_authority,omitempty"`
+	SelectedRunnerTimeoutEvidence *SelectedRunnerTimeoutEvidence `yaml:"selected_runner_timeout_evidence,omitempty" json:"selected_runner_timeout_evidence,omitempty"`
+	TurnMode                      string                         `yaml:"turn_mode,omitempty" json:"turn_mode,omitempty"`
+	CreatedAt                     time.Time                      `yaml:"created_at" json:"created_at"`
+	Limits                        Limits                         `yaml:"limits" json:"limits"`
+	State                         SessionState                   `yaml:"state" json:"state"`
+	Cost                          CostSummary                    `yaml:"cost" json:"cost"`
+	Escalations                   EscalationSummary              `yaml:"escalations" json:"escalations"`
+	RegistrySnapshot              registry.SnapshotMetadata      `yaml:"registry_snapshot" json:"registry_snapshot"`
 }
 
 type SessionSpec struct {
-	ID              string
-	SessionType     SessionType
-	Title           string
-	Moderator       string
-	Participants    []string
-	Surface         *Surface
-	RequestContext  map[string]any
-	LinkedAuthority *LinkedAuthority
-	TurnMode        string
-	Limits          Limits
-	EventID         string
-	CommandID       string
-	CorrelationID   string
+	ID                            string
+	SessionType                   SessionType
+	Title                         string
+	Moderator                     string
+	Participants                  []string
+	Surface                       *Surface
+	RequestContext                map[string]any
+	LinkedAuthority               *LinkedAuthority
+	SelectedRunnerTimeoutEvidence *SelectedRunnerTimeoutEvidence
+	TurnMode                      string
+	Limits                        Limits
+	EventID                       string
+	CommandID                     string
+	CorrelationID                 string
 }
-
 type RunnerInfo struct {
 	InvocationID    string   `json:"invocation_id"`
 	AdapterKind     string   `json:"adapter_kind"`

@@ -148,6 +148,21 @@ func validateSessionSpec(loaded *registry.LoadedRegistry, spec SessionSpec) erro
 	if spec.TurnMode != "" && !validTurnMode(spec.TurnMode) {
 		add(CategoryMetadataInvalid, "turn_mode", "unsupported turn_mode")
 	}
+	if spec.SelectedRunnerTimeoutEvidence != nil {
+		evidence := spec.SelectedRunnerTimeoutEvidence
+		if evidence.PolicyRequired && evidence.ConfiguredTimeoutSec <= 0 {
+			add(CategoryInvalidEnvelope, "selected_runner_timeout_evidence.configured_timeout_sec", "configured_timeout_sec is required when policy_required is true")
+		}
+		if evidence.PolicyRequired && evidence.EffectiveTimeoutSec <= 0 {
+			add(CategoryInvalidEnvelope, "selected_runner_timeout_evidence.effective_timeout_sec", "effective_timeout_sec is required when policy_required is true")
+		}
+		if evidence.PolicyRequired && strings.TrimSpace(evidence.EffectiveSource) == "" {
+			add(CategoryInvalidEnvelope, "selected_runner_timeout_evidence.effective_source", "effective_source is required when policy_required is true")
+		}
+		if evidence.ApprovedAlternative && strings.TrimSpace(evidence.ApprovalBasis) == "" {
+			add(CategoryInvalidEnvelope, "selected_runner_timeout_evidence.approval_basis", "approval_basis is required when approved_alternative is true")
+		}
+	}
 	if spec.SessionType == SessionTypeCouncil {
 		if err := validateDiscussionLifecycleLimits(spec.Limits); err != nil {
 			issues = append(issues, Issues(err)...)
@@ -164,17 +179,18 @@ func validateSessionSpec(loaded *registry.LoadedRegistry, spec SessionSpec) erro
 
 func metadataFromSpec(spec SessionSpec, loaded *registry.LoadedRegistry, now time.Time) *SessionMetadata {
 	return &SessionMetadata{
-		ID:              spec.ID,
-		SessionType:     spec.SessionType,
-		Status:          StatusOpen,
-		Title:           spec.Title,
-		Moderator:       spec.Moderator,
-		Participants:    append([]string(nil), spec.Participants...),
-		Surface:         cloneSurface(spec.Surface),
-		LinkedAuthority: cloneLinkedAuthority(spec.LinkedAuthority),
-		TurnMode:        spec.TurnMode,
-		CreatedAt:       now,
-		Limits:          spec.Limits,
+		ID:                            spec.ID,
+		SessionType:                   spec.SessionType,
+		Status:                        StatusOpen,
+		Title:                         spec.Title,
+		Moderator:                     spec.Moderator,
+		Participants:                  append([]string(nil), spec.Participants...),
+		Surface:                       cloneSurface(spec.Surface),
+		LinkedAuthority:               cloneLinkedAuthority(spec.LinkedAuthority),
+		SelectedRunnerTimeoutEvidence: cloneSelectedRunnerTimeoutEvidence(spec.SelectedRunnerTimeoutEvidence),
+		TurnMode:                      spec.TurnMode,
+		CreatedAt:                     now,
+		Limits:                        spec.Limits,
 		State: SessionState{
 			Phase: PhaseCreated,
 		},
@@ -211,6 +227,9 @@ func sessionCreatedEvent(metadata *SessionMetadata, spec SessionSpec, now time.T
 	if metadata.LinkedAuthority != nil {
 		payload["linked_authority"] = metadata.LinkedAuthority
 	}
+	if metadata.SelectedRunnerTimeoutEvidence != nil {
+		payload["selected_runner_timeout_evidence"] = metadata.SelectedRunnerTimeoutEvidence
+	}
 	if metadata.TurnMode != "" {
 		payload["turn_mode"] = metadata.TurnMode
 	}
@@ -243,6 +262,21 @@ func cloneMap(source map[string]any) map[string]any {
 		cloned[key] = value
 	}
 	return cloned
+}
+
+func cloneSelectedRunnerTimeoutEvidence(source *SelectedRunnerTimeoutEvidence) *SelectedRunnerTimeoutEvidence {
+	if source == nil {
+		return nil
+	}
+	cloned := *source
+	return &cloned
+}
+
+func selectedRunnerTimeoutEvidenceProjection(metadata *SessionMetadata) *SelectedRunnerTimeoutEvidence {
+	if metadata == nil {
+		return nil
+	}
+	return cloneSelectedRunnerTimeoutEvidence(metadata.SelectedRunnerTimeoutEvidence)
 }
 
 func runtimeWithDefaults(runtime registry.Runtime) registry.Runtime {

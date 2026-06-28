@@ -2,6 +2,7 @@ package daemon_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -267,6 +268,88 @@ func TestCouncilGrantUnsupportedAdapterFailsClosedBeforeSelectedRunnerLaunch(t *
 		t.Fatalf("unsupported adapter preflight must not append grant, runner, or speech events: %#v", index.Events)
 	}
 }
+func TestCouncilGrantBlocksGuardedLiveVisibleTimeoutPolicyDrift(t *testing.T) {
+	dataHome, metadata, sessionDir := createGuardedDiscussionCouncilForDispatch(t, 120, nil)
+	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": 1, "speech": "should not run"}, Cost: &runner.Cost{Source: runner.HermesAgentCostSource}}}}}
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	server.RunnerAdapter = adapter
+	server.DispatchLocks = &daemon.DispatchLocks{}
+	server.SelectedSpeakerTimeout = 45 * time.Second
+
+	response := server.Handle(councilGrantRequest(metadata.ID, "cmd_council_grant_timeout_policy_block", "agent-1"))
+	if !response.OK {
+		t.Fatalf("council.grant should record timeout-policy diagnostic without launching runner: %+v", response)
+	}
+	if adapter.calls != 0 {
+		t.Fatalf("timeout-policy drift must block selected-runner launch, calls=%d", adapter.calls)
+	}
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	diagnostic := findEvent(t, index.Events, "selected_runner_dispatch_failed")
+	if diagnostic.Payload["reason"] != "selected_runner_timeout_policy_blocked" {
+		t.Fatalf("timeout-policy drift should record selected_runner_timeout_policy_blocked, payload=%#v", diagnostic.Payload)
+	}
+	if diagnostic.Payload["diagnostic_owner"] != "control/NEWFIX-005" {
+		t.Fatalf("timeout-policy drift should cite NEWFIX-005 ownership, payload=%#v", diagnostic.Payload)
+	}
+}
+func TestCouncilGrantBlocksGuardedVisibleChannelFallbackTimeoutPolicyDrift(t *testing.T) {
+	dataHome, metadata, sessionDir := createGuardedVisibleCouncilForDispatch(t, map[string]any{
+		"kind":       "discord_channel",
+		"platform":   "discord",
+		"channel_id": "chan-guarded-fallback",
+	}, 120, nil)
+	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": 1, "speech": "should not run"}, Cost: &runner.Cost{Source: runner.HermesAgentCostSource}}}}}
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	server.RunnerAdapter = adapter
+	server.DispatchLocks = &daemon.DispatchLocks{}
+	server.SelectedSpeakerTimeout = 45 * time.Second
+
+	response := server.Handle(councilGrantRequest(metadata.ID, "cmd_council_grant_timeout_policy_channel_fallback", "agent-1"))
+	if !response.OK {
+		t.Fatalf("channel fallback council.grant should record timeout-policy diagnostic without launching runner: %+v", response)
+	}
+	if adapter.calls != 0 {
+		t.Fatalf("timeout-policy drift on channel fallback must block selected-runner launch, calls=%d", adapter.calls)
+	}
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	diagnostic := findEvent(t, index.Events, "selected_runner_dispatch_failed")
+	if diagnostic.Payload["reason"] != "selected_runner_timeout_policy_blocked" {
+		t.Fatalf("channel fallback timeout-policy drift should record selected_runner_timeout_policy_blocked, payload=%#v", diagnostic.Payload)
+	}
+}
+
+func TestCouncilGrantAllowsGuardedLiveVisibleTimeoutWhenDaemonOverrideMatches(t *testing.T) {
+	dataHome, metadata, sessionDir := createGuardedDiscussionCouncilForDispatch(t, 120, nil)
+	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": 1, "speech": "canonical selected runner speech"}, Cost: &runner.Cost{Source: runner.HermesAgentCostSource}}}}}
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	server.RunnerAdapter = adapter
+	server.DispatchLocks = &daemon.DispatchLocks{}
+	server.SelectedSpeakerTimeout = 120 * time.Second
+
+	response := server.Handle(councilGrantRequest(metadata.ID, "cmd_council_grant_timeout_policy_match", "agent-1"))
+	if !response.OK {
+		t.Fatalf("matching daemon override should preserve selected-runner launch: %+v", response)
+	}
+	if adapter.calls != 1 {
+		t.Fatalf("matching timeout policy should launch selected runner once, calls=%d", adapter.calls)
+	}
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	if eventTypeCount(index.Events, "selected_runner_dispatch_failed") != 0 {
+		t.Fatalf("matching timeout policy must not append selected_runner_dispatch_failed: %#v", index.Events)
+	}
+	if eventTypeCount(index.Events, "speech") != 1 {
+		t.Fatalf("matching timeout policy should still append canonical speech: %#v", index.Events)
+	}
+}
 
 type unsupportedSelectedSpeakerAdapter struct {
 	fakeRunRTAdapter
@@ -284,6 +367,64 @@ func createDiscussionCouncilForDispatch(t *testing.T) (string, *storage.SessionM
 func createSurfacedDiscussionCouncilForDispatch(t *testing.T) (string, *storage.SessionMetadata, string) {
 	t.Helper()
 	return createCouncilForDispatch(t, &storage.Surface{Kind: "discord_thread", ThreadID: "thread_hun007"})
+}
+
+func createGuardedDiscussionCouncilForDispatch(t *testing.T, dispatchTimeoutSec int, override map[string]any) (string, *storage.SessionMetadata, string) {
+	t.Helper()
+	return createGuardedVisibleCouncilForDispatch(t, map[string]any{
+		"kind":       "discord_thread",
+		"platform":   "discord",
+		"channel_id": "chan-guarded",
+		"thread_id":  "thread-guarded",
+	}, dispatchTimeoutSec, override)
+}
+
+func createGuardedVisibleCouncilForDispatch(t *testing.T, surface map[string]any, dispatchTimeoutSec int, override map[string]any) (string, *storage.SessionMetadata, string) {
+	t.Helper()
+	dataHome, _, _ := dispatchDataHome(t)
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	name := strings.NewReplacer("/", "_", "\x00", "_").Replace(t.Name())
+	requestContext := map[string]any{
+		"source":                "discord_thread",
+		"requested_output_mode": "live_visible_thread",
+	}
+	if override != nil {
+		requestContext["selected_runner_timeout_override"] = override
+	}
+	response := server.Handle(protocol.NewRequest("cmd_guarded_new_"+name, "council.new", map[string]any{
+		"session_id":      "sess_guarded_council_dispatch_" + name,
+		"moderator":       "agent-mod",
+		"members":         []any{"agent-1"},
+		"title":           "NEWFIX-005 guarded dispatch",
+		"request_context": requestContext,
+		"surface":         surface,
+		"limits":          map[string]any{"dispatch_timeout_sec": dispatchTimeoutSec},
+	}))
+	if !response.OK {
+		t.Fatalf("guarded council.new should pass: %+v", response)
+	}
+	sessionID := response.Result["session_id"].(string)
+	sessionDir, err := storage.SessionDir(dataHome, sessionID)
+	if err != nil {
+		t.Fatalf("SessionDir: %v", err)
+	}
+	metadata, err := storage.LoadSessionYAML(sessionDir)
+	if err != nil {
+		t.Fatalf("LoadSessionYAML: %v", err)
+	}
+	appendCouncilEventForDispatch(t, sessionDir, metadata, "request-attendance", "agent-mod", "cmd_attendance_"+name, map[string]any{"timeout_sec": 30}, time.Second)
+	appendCouncilEventForDispatch(t, sessionDir, metadata, "attend", "agent-1", "cmd_attend_"+name, map[string]any{"status": "present", "summary": "ready"}, 2*time.Second)
+	appendCouncilEventForDispatch(t, sessionDir, metadata, "lock-agenda", "agent-mod", "cmd_agenda_"+name, map[string]any{"decision_question": "What should ship?", "success_criteria": "Produce a canonical typed speech with agenda and prior context.", "out_of_scope_policy": "Do not invent agenda text or repair missing control context from plugin hints."}, 3*time.Second)
+	if strings.TrimSpace(fmt.Sprint(surface["kind"])) == "discord_thread" {
+		appendRUNFIX009RuntimeEvidence(t, sessionDir, metadata, "agent-1", 3500*time.Millisecond)
+	}
+	appendCouncilEventForDispatch(t, sessionDir, metadata, "prepare", "agent-mod", "cmd_prepare_"+name, map[string]any{"timeout_sec": 30}, 4*time.Second)
+	if strings.TrimSpace(fmt.Sprint(surface["kind"])) == "discord_thread" {
+		appendCouncilEventForDispatch(t, sessionDir, metadata, "ready", "agent-1", "cmd_ready_"+name, map[string]any{"summary": "ready for guarded NEWFIX-005 dispatch"}, 4500*time.Millisecond)
+	}
+	appendCouncilEventForDispatch(t, sessionDir, metadata, "poll", "agent-mod", "cmd_poll_"+name, map[string]any{"turn": 1}, 5*time.Second)
+	appendCouncilEventForDispatch(t, sessionDir, metadata, "hand-raise", "agent-1", "cmd_raise_"+name, map[string]any{"turn": 1, "intent": "answer", "reason": "selected"}, 6*time.Second)
+	return dataHome, metadata, sessionDir
 }
 
 func createCouncilForDispatch(t *testing.T, surface *storage.Surface) (string, *storage.SessionMetadata, string) {
