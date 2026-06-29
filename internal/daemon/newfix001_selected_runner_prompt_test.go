@@ -77,9 +77,27 @@ func TestNEWFIX001CouncilGrantBuildsProjectionBackedPromptEvidenceWithPriorClaim
 		t.Fatalf("prompt evidence should pass: %#v", evidenceEvent.Payload)
 	}
 	included := anyStringSliceTest(evidenceEvent.Payload["included_context"])
+	for _, want := range []string{"decision_question", "success_criteria", "out_of_scope_policy"} {
+		if !containsString(included, want) {
+			t.Fatalf("NEWFIX-009 prompt evidence should include agenda key %q: %#v", want, evidenceEvent.Payload)
+		}
+	}
 	for _, want := range []string{"prior_claim_context", "selected_member_prior_speeches", "selected_member_latest_claims", "selected_member_claim_index"} {
 		if !containsString(included, want) {
 			t.Fatalf("prompt evidence should include %q: %#v", want, evidenceEvent.Payload)
+		}
+	}
+	agendaSourceIDs := anyStringSliceTest(evidenceEvent.Payload["agenda_source_event_ids"])
+	if len(agendaSourceIDs) != 1 {
+		t.Fatalf("NEWFIX-009 prompt evidence should record one agenda source event: %#v", evidenceEvent.Payload)
+	}
+	agendaEvent, ok := eventByID(index.Events, agendaSourceIDs[0])
+	if !ok || agendaEvent.Type != "agenda_locked" {
+		t.Fatalf("NEWFIX-009 agenda source id should resolve to agenda_locked event: id=%q events=%#v", agendaSourceIDs[0], index.Events)
+	}
+	for key, want := range fullAgendaPayload() {
+		if got := stringValueTest(agendaEvent.Payload[key]); got != want {
+			t.Fatalf("NEWFIX-009 agenda_locked payload %s mismatch: got %q want %q payload=%#v", key, got, want, agendaEvent.Payload)
 		}
 	}
 	for _, field := range []string{"prior_context_source_event_ids", "own_history_source_event_ids", "own_latest_claim_source_event_ids", "own_claim_index_source_event_ids"} {
@@ -135,7 +153,7 @@ func TestNEWFIX001CouncilGrantBuildsProjectionBackedPromptEvidenceWithPriorClaim
 }
 
 func TestNEWFIX001CouncilGrantBlocksWhenAgendaContextMissing(t *testing.T) {
-	dataHome, metadata, sessionDir := createCouncilForPromptContext(t, map[string]any{"decision_question": "What should ship?"})
+	dataHome, metadata, sessionDir := createCouncilForPromptContextWithoutAgenda(t)
 	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": 1, "speech": "should not run"}, Cost: &runner.Cost{Source: runner.HermesAgentCostSource}}}}}
 	server := daemon.NewServer(dataHome, daemonFixedRuntime())
 	server.RunnerAdapter = adapter
@@ -159,7 +177,7 @@ func TestNEWFIX001CouncilGrantBlocksWhenAgendaContextMissing(t *testing.T) {
 		t.Fatalf("prompt evidence should be blocked: %#v", evidenceEvent.Payload)
 	}
 	missing := anyStringSliceTest(evidenceEvent.Payload["missing_required_context"])
-	for _, want := range []string{"success_criteria", "out_of_scope_policy"} {
+	for _, want := range []string{"decision_question", "success_criteria", "out_of_scope_policy"} {
 		if !containsString(missing, want) {
 			t.Fatalf("blocked prompt evidence missing %q in %#v", want, evidenceEvent.Payload)
 		}
@@ -167,6 +185,73 @@ func TestNEWFIX001CouncilGrantBlocksWhenAgendaContextMissing(t *testing.T) {
 	diagnostic := latestEventOfType(t, index.Events, "selected_runner_dispatch_failed")
 	if diagnostic.Payload["reason"] != "selected_runner_context_missing" {
 		t.Fatalf("agenda-context block should leave durable selected-runner diagnostic: %#v", diagnostic.Payload)
+	}
+}
+
+func TestNEWFIX009CouncilLockAgendaRejectsMissingRequiredAgendaFields(t *testing.T) {
+	dataHome, loaded, _ := dispatchDataHome(t)
+	name := strings.NewReplacer("/", "_", "\x00", "_").Replace(t.Name())
+	metadata, _, _, err := storage.CreateCouncil(dataHome, loaded, storage.CouncilStartSpec{
+		Session: storage.SessionSpec{ID: "sess_newfix009_agenda_validation_" + name, Title: "NEWFIX-009", Moderator: "agent-mod", EventID: "evt_created_newfix009_validation_" + name, CommandID: "cmd_created_newfix009_validation_" + name},
+		Members: []string{"agent-1"},
+		Now:     daemonFixedRuntime().Now(),
+	}, daemonFixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateCouncil: %v", err)
+	}
+	sessionDir, err := storage.SessionDir(dataHome, metadata.ID)
+	if err != nil {
+		t.Fatalf("SessionDir: %v", err)
+	}
+
+	cases := []struct {
+		name    string
+		field   string
+		payload map[string]any
+	}{
+		{
+			name:  "missing_decision_question",
+			field: "decision_question",
+			payload: map[string]any{
+				"success_criteria":    "Produce a canonical typed speech with agenda and prior context.",
+				"out_of_scope_policy": "Do not invent agenda text or repair missing control context from plugin hints.",
+			},
+		},
+		{
+			name:  "missing_success_criteria",
+			field: "success_criteria",
+			payload: map[string]any{
+				"decision_question":   "What should ship?",
+				"out_of_scope_policy": "Do not invent agenda text or repair missing control context from plugin hints.",
+			},
+		},
+		{
+			name:  "missing_out_of_scope_policy",
+			field: "out_of_scope_policy",
+			payload: map[string]any{
+				"decision_question": "What should ship?",
+				"success_criteria":  "Produce a canonical typed speech with agenda and prior context.",
+			},
+		},
+	}
+	for i, tc := range cases {
+		_, _, err := storage.RecordCouncilEvent(sessionDir, metadata, storage.CouncilEventSpec{
+			Action:    "lock-agenda",
+			Actor:     "agent-mod",
+			CommandID: "cmd_newfix009_lock_agenda_" + tc.name,
+			Payload:   tc.payload,
+			Now:       daemonFixedRuntime().Now().Add(time.Duration(i+1) * time.Second),
+		})
+		if err == nil || !strings.Contains(err.Error(), tc.field) {
+			t.Fatalf("missing %s should fail closed at agenda storage boundary, err=%v", tc.field, err)
+		}
+	}
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	if eventTypeCount(index.Events, "agenda_locked") != 0 {
+		t.Fatalf("invalid agenda submissions must not append agenda_locked: %#v", index.Events)
 	}
 }
 
@@ -705,6 +790,30 @@ func createCouncilForPromptContext(t *testing.T, agendaPayload map[string]any) (
 	appendCouncilEventForDispatch(t, sessionDir, metadata, "prepare", "agent-mod", "cmd_prepare_"+name, map[string]any{"timeout_sec": 30}, 4*time.Second)
 	appendCouncilEventForDispatch(t, sessionDir, metadata, "poll", "agent-mod", "cmd_poll_"+name, map[string]any{"turn": 1}, 5*time.Second)
 	appendCouncilEventForDispatch(t, sessionDir, metadata, "hand-raise", "agent-1", "cmd_raise_"+name, map[string]any{"turn": 1, "intent": "answer", "reason": "selected"}, 6*time.Second)
+	return dataHome, metadata, sessionDir
+}
+
+func createCouncilForPromptContextWithoutAgenda(t *testing.T) (string, *storage.SessionMetadata, string) {
+	t.Helper()
+	dataHome, loaded, _ := dispatchDataHome(t)
+	name := strings.NewReplacer("/", "_", "\x00", "_").Replace(t.Name())
+	metadata, _, _, err := storage.CreateCouncil(dataHome, loaded, storage.CouncilStartSpec{
+		Session: storage.SessionSpec{ID: "sess_prompt_context_no_agenda_" + name, Title: "NEWFIX-009", Moderator: "agent-mod", EventID: "evt_created_no_agenda_" + name, CommandID: "cmd_created_no_agenda_" + name},
+		Members: []string{"agent-1"},
+		Now:     daemonFixedRuntime().Now(),
+	}, daemonFixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateCouncil: %v", err)
+	}
+	sessionDir, err := storage.SessionDir(dataHome, metadata.ID)
+	if err != nil {
+		t.Fatalf("SessionDir: %v", err)
+	}
+	appendCouncilEventForDispatch(t, sessionDir, metadata, "request-attendance", "agent-mod", "cmd_attendance_no_agenda_"+name, map[string]any{"timeout_sec": 30}, time.Second)
+	appendCouncilEventForDispatch(t, sessionDir, metadata, "attend", "agent-1", "cmd_attend_no_agenda_"+name, map[string]any{"status": "present", "summary": "ready"}, 2*time.Second)
+	appendCouncilEventForDispatch(t, sessionDir, metadata, "prepare", "agent-mod", "cmd_prepare_no_agenda_"+name, map[string]any{"timeout_sec": 30}, 4*time.Second)
+	appendCouncilEventForDispatch(t, sessionDir, metadata, "poll", "agent-mod", "cmd_poll_no_agenda_"+name, map[string]any{"turn": 1}, 5*time.Second)
+	appendCouncilEventForDispatch(t, sessionDir, metadata, "hand-raise", "agent-1", "cmd_raise_no_agenda_"+name, map[string]any{"turn": 1, "intent": "answer", "reason": "selected"}, 6*time.Second)
 	return dataHome, metadata, sessionDir
 }
 

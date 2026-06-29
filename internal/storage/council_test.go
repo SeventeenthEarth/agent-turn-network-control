@@ -148,6 +148,8 @@ func TestUnitNEWFIX007CouncilLockAgendaRequiresStructuredContextAtStorageBoundar
 		field   string
 	}{
 		{name: "missing success criteria", payload: map[string]any{"decision_question": "What proves NEWFIX-007?", "out_of_scope_policy": "No hidden context."}, field: "success_criteria"},
+		{name: "empty success criteria", payload: map[string]any{"decision_question": "What proves NEWFIX-007?", "success_criteria": "", "out_of_scope_policy": "No hidden context."}, field: "success_criteria"},
+		{name: "whitespace success criteria", payload: map[string]any{"decision_question": "What proves NEWFIX-007?", "success_criteria": " 	\n ", "out_of_scope_policy": "No hidden context."}, field: "success_criteria"},
 		{name: "missing out of scope policy", payload: map[string]any{"decision_question": "What proves NEWFIX-007?", "success_criteria": "Structured context is durable."}, field: "out_of_scope_policy"},
 		{name: "non string success criteria", payload: map[string]any{"decision_question": "What proves NEWFIX-007?", "success_criteria": []string{"bad"}, "out_of_scope_policy": "No hidden context."}, field: "success_criteria"},
 	} {

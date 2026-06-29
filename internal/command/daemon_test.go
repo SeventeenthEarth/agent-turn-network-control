@@ -604,6 +604,24 @@ members:
 		t.Fatalf("missing required context should fail closed, got %s", missing)
 	}
 
+	emptyPath := filepath.Join(t.TempDir(), "empty_success.json")
+	if err := os.WriteFile(emptyPath, []byte(`{"decision_question":"What proves NEWFIX-007?","success_criteria":"","out_of_scope_policy":"No inference."}`), 0o600); err != nil {
+		t.Fatalf("write empty success agenda: %v", err)
+	}
+	empty := runFail("council", "lock-agenda", "sess_newfix007_cli", "--from", "agent-mod", "--command-id", "cmd_newfix007_empty_success", "--from-file", emptyPath)
+	if !strings.Contains(empty, "success_criteria must be a non-empty string") {
+		t.Fatalf("empty success_criteria should fail closed, got %s", empty)
+	}
+
+	whitespacePath := filepath.Join(t.TempDir(), "whitespace_success.json")
+	if err := os.WriteFile(whitespacePath, []byte(`{"decision_question":"What proves NEWFIX-007?","success_criteria":"     ","out_of_scope_policy":"No inference."}`), 0o600); err != nil {
+		t.Fatalf("write whitespace success agenda: %v", err)
+	}
+	whitespace := runFail("council", "lock-agenda", "sess_newfix007_cli", "--from", "agent-mod", "--command-id", "cmd_newfix007_whitespace_success", "--from-file", whitespacePath)
+	if !strings.Contains(whitespace, "success_criteria must be a non-empty string") {
+		t.Fatalf("whitespace success_criteria should fail closed, got %s", whitespace)
+	}
+
 	unsupportedPath := filepath.Join(t.TempDir(), "unsupported.json")
 	if err := os.WriteFile(unsupportedPath, []byte(`{"decision_question":"Q","success_criteria":"S","out_of_scope_policy":"O","agenda_items":["unsupported"]}`), 0o600); err != nil {
 		t.Fatalf("write unsupported agenda: %v", err)
