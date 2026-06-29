@@ -380,8 +380,10 @@ func councilTransition(metadata *SessionMetadata, index *LogIndex, current Phase
 		if err := requireModerator(); err != nil {
 			return "", "", "", nil, nil, err
 		}
-		if strings.TrimSpace(payloadStringDefault(payload, "decision_question", "")) == "" {
-			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "decision_question", "decision_question is required")
+		for _, required := range []string{"decision_question", "success_criteria", "out_of_scope_policy"} {
+			if strings.TrimSpace(payloadStringDefault(payload, required, "")) == "" {
+				return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, required, required+" is required")
+			}
 		}
 		return "agenda_locked", "created", actor, councilMembers(metadata), nil, nil
 	case "prepare":

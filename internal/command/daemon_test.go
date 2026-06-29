@@ -499,6 +499,130 @@ func TestIntegrationLTRAN003LiveLocalCLIProof(t *testing.T) {
 	}
 }
 
+func TestIntegrationNEWFIX007CouncilLockAgendaFromFileParsesRequiredContext(t *testing.T) {
+	dataHome := commandDaemonFixture(t)
+	binDir := filepath.Join(dataHome, "bin")
+	if err := os.MkdirAll(binDir, 0o700); err != nil {
+		t.Fatalf("mkdir fake wrapper dir: %v", err)
+	}
+	for _, wrapper := range []string{"agent-mod", "agent-1", "agent-2"} {
+		if err := os.WriteFile(filepath.Join(binDir, wrapper), []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
+			t.Fatalf("write fake wrapper %s: %v", wrapper, err)
+		}
+	}
+	registryYAML := fmt.Sprintf(`schema_version: 1
+wrapper_path_allowlist:
+  - %s
+members:
+  agent-mod:
+    display_name: Moderator
+    wrapper: agent-mod
+    workspace: /tmp/agent-mod
+    role: moderator
+    enabled: true
+    adapter_kind: hermes-agent
+  agent-1:
+    display_name: Agent One
+    wrapper: agent-1
+    workspace: /tmp/agent-1
+    role: assignee
+    enabled: true
+    adapter_kind: hermes-agent
+  agent-2:
+    display_name: Agent Two
+    wrapper: agent-2
+    workspace: /tmp/agent-2
+    role: assignee
+    enabled: true
+    adapter_kind: hermes-agent
+`, binDir)
+	if err := os.WriteFile(registry.RegistryPath(dataHome), []byte(registryYAML), 0o600); err != nil {
+		t.Fatalf("write enabled registry: %v", err)
+	}
+	t.Setenv("ATN_HOME", dataHome)
+	app, cancel := cliWithInProcessDaemon(t)
+	defer cancel()
+	var startOut, startErr bytes.Buffer
+	if exitCode := app.Run([]string{"daemon", "start"}, &startOut, &startErr); exitCode != 0 {
+		t.Fatalf("start daemon: exit=%d stdout=%q stderr=%q", exitCode, startOut.String(), startErr.String())
+	}
+
+	runOK := func(args ...string) string {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		if exitCode := app.Run(args, &stdout, &stderr); exitCode != 0 {
+			t.Fatalf("%v exit=%d stdout=%q stderr=%q", args, exitCode, stdout.String(), stderr.String())
+		}
+		if !json.Valid(stdout.Bytes()) {
+			t.Fatalf("%v expected JSON stdout, got %q", args, stdout.String())
+		}
+		return stdout.String()
+	}
+	runFail := func(args ...string) string {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		if exitCode := app.Run(args, &stdout, &stderr); exitCode == 0 {
+			t.Fatalf("%v expected failure, stdout=%q stderr=%q", args, stdout.String(), stderr.String())
+		}
+		if !strings.Contains(stderr.String(), `"error"`) {
+			t.Fatalf("%v expected structured error, got stdout=%q stderr=%q", args, stdout.String(), stderr.String())
+		}
+		return stderr.String()
+	}
+
+	runOK("council", "new", "NEWFIX-007 local proof", "--session-id", "sess_newfix007_cli", "--members", "agent-1,agent-2", "--moderator", "agent-mod", "--requested-output-mode", "local-daemon-only", "--explicit-non-visible-override", "true", "--override-reason", "operator explicitly requested local contract proof", "--command-id", "cmd_newfix007_new")
+
+	agendaPath := filepath.Join(t.TempDir(), "agenda.json")
+	if err := os.WriteFile(agendaPath, []byte(`{"decision_question":"What proves NEWFIX-007?","success_criteria":"The locked agenda carries mandatory selected-runner context.","out_of_scope_policy":"Do not infer required agenda context from draft prose.","max_rounds":2}`), 0o600); err != nil {
+		t.Fatalf("write agenda: %v", err)
+	}
+	runOK("council", "lock-agenda", "sess_newfix007_cli", "--from", "agent-mod", "--command-id", "cmd_newfix007_lock", "--from-file", agendaPath)
+	sessionDir, err := storage.SessionDir(dataHome, "sess_newfix007_cli")
+	if err != nil {
+		t.Fatalf("session dir: %v", err)
+	}
+	channelBytes, err := os.ReadFile(filepath.Join(sessionDir, storage.ChannelJSONLName))
+	if err != nil {
+		t.Fatalf("read council channel: %v", err)
+	}
+	channel := string(channelBytes)
+	for _, want := range []string{"What proves NEWFIX-007?", "mandatory selected-runner context", "Do not infer required agenda context", `"max_rounds":2`} {
+		if !strings.Contains(channel, want) {
+			t.Fatalf("lock-agenda event missing %q: %s", want, channel)
+		}
+	}
+	if strings.Contains(channel, `"draft"`) {
+		t.Fatalf("lock-agenda --from-file must not collapse structured agenda JSON into draft: %s", channel)
+	}
+
+	missingPath := filepath.Join(t.TempDir(), "missing.json")
+	if err := os.WriteFile(missingPath, []byte(`{"decision_question":"What proves NEWFIX-007?","out_of_scope_policy":"No inference."}`), 0o600); err != nil {
+		t.Fatalf("write missing agenda: %v", err)
+	}
+	missing := runFail("council", "lock-agenda", "sess_newfix007_cli", "--from", "agent-mod", "--command-id", "cmd_newfix007_missing", "--from-file", missingPath)
+	if !strings.Contains(missing, "missing required field success_criteria") {
+		t.Fatalf("missing required context should fail closed, got %s", missing)
+	}
+
+	unsupportedPath := filepath.Join(t.TempDir(), "unsupported.json")
+	if err := os.WriteFile(unsupportedPath, []byte(`{"decision_question":"Q","success_criteria":"S","out_of_scope_policy":"O","agenda_items":["unsupported"]}`), 0o600); err != nil {
+		t.Fatalf("write unsupported agenda: %v", err)
+	}
+	unsupported := runFail("council", "lock-agenda", "sess_newfix007_cli", "--from", "agent-mod", "--command-id", "cmd_newfix007_unsupported", "--from-file", unsupportedPath)
+	if !strings.Contains(unsupported, "unsupported field") || !strings.Contains(unsupported, "agenda_items") {
+		t.Fatalf("unsupported agenda field should fail closed, got %s", unsupported)
+	}
+
+	legacyHintPath := filepath.Join(t.TempDir(), "legacy_hint.json")
+	if err := os.WriteFile(legacyHintPath, []byte(`{"decision_question":"Q","success_criteria":"S","out_of_scope_policy":"O","summary":"unsupported display hint"}`), 0o600); err != nil {
+		t.Fatalf("write legacy hint agenda: %v", err)
+	}
+	legacyHint := runFail("council", "lock-agenda", "sess_newfix007_cli", "--from", "agent-mod", "--command-id", "cmd_newfix007_legacy_hint", "--from-file", legacyHintPath)
+	if !strings.Contains(legacyHint, "unsupported field") || !strings.Contains(legacyHint, "summary") {
+		t.Fatalf("legacy agenda hint should fail closed, got %s", legacyHint)
+	}
+}
+
 func TestIntegrationCLIDelegateBlockResumeLimitsAndCancel(t *testing.T) {
 	dataHome := commandDaemonFixture(t)
 	t.Setenv("ATN_HOME", dataHome)

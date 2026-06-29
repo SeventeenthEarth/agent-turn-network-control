@@ -1106,17 +1106,15 @@ func (a App) runCouncilEvent(sub string, args []string, stdout io.Writer, stderr
 			if i+1 >= len(args) {
 				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--from-file requires a path", protocol.ExitUsage, nil))
 			}
-			content, err := os.ReadFile(args[i+1])
+			fromFilePayload, err := councilPayloadFromFile(sub, args[i+1])
 			if err != nil {
 				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, err.Error(), protocol.ExitUsage, nil))
 			}
-			key := "draft"
-			if sub == "speak" {
-				key = "speech"
+			for key, value := range fromFilePayload {
+				payload[key] = value
 			}
-			payload[key] = string(content)
 			i++
-		case "--decision-question", "--out-of-scope-policy", "--status", "--summary", "--notes", "--reason", "--intent", "--message", "--speech", "--vote", "--required-change", "--final-summary", "--failure-reason", "--followup-card-id", "--timeout-evidence":
+		case "--decision-question", "--success-criteria", "--out-of-scope-policy", "--status", "--summary", "--notes", "--reason", "--intent", "--message", "--speech", "--vote", "--required-change", "--final-summary", "--failure-reason", "--followup-card-id", "--timeout-evidence":
 			if i+1 >= len(args) {
 				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
 			}
@@ -1163,6 +1161,76 @@ func councilCommandName(sub string) (string, bool) {
 		return "", false
 	}
 	return "council." + strings.ReplaceAll(sub, "-", "_"), true
+}
+
+func councilPayloadFromFile(sub string, path string) (map[string]any, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if sub != "lock-agenda" {
+		key := "draft"
+		if sub == "speak" {
+			key = "speech"
+		}
+		return map[string]any{key: string(content)}, nil
+	}
+	var agenda map[string]any
+	if err := json.Unmarshal(content, &agenda); err != nil {
+		return nil, fmt.Errorf("council lock-agenda --from-file requires a JSON object with decision_question, success_criteria, and out_of_scope_policy: %w", err)
+	}
+	if agenda == nil {
+		return nil, fmt.Errorf("council lock-agenda --from-file requires a JSON object")
+	}
+	payload := map[string]any{}
+	stringKeys := map[string]struct{}{
+		"decision_question":   {},
+		"success_criteria":    {},
+		"out_of_scope_policy": {},
+	}
+	intKeys := map[string]struct{}{
+		"max_rounds": {},
+	}
+	for key, value := range agenda {
+		if _, ok := stringKeys[key]; ok {
+			text, ok := value.(string)
+			if !ok || strings.TrimSpace(text) == "" {
+				return nil, fmt.Errorf("council lock-agenda --from-file %s must be a non-empty string", key)
+			}
+			payload[key] = text
+			continue
+		}
+		if _, ok := intKeys[key]; ok {
+			integer, ok := jsonPositiveInt(value)
+			if !ok {
+				return nil, fmt.Errorf("council lock-agenda --from-file %s must be a positive integer", key)
+			}
+			payload[key] = integer
+			continue
+		}
+		return nil, fmt.Errorf("council lock-agenda --from-file unsupported field %q", key)
+	}
+	for _, required := range []string{"decision_question", "success_criteria", "out_of_scope_policy"} {
+		if _, ok := payload[required]; !ok {
+			return nil, fmt.Errorf("council lock-agenda --from-file missing required field %s", required)
+		}
+	}
+	return payload, nil
+}
+
+func jsonPositiveInt(value any) (int, bool) {
+	switch typed := value.(type) {
+	case float64:
+		integer := int(typed)
+		return integer, typed == float64(integer) && integer > 0
+	case int:
+		return typed, typed > 0
+	case json.Number:
+		integer, err := strconv.Atoi(typed.String())
+		return integer, err == nil && integer > 0
+	default:
+		return 0, false
+	}
 }
 
 var councilEventCommands = map[string]struct{}{

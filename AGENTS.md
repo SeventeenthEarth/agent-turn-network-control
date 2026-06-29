@@ -103,7 +103,7 @@ Optional development-class spine:
 intake -> sot -> roadmap -> task-classification -> plan -> vet -> ask -> implement -> enhance-test -> ai-slop-cleaner -> optimize -> docs -> verify -> review -> request-feedback-1 -> handle-feedback-1 -> mar-review -> second-color-review -> final
 ```
 
-The applied graph id is `graph-kkachi-project-kkachi-agent-network-control-kas-v017-kah-v013-20260621` and the KAH apply event is `evt-002756`. This graph aligns the repo with KAS v0.1.7 / KAH v0.1.13 workflow-managed surfaces and the MAR review lane.
+The applied graph id is `graph-kkachi-project-kkachi-agent-network-control-kas-v017-kah-v013-20260621` and the KAH apply event is `evt-002756`. That graph is historical local workflow state; current local toolchain metadata is `.kkachi/toolchain.yaml` and is refreshed for KAS v0.2.0 / KAH v0.2.0, with KAT v0.1.0 test-runner config in `.kkachi/tester.yaml`.
 
 Important semantics:
 
@@ -135,15 +135,15 @@ Out of scope unless a later task explicitly opens it:
 - Hidden plugin-to-CLI fallback or localhost/TCP/gateway fallback.
 - Commit or push without explicit 주군 approval.
 
-## Codex/KAB lane rule
+## GJC backend lane rule
 
-When a KAS/ATN task mentions or requires `codex app-server`, use the actual local Codex Python SDK stdio app-server/session flow:
+For KAS/KAH v0.2 local development in this ATN repo, use the GAJAE GJC delegated-execution lane as the default backend policy:
 
 ```text
-openai_codex.Codex / CodexConfig -> codex app-server --listen stdio://
+KAS/KAH phase planning -> GJC delegated execution through KAH wrapper -> candidate design/plan/implementation artifacts
 ```
 
-Do not use `codex exec` as a substitute. If the SDK/app-server path is unavailable, report the blocker instead of falling back silently. Direct Codex SDK/app-server evidence is Stage 1 direct evidence and is not a KAB Codex execution claim.
+KAB remains non-primary unless a later task explicitly selects KAB runtime/session control. Do not use direct `codex app-server` as the default backend lane or as a silent fallback for v0.2 ATN work. Legacy Codex app-server evidence remains historical only and is not current backend-policy authority.
 
 ## Review and Kanban evidence
 
@@ -165,8 +165,9 @@ HOME=/Users/draccoon git diff --check
 HOME=/Users/draccoon /Users/draccoon/.local/bin/kkachi-agent-helper-toolchain graph validate --file .kkachi-workflow.yaml --json
 HOME=/Users/draccoon /Users/draccoon/.local/bin/kkachi-agent-helper-toolchain project doctor --json
 HOME=/Users/draccoon /Users/draccoon/.local/bin/kkachi-agent-skills-toolchain doctor --project . --workflow-graph --json
-HOME=/Users/draccoon make docs-guardrails
-HOME=/Users/draccoon make check-plugin-contract
+HOME=/Users/draccoon kkachi-agent-tester run test-prepare
+HOME=/Users/draccoon kkachi-agent-tester run docs-guardrails
+HOME=/Users/draccoon kkachi-agent-tester run check-plugin-contract
 HOME=/Users/draccoon make test-prepare
 ```
 

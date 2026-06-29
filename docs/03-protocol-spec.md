@@ -1285,7 +1285,7 @@ durable `member_attended` events.
 Origin class: `participant_cli`.
 Canonical command: `atn-control council lock-agenda`.
 
-`agenda_locked` freezes the decision question before substantive preparation/discussion. Topic-drift policy, final summaries, and Kanban/Vault return paths must refer back to this locked agenda. When `surface.kind` is `discord_thread`, this event is mandatory before `preparation_requested`.
+`agenda_locked` freezes the decision question and required selected-runner agenda context before substantive preparation/discussion. Its payload must include non-empty string `decision_question`, `success_criteria`, and `out_of_scope_policy`; topic-drift policy, final summaries, and Kanban/Vault return paths must refer back to this locked agenda. The daemon/storage event boundary rejects `lock-agenda` commands missing any of those three fields, so direct daemon/plugin paths cannot persist an agenda that only contains a decision question. When `surface.kind` is `discord_thread`, this event is mandatory before `preparation_requested`.
 
 ```json
 {
@@ -1295,6 +1295,7 @@ Canonical command: `atn-control council lock-agenda`.
   "phase": "created",
   "payload": {
     "decision_question": "Decide next action for Kanban card t_xxxxx.",
+    "success_criteria": "Consensus identifies the next bounded action, owner, and evidence requirement.",
     "out_of_scope_policy": "New topics become follow-up card candidates, not current-thread expansion.",
     "max_rounds": 2
   }

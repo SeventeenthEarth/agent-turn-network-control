@@ -754,6 +754,8 @@ atn-control council request-attendance <session_id> --timeout 5m
 atn-control council attend <session_id> --from agent-1 --status present --summary "Present."
 atn-control council lock-agenda <session_id> \
   --decision-question "Decide next action for Kanban card t_xxxxx" \
+  --success-criteria "Consensus identifies the bounded next action, owner, and evidence requirement" \
+  --out-of-scope-policy "New topics become follow-up card candidates, not current-thread expansion" \
   --max-rounds 2
 ```
 
@@ -763,7 +765,25 @@ Emits:
 - `council attend` → `member_attended`.
 - `council lock-agenda` → `agenda_locked`.
 
-First-pass rule: these commands operate while the council is in `created`. `council prepare` remains the transition into `preparation`. For `surface.kind=discord_thread`, these are not optional presentation commands: `council prepare` must fail closed unless `attendance_requested`, one terminal `member_attended` record per required participant (`present`, `partial`, `unavailable`, or `no_response_timeout`), and `agenda_locked` already exist. Rejection leaves the session in `created` and appends no `preparation_requested` event.
+`council lock-agenda --from-file <agenda.json>` is a command-specific structured JSON path, not the legacy raw-draft file path used by conclusion commands. The file must be a JSON object with exactly these supported fields:
+
+- required non-empty strings: `decision_question`, `success_criteria`, `out_of_scope_policy`
+- optional positive integer: `max_rounds`
+
+Missing required fields, empty/non-string required values, malformed JSON, and unsupported fields such as `summary`, `notes`, `intent`, `draft_version`, `timeout_sec`, `research_timeout_sec`, or `agenda_items` fail closed before daemon submission. Inline CLI flags remain available for `--decision-question`, `--success-criteria`, `--out-of-scope-policy`, and `--max-rounds`; unrelated council subcommands keep their existing `--from-file` behavior.
+
+Example agenda file:
+
+```json
+{
+  "decision_question": "Decide next action for Kanban card t_xxxxx",
+  "success_criteria": "Consensus identifies the bounded next action, owner, and evidence requirement",
+  "out_of_scope_policy": "New topics become follow-up card candidates, not current-thread expansion",
+  "max_rounds": 2
+}
+```
+
+First-pass rule: these commands operate while the council is in `created`. `council prepare` remains the transition into `preparation`. For `surface.kind=discord_thread`, these are not optional presentation commands: `council prepare` must fail closed unless `attendance_requested`, one terminal `member_attended` record per required participant (`present`, `partial`, `unavailable`, or `no_response_timeout`), and `agenda_locked` already exist. Rejection leaves the session in `created` and appends no event.
 
 ### Preparation
 

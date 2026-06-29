@@ -8,6 +8,8 @@
     "command_id": "cmd_council_lock_agenda_conformance",
     "payload": {
       "decision_question": "Should the static council contract ship?",
+      "success_criteria": "Ship only when the locked agenda carries all selected-runner required context.",
+      "out_of_scope_policy": "Do not infer missing selected-runner agenda context from draft prose, plugin hints, or fallback speech.",
       "max_rounds": 2
     }
   }

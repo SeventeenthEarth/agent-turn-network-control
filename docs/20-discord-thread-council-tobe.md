@@ -230,6 +230,7 @@ Purpose: The moderator freezes the decision question and prevents topic drift.
   "to": ["macho", "seohwang", "jonghoe", "manchong"],
   "payload": {
     "decision_question": "Decide the next action for Kanban card t_xxxxx.",
+    "success_criteria": "Consensus identifies the bounded next action, owner, and evidence requirement.",
     "out_of_scope_policy": "New topics become follow-up card candidates, not current-thread expansion.",
     "max_rounds": 2
   }
@@ -317,6 +318,8 @@ atn-control council attend <session_id> \
 
 atn-control council lock-agenda <session_id> \
   --decision-question "Decide next action for Kanban card t_xxxxx" \
+  --success-criteria "Consensus identifies the bounded next action, owner, and evidence requirement" \
+  --out-of-scope-policy "New topics become follow-up card candidates, not current-thread expansion" \
   --max-rounds 2
 
 atn-control council grant <session_id> \

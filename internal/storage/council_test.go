@@ -60,7 +60,7 @@ func TestIntegrationCouncilLifecycleFailClosedGuardsAndProjection(t *testing.T) 
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "request-attendance", Actor: "agent-mod", CommandID: "cmd_attendance", Payload: map[string]any{"timeout_sec": 300}, Now: fixedRuntime().Now().Add(2 * time.Second)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "attend", Actor: "agent-1", CommandID: "cmd_attend_1", Payload: map[string]any{"status": "present", "summary": "ready"}, Now: fixedRuntime().Now().Add(3 * time.Second)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "attend", Actor: "agent-2", CommandID: "cmd_attend_2", Payload: map[string]any{"status": "partial", "summary": "partial"}, Now: fixedRuntime().Now().Add(4 * time.Second)})
-	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "lock-agenda", Actor: "agent-mod", CommandID: "cmd_agenda", Payload: map[string]any{"decision_question": "What should ship?", "max_rounds": 2}, Now: fixedRuntime().Now().Add(5 * time.Second)})
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "lock-agenda", Actor: "agent-mod", CommandID: "cmd_agenda", Payload: map[string]any{"decision_question": "What should ship?", "success_criteria": "The next action is bounded and evidenced.", "out_of_scope_policy": "New topics become follow-up cards.", "max_rounds": 2}, Now: fixedRuntime().Now().Add(5 * time.Second)})
 	prepare := appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "prepare", Actor: "agent-mod", CommandID: "cmd_prepare", Payload: map[string]any{"timeout_sec": 600}, Now: fixedRuntime().Now().Add(6 * time.Second)})
 	prepared := eventByIDForTest(t, sessionDir, metadata, prepare.EventID)
 	if prepared.Phase != "preparation" || prepared.Type != "preparation_requested" {
@@ -128,6 +128,42 @@ func TestIntegrationCouncilLifecycleFailClosedGuardsAndProjection(t *testing.T) 
 	}
 	if active, err := FindActiveSession(dataHome, fixedRuntime()); err != nil || active != nil {
 		t.Fatalf("finalized council must release active lock, active=%#v err=%v", active, err)
+	}
+}
+
+func TestUnitNEWFIX007CouncilLockAgendaRequiresStructuredContextAtStorageBoundary(t *testing.T) {
+	dataHome, loaded := loadedCouncilRegistry(t)
+	metadata, _, _, err := CreateCouncil(dataHome, loaded, CouncilStartSpec{
+		Session: SessionSpec{ID: "sess_newfix007_storage", Title: "NEWFIX-007 storage", Moderator: "agent-mod", EventID: "evt_newfix007_storage_created", CommandID: "cmd_newfix007_storage_new"},
+		Members: []string{"agent-1"},
+		Now:     fixedRuntime().Now(),
+	}, fixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateCouncil: %v", err)
+	}
+	sessionDir, _ := SessionDir(dataHome, metadata.ID)
+	for _, tc := range []struct {
+		name    string
+		payload map[string]any
+		field   string
+	}{
+		{name: "missing success criteria", payload: map[string]any{"decision_question": "What proves NEWFIX-007?", "out_of_scope_policy": "No hidden context."}, field: "success_criteria"},
+		{name: "missing out of scope policy", payload: map[string]any{"decision_question": "What proves NEWFIX-007?", "success_criteria": "Structured context is durable."}, field: "out_of_scope_policy"},
+		{name: "non string success criteria", payload: map[string]any{"decision_question": "What proves NEWFIX-007?", "success_criteria": []string{"bad"}, "out_of_scope_policy": "No hidden context."}, field: "success_criteria"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "lock-agenda", Actor: "agent-mod", CommandID: "cmd_" + strings.ReplaceAll(tc.name, " ", "_"), Payload: tc.payload, Now: fixedRuntime().Now().Add(time.Second)}); err == nil {
+				t.Fatalf("lock-agenda without %s must fail closed", tc.field)
+			} else {
+				assertStorageIssue(t, err, CategoryInvalidEnvelope)
+				if !strings.Contains(err.Error(), tc.field) {
+					t.Fatalf("error should name %s, got %v", tc.field, err)
+				}
+			}
+		})
+	}
+	if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "lock-agenda", Actor: "agent-mod", CommandID: "cmd_newfix007_storage_lock", Payload: map[string]any{"decision_question": "What proves NEWFIX-007?", "success_criteria": "Structured agenda context is durable.", "out_of_scope_policy": "Do not infer required context from draft prose.", "max_rounds": 2}, Now: fixedRuntime().Now().Add(2 * time.Second)}); err != nil {
+		t.Fatalf("lock-agenda with required structured context: %v", err)
 	}
 }
 
@@ -265,7 +301,7 @@ func runfix3004LifecycleCouncilForTest(t *testing.T, sessionID string) (string, 
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "request-attendance", Actor: "agent-mod", CommandID: "cmd_" + sessionID + "_attendance", Payload: map[string]any{"timeout_sec": 60}, Now: fixedRuntime().Now().Add(time.Second)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "attend", Actor: "agent-1", CommandID: "cmd_" + sessionID + "_attend_1", Payload: map[string]any{"status": "present", "summary": "ready"}, Now: fixedRuntime().Now().Add(2 * time.Second)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "attend", Actor: "agent-2", CommandID: "cmd_" + sessionID + "_attend_2", Payload: map[string]any{"status": "present", "summary": "ready"}, Now: fixedRuntime().Now().Add(3 * time.Second)})
-	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "lock-agenda", Actor: "agent-mod", CommandID: "cmd_" + sessionID + "_agenda", Payload: map[string]any{"decision_question": "RUNFIX3?"}, Now: fixedRuntime().Now().Add(4 * time.Second)})
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "lock-agenda", Actor: "agent-mod", CommandID: "cmd_" + sessionID + "_agenda", Payload: map[string]any{"decision_question": "RUNFIX3?", "success_criteria": "Record closeout proof only when all required evidence is present.", "out_of_scope_policy": "Do not infer missing closeout evidence."}, Now: fixedRuntime().Now().Add(4 * time.Second)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "prepare", Actor: "agent-mod", CommandID: "cmd_" + sessionID + "_prepare", Payload: map[string]any{"timeout_sec": 60}, Now: fixedRuntime().Now().Add(5 * time.Second)})
 	return sessionDir, metadata
 }
@@ -622,7 +658,7 @@ func TestUnitCouncilStatusFromLogSummarizesVerboseStatus(t *testing.T) {
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "request-attendance", Actor: "agent-mod", CommandID: "cmd_status_attendance", Payload: map[string]any{"timeout_sec": 300}, Now: fixedRuntime().Now().Add(time.Second)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "attend", Actor: "agent-1", CommandID: "cmd_status_attend_1", Payload: map[string]any{"status": "present", "summary": "ready"}, Now: fixedRuntime().Now().Add(2 * time.Second)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "attend", Actor: "agent-2", CommandID: "cmd_status_attend_2", Payload: map[string]any{"status": "unavailable", "summary": "offline"}, Now: fixedRuntime().Now().Add(3 * time.Second)})
-	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "lock-agenda", Actor: "agent-mod", CommandID: "cmd_status_agenda", Payload: map[string]any{"decision_question": "Ship?"}, Now: fixedRuntime().Now().Add(4 * time.Second)})
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "lock-agenda", Actor: "agent-mod", CommandID: "cmd_status_agenda", Payload: map[string]any{"decision_question": "Ship?", "success_criteria": "Members can vote with sufficient locked context.", "out_of_scope_policy": "Do not infer agenda context from later vote prose."}, Now: fixedRuntime().Now().Add(4 * time.Second)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "prepare", Actor: "agent-mod", CommandID: "cmd_status_prepare", Payload: map[string]any{"timeout_sec": 600}, Now: fixedRuntime().Now().Add(5 * time.Second)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "ready", Actor: "agent-1", CommandID: "cmd_status_ready", Payload: map[string]any{"summary": "ready"}, Now: fixedRuntime().Now().Add(6 * time.Second)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "prepared-partial", Actor: "agent-2", CommandID: "cmd_status_partial", Payload: map[string]any{"reason": "offline"}, Now: fixedRuntime().Now().Add(7 * time.Second)})
