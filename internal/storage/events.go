@@ -97,11 +97,28 @@ func AppendEvent(sessionDir string, metadata *SessionMetadata, event EventEnvelo
 		return AppendResult{}, NewValidationError(CategoryAppendFailed, sessionDir, err.Error())
 	}
 	offset := int64(len(index.Events))
+	metadata.State.Phase, metadata.Status = projectedMetadataPhaseStatus(metadata.State.Phase, metadata.Status, event.Phase)
+	if event.Turn != nil {
+		metadata.State.CurrentTurn = *event.Turn
+	}
+	if event.Type == "speech" {
+		metadata.State.LastSpeaker = event.From
+	}
+	if err := WriteSessionYAMLAtomic(sessionDir, metadata); err != nil {
+		return AppendResult{}, err
+	}
 	return AppendResult{
 		Cursor:  cursorFor(offset, event.EventID),
 		Offset:  offset,
 		EventID: event.EventID,
 	}, nil
+}
+
+func projectedMetadataPhaseStatus(currentPhase Phase, currentStatus Status, eventPhase Phase) (Phase, Status) {
+	if currentStatus == StatusTerminal || statusFromPhase(currentPhase) == StatusTerminal {
+		return currentPhase, StatusTerminal
+	}
+	return eventPhase, statusFromPhase(eventPhase)
 }
 
 func ReadLogIndex(sessionDir string, metadata *SessionMetadata) (*LogIndex, error) {

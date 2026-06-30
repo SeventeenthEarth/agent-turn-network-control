@@ -38,6 +38,31 @@ func TestIntegrationDaemonUnavailableMapsToExitTwo(t *testing.T) {
 	assertCommandJSONError(t, stderr.String(), "daemon_unavailable", "daemon")
 }
 
+func TestUnitCOUNCILSTAB001CouncilGrantMemberAliasParsesBeforeDaemon(t *testing.T) {
+	dataHome := commandDaemonFixture(t)
+	t.Setenv("ATN_HOME", dataHome)
+	app := command.NewCLI()
+
+	var stdout, stderr bytes.Buffer
+	exitCode := app.Run([]string{"council", "grant", "sess_member_alias", "--from", "agent-mod", "--member", "agent-1", "--command-id", "cmd_member_alias"}, &stdout, &stderr)
+	if exitCode != protocol.ExitDaemonUnavailable {
+		t.Fatalf("--member should parse as grant target before daemon submit, exit=%d stdout=%q stderr=%q", exitCode, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), `"code":"daemon_unavailable"`) {
+		t.Fatalf("--member should reach daemon transport path, got stderr=%q", stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	exitCode = app.Run([]string{"council", "grant", "sess_member_alias", "--from", "agent-mod", "--to", "agent-1", "--member", "agent-2", "--command-id", "cmd_member_alias_conflict"}, &stdout, &stderr)
+	if exitCode != protocol.ExitUsage {
+		t.Fatalf("conflicting --to/--member should fail usage before daemon, exit=%d stdout=%q stderr=%q", exitCode, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "member") || !strings.Contains(stderr.String(), "to") {
+		t.Fatalf("conflict error should mention member and to, got %q", stderr.String())
+	}
+}
+
 func TestUnitTranscriptExportTailCLIValidationDoesNotRequireDaemon(t *testing.T) {
 	app := command.NewCLIWithRuntime(commandFixedRuntime())
 	for _, tc := range []struct {

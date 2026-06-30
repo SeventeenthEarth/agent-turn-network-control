@@ -1,8 +1,8 @@
 SHELL := /bin/sh
 
-.PHONY: test test-prepare test-unit test-int test-release-acceptance test-e2e docs-guardrails guardrails-test check-plugin-contract fmt lint vet help-smoke
+.PHONY: test test-prepare test-unit test-regression test-int test-release-acceptance test-e2e docs-guardrails guardrails-test check-plugin-contract fmt lint vet help-smoke
 
-test: test-prepare test-unit test-int test-release-acceptance test-e2e
+test: test-prepare test-unit test-regression test-int test-release-acceptance test-e2e
 
 # Preparation gate: local-only checks that never contact Hermes/Discord or other external services.
 test-prepare: fmt lint vet guardrails-test docs-guardrails help-smoke
@@ -53,6 +53,13 @@ test-unit:
 		go test ./... -run 'TestUnit|Unit' -count=1; \
 	else \
 		echo "test-unit: no Go scaffold yet; docs-only pass"; \
+	fi
+
+test-regression:
+	@if command -v go >/dev/null 2>&1 && [ -f go.mod ]; then \
+		go test ./internal/daemon -run 'TestCOUNCILSTAB001LiveVisibleSelectedRunnerFifteenTurnGoldenPath' -count=1; \
+	else \
+		echo "test-regression: no Go scaffold yet; docs-only pass"; \
 	fi
 
 test-int:

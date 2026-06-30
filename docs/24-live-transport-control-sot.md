@@ -258,6 +258,13 @@ NEXFIX task order and current status:
 | 9 | cross-repo | NEWFIX-009 | completed | Cross-repo acceptance proof now has focused local evidence that `decision_question`, `success_criteria`, and `out_of_scope_policy` reach `agenda_locked.payload`, selected-runner prompt evidence `included_context`, and agenda source refs; missing, empty, and whitespace-only required agenda fields fail closed at storage/CLI submission and no-agenda selected-runner dispatch records blocked prompt evidence plus `selected_runner_dispatch_failed`. Post-feedback remediation restores run-root verification evidence and removes stale NEWFIX-007 status wording. The cancelled `sess_council_1782671073534714000` remains diagnostic defect evidence only; focused Orange/Gray re-review passed and Blue MAR disposition allowed KAH `mar_review` completion; post-MAR second-color review, KAH final verification, and improve/lessons are complete; live rollout and broad readiness remain unclaimed. |
 
 
+### COUNCIL-STAB: selected-runner golden path stabilization
+
+`COUNCIL-STAB-001` is the cross-repo release-blocker repair lane for Jooyoo's 2026-06-30 KLM token/speed council blocker. The control-owned contract is: a selected-runner grant must have a matching same-member/same-turn `hand_raise` with non-empty `intent` or `reason`; control derives `speaker_selected.payload.stance_assignment` from that hand raise and ignores caller-supplied grant stance as authority. The local deterministic proof must include hand raise, grant, selected runner invocation, linked canonical speech, visible delivery evidence, terminal closeout/status coherence, and post-terminal metadata monotonicity. The failed historical session `sess_klm_token_speed_20260629T235032Z` remains diagnostic defect evidence only.
+
+Current status: `completed/local-proof`. Local deterministic gates have been updated, official Red/Orange reviews approved the bounded evidence, the prior Gray status/SOT traceability blocker was remediated, post-MAR second-color review cards Red `t_9746263a`, Orange `t_3e11441a`, Gray `t_6fb1f968`, and Blue `t_e33a4835` approved proceeding to KAH `final_verify`, final verification gates passed, and improve/lessons were recorded. Live Discord rerun, production activation, profile/provider/gateway/auth/token mutation, push, and broad readiness remain unclaimed and approval-gated.
+
+
 ### MEMBR: Member runtime profile invocation
 
 Exit: a selected participant can be invoked through a real member profile/wrapper path and produce or fail a participant response with durable daemon evidence. This exit does not claim always-on production runtimes.

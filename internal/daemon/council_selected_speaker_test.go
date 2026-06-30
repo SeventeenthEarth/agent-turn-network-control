@@ -13,6 +13,65 @@ import (
 	"atn-control/internal/storage"
 )
 
+func TestCOUNCILSTAB001LiveVisibleSelectedRunnerFifteenTurnGoldenPath(t *testing.T) {
+	dataHome, metadata, sessionDir := createGuardedVisibleCouncilForDispatch(t, map[string]any{
+		"kind":       "discord_thread",
+		"platform":   "discord",
+		"channel_id": "chan-council-stab",
+		"thread_id":  "thread-council-stab",
+	}, 120, nil)
+	adapter := &fakeRunRTAdapter{}
+	for turn := 1; turn <= 15; turn++ {
+		adapter.results = append(adapter.results, fakeRunRTResult{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": turn, "speech": fmt.Sprintf("canonical selected-runner turn %02d", turn)}, Cost: &runner.Cost{TokensIn: 2, TokensOut: 3, Source: runner.HermesAgentCostSource}}})
+		adapter.visibleResults = append(adapter.visibleResults, fakeVisibleDeliveryResult{result: runner.VisibleDeliveryResult{OK: true, Status: "posted", Kind: "discord_thread", Platform: "discord", ChannelID: "chan-council-stab", ThreadID: "thread-council-stab", MessageID: fmt.Sprintf("msg_council_stab_%02d", turn), PostingPath: "selected_member_profile_send", SenderMember: "agent-1"}})
+	}
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	server.RunnerAdapter = adapter
+	server.DispatchLocks = &daemon.DispatchLocks{}
+
+	for turn := 1; turn <= 15; turn++ {
+		if turn > 1 {
+			appendCouncilEventForDispatch(t, sessionDir, metadata, "poll", "agent-mod", fmt.Sprintf("cmd_council_stab_poll_%02d", turn), map[string]any{"turn": turn}, time.Duration(turn*10)*time.Second)
+			appendCouncilEventForDispatch(t, sessionDir, metadata, "hand-raise", "agent-1", fmt.Sprintf("cmd_council_stab_raise_%02d", turn), map[string]any{"turn": turn, "intent": "continue", "reason": fmt.Sprintf("selected-runner turn %02d", turn)}, time.Duration(turn*10+1)*time.Second)
+		}
+		response := server.Handle(councilGrantRequestForTurn(metadata.ID, fmt.Sprintf("cmd_council_stab_grant_%02d", turn), "agent-1", turn))
+		if !response.OK {
+			t.Fatalf("council.grant turn %d failed: %+v", turn, response)
+		}
+	}
+	if _, _, err := storage.RecordCouncilEvent(sessionDir, metadata, storage.CouncilEventSpec{Action: "unresolved", Actor: "agent-mod", CommandID: "cmd_council_stab_unresolved", Payload: map[string]any{"reason": "15-turn selected-runner golden path reached terminal closeout"}, Now: daemonFixedRuntime().Now().Add(200 * time.Second)}); err != nil {
+		t.Fatalf("golden path terminal closeout failed: %v", err)
+	}
+	reloaded, err := storage.LoadSessionYAML(sessionDir)
+	if err != nil {
+		t.Fatalf("LoadSessionYAML: %v", err)
+	}
+	if reloaded.Status != storage.StatusTerminal || reloaded.State.Phase != "unresolved" {
+		t.Fatalf("golden path terminal status mismatch: %s/%s", reloaded.Status, reloaded.State.Phase)
+	}
+
+	if adapter.calls != 15 || adapter.visibleCalls != 15 {
+		t.Fatalf("golden path must call selected runner and visible sender once per turn, runner=%d visible=%d", adapter.calls, adapter.visibleCalls)
+	}
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	accounting := storage.SelectedRunnerAccountingFromIndex(metadata, index)
+	if !accounting.SelectedRunnerPass || accounting.SelectedSpeakerCount != 15 || accounting.RunnerStartedCount != 15 || accounting.RunnerSucceededCount != 15 || accounting.LinkedRunnerSpeechCount != 15 || accounting.RunnerlessSpeechCount != 0 || accounting.DispatchFailureCount != 0 {
+		t.Fatalf("15-turn selected-runner accounting mismatch: %#v", accounting)
+	}
+	unresolved := findEvent(t, index.Events, "council_unresolved")
+	if unresolved.EventID == "" || unresolved.Payload["reason"] == "" {
+		t.Fatalf("golden path terminal closeout missing: %#v", unresolved)
+	}
+	for _, grant := range accounting.SelectedRunners {
+		if !grant.Pass || len(grant.LinkedRunnerSpeechEventIDs) != 1 || len(grant.LinkedRunnerDeliveryEventIDs) != 1 {
+			t.Fatalf("each selected turn must have one linked speech and one visible delivery: %#v", grant)
+		}
+	}
+}
+
 func TestCouncilGrantDispatchesSelectedMemberRunnerAndRecordsSpeech(t *testing.T) {
 	dataHome, metadata, sessionDir := createDiscussionCouncilForDispatch(t)
 	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": 1, "speech": "canonical selected runner speech"}, Cost: &runner.Cost{TokensIn: 2, TokensOut: 3, USDEstimate: 0.04, Source: runner.HermesAgentCostSource}}}}}
@@ -460,12 +519,16 @@ func appendCouncilEventForDispatch(t *testing.T, sessionDir string, metadata *st
 }
 
 func councilGrantRequest(sessionID, commandID, member string) protocol.CommandRequest {
+	return councilGrantRequestForTurn(sessionID, commandID, member, 1)
+}
+
+func councilGrantRequestForTurn(sessionID, commandID, member string, turn int) protocol.CommandRequest {
 	return protocol.NewRequest(commandID, "council.grant", map[string]any{
 		"session_id": sessionID,
 		"actor":      "agent-mod",
 		"command_id": commandID,
 		"payload": map[string]any{
-			"turn":           1,
+			"turn":           turn,
 			"member":         member,
 			"selection_mode": "moderator_direct",
 		},

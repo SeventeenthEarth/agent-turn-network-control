@@ -136,6 +136,7 @@ func TestRUNFIX2CouncilDiscussionLifecycleDoesNotCountFutureGrantForPastSpeech(t
 	sessionDir, metadata := runfix2LifecycleCouncilForTest(t, "sess_runfix2_lifecycle_future_grant")
 	appendRUNFIX2LifecycleOpeningAndDiscussion(t, sessionDir, metadata)
 	appendRawEventForTest(t, sessionDir, metadata, "evt_runfix2_raw_closeout_before_grant", "cmd_runfix2_raw_closeout_before_grant", "speech", "discussion", "agent-1", []string{"agent-mod", "agent-2"}, map[string]any{"turn": 3, "speech": "raw closeout before grant"}, 30*time.Second)
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-1", CommandID: "cmd_runfix2_future_raise_agent_1", Payload: map[string]any{"turn": 3, "intent": "closeout", "reason": "future grant after raw speech"}, Now: fixedRuntime().Now().Add(30*time.Second + 500*time.Millisecond)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_runfix2_future_grant_agent_1", Payload: map[string]any{"turn": 3, "member": "agent-1", "selection_mode": "moderator_direct"}, Now: fixedRuntime().Now().Add(31 * time.Second)})
 	appendRUNFIX2LifecycleCloseout(t, sessionDir, metadata, 4, "agent-2", 40*time.Second)
 
@@ -152,6 +153,58 @@ func TestRUNFIX2CouncilDiscussionLifecycleDoesNotCountFutureGrantForPastSpeech(t
 	lifecycle := status["discussion_lifecycle"].(CouncilDiscussionLifecycle)
 	if lifecycle.ProposeReady || len(lifecycle.MissingCloseoutMembers) != 1 || lifecycle.MissingCloseoutMembers[0] != "agent-1" {
 		t.Fatalf("future grant retroactively counted toward lifecycle: %#v", lifecycle)
+	}
+}
+
+func TestCOUNCILSTAB001CouncilTerminalEventUpdatesSessionYAMLStatus(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		action     string
+		payload    map[string]any
+		wantPhase  Phase
+		wantStatus Status
+	}{
+		{name: "unresolved", action: "unresolved", payload: map[string]any{"reason": "proof incomplete"}, wantPhase: "unresolved", wantStatus: StatusTerminal},
+		{name: "finalized", action: "finalize", payload: map[string]any{"final_summary": "done", "linked_authority_result": map[string]any{"status": "posted", "kanban_comment_id": "kc_done"}}, wantPhase: "finalized", wantStatus: StatusTerminal},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sessionDir, metadata := runfix2LifecycleCouncilForTest(t, "sess_council_stab_terminal_"+tc.name)
+			appendRUNFIX2LifecycleOpeningAndDiscussion(t, sessionDir, metadata)
+			if tc.action == "finalize" {
+				appendRUNFIX2LifecycleCloseout(t, sessionDir, metadata, 3, "agent-1", 30*time.Second)
+				appendRUNFIX2LifecycleCloseout(t, sessionDir, metadata, 4, "agent-2", 40*time.Second)
+				appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "propose", Actor: "agent-mod", CommandID: "cmd_terminal_" + tc.name + "_propose", Payload: map[string]any{"draft": "done"}, Now: fixedRuntime().Now().Add(50 * time.Second)})
+				appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "request-vote", Actor: "agent-mod", CommandID: "cmd_terminal_" + tc.name + "_request_vote", Payload: map[string]any{"draft_version": 1}, Now: fixedRuntime().Now().Add(51 * time.Second)})
+				appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "vote", Actor: "agent-1", CommandID: "cmd_terminal_" + tc.name + "_vote_1", Payload: map[string]any{"draft_version": 1, "vote": "approve", "reason": "ok"}, Now: fixedRuntime().Now().Add(52 * time.Second)})
+				appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "vote", Actor: "agent-2", CommandID: "cmd_terminal_" + tc.name + "_vote_2", Payload: map[string]any{"draft_version": 1, "vote": "approve", "reason": "ok"}, Now: fixedRuntime().Now().Add(53 * time.Second)})
+			}
+			appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: tc.action, Actor: "agent-mod", CommandID: "cmd_terminal_" + tc.name, Payload: tc.payload, Now: fixedRuntime().Now().Add(60 * time.Second)})
+
+			reloaded, err := LoadSessionYAML(sessionDir)
+			if err != nil {
+				t.Fatalf("LoadSessionYAML: %v", err)
+			}
+			if reloaded.Status != tc.wantStatus || reloaded.State.Phase != tc.wantPhase {
+				t.Fatalf("session.yaml status/phase = %s/%s, want %s/%s", reloaded.Status, reloaded.State.Phase, tc.wantStatus, tc.wantPhase)
+			}
+			status, err := CouncilStatusFromLog(sessionDir, reloaded)
+			if err != nil {
+				t.Fatalf("CouncilStatusFromLog: %v", err)
+			}
+			lifecycle := status["discussion_lifecycle"].(CouncilDiscussionLifecycle)
+			if lifecycle.TerminalEventType == "" {
+				t.Fatalf("terminal event missing from status lifecycle: %#v", lifecycle)
+			}
+
+			appendRawEventForTest(t, sessionDir, reloaded, "evt_terminal_"+tc.name+"_post_terminal_diagnostic", "cmd_terminal_"+tc.name+"_post_terminal_diagnostic", "diagnostic", "discussion", "agent-mod", []string{"agent-1"}, map[string]any{"message": "post-terminal diagnostic must not reopen session metadata"}, 70*time.Second)
+			afterDiagnostic, err := LoadSessionYAML(sessionDir)
+			if err != nil {
+				t.Fatalf("LoadSessionYAML after diagnostic: %v", err)
+			}
+			if afterDiagnostic.Status != tc.wantStatus || afterDiagnostic.State.Phase != tc.wantPhase {
+				t.Fatalf("post-terminal diagnostic reopened session.yaml status/phase = %s/%s, want %s/%s", afterDiagnostic.Status, afterDiagnostic.State.Phase, tc.wantStatus, tc.wantPhase)
+			}
+		})
 	}
 }
 
@@ -188,6 +241,7 @@ func appendRUNFIX2LifecycleOpeningAndDiscussion(t *testing.T, sessionDir string,
 
 func appendRUNFIX2LifecycleCloseout(t *testing.T, sessionDir string, metadata *SessionMetadata, turn int, member string, delta time.Duration) {
 	t.Helper()
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: member, CommandID: fmt.Sprintf("cmd_%s_raise_%s_%d", metadata.ID, member, turn), Payload: map[string]any{"turn": turn, "intent": "closeout", "reason": "selected closeout turn"}, Now: fixedRuntime().Now().Add(delta - time.Second)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: fmt.Sprintf("cmd_%s_grant_%s_%d", metadata.ID, member, turn), Payload: map[string]any{"turn": turn, "member": member, "selection_mode": "moderator_direct"}, Now: fixedRuntime().Now().Add(delta)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "speak", Actor: member, CommandID: fmt.Sprintf("cmd_%s_speak_%s_%d", metadata.ID, member, turn), Payload: map[string]any{"turn": turn, "speech": "turn speech"}, Now: fixedRuntime().Now().Add(delta + time.Second)})
 }

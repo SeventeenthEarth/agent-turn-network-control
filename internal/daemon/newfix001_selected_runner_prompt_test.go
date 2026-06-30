@@ -320,8 +320,11 @@ func TestNEWFIX001CouncilGrantBlocksWhenControlOwnedStanceAssignmentMissing(t *t
 	server.RunnerAdapter = adapter
 
 	response := server.Handle(councilGrantRequest(metadata.ID, "cmd_council_grant_missing_stance_assignment", "agent-1"))
-	if !response.OK {
-		t.Fatalf("grant should return after durable stance block, got %+v", response)
+	if response.OK || response.Error == nil {
+		t.Fatalf("grant without stance-bearing hand_raise should fail closed before selected-runner dispatch, got %+v", response)
+	}
+	if !strings.Contains(response.Error.Error(), "stance_assignment") {
+		t.Fatalf("grant failure should name stance_assignment, got %+v", response.Error)
 	}
 	if adapter.calls != 0 {
 		t.Fatalf("stance-assignment block must prevent runner launch, calls=%d", adapter.calls)
@@ -330,16 +333,8 @@ func TestNEWFIX001CouncilGrantBlocksWhenControlOwnedStanceAssignmentMissing(t *t
 	if err != nil {
 		t.Fatalf("ReadLogIndex: %v", err)
 	}
-	evidenceEvent := latestEventOfType(t, index.Events, "selected_runner_prompt_evidence")
-	if evidenceEvent.Payload["result"] != "blocked" {
-		t.Fatalf("stance-assignment prompt evidence should be blocked: %#v", evidenceEvent.Payload)
-	}
-	missing := anyStringSliceTest(evidenceEvent.Payload["missing_required_context"])
-	if !containsString(missing, "stance_assignment") {
-		t.Fatalf("stance-assignment block should record stance_assignment: %#v", evidenceEvent.Payload)
-	}
-	if eventTypeCount(index.Events, "runner_invocation_started") != 0 {
-		t.Fatalf("stance-assignment block must not append runner_invocation_started: %#v", index.Events)
+	if eventTypeCount(index.Events, "speaker_selected") != 0 || eventTypeCount(index.Events, "selected_runner_prompt_evidence") != 0 || eventTypeCount(index.Events, "runner_invocation_started") != 0 {
+		t.Fatalf("stance-assignment ingress block must not append selected-runner events: %#v", index.Events)
 	}
 }
 

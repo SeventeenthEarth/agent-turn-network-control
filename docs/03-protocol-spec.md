@@ -1436,6 +1436,8 @@ Canonical command: `atn-control council hand-raise`.
 
 ARGUE-002 adds optional `target_links[]` for argument-graph-aware hand raises. Each target link pairs `target_event_id`, `target_claim_id`, and intended `stance` in one object. The stable linked-stance enum for ARGUE-002 fixtures is `support`, `challenge`, `refine`, `extend`, `synthesize`, `question`, `risk_addition`, and `decision_frame`. `target_event_ids[]` and `target_claim_ids[]` parallel arrays are not the ARGUE handoff shape.
 
+COUNCIL-STAB-001 makes `hand_raise.payload.intent` or `hand_raise.payload.reason` the required stance source for selected-runner floor grants. The daemon must not infer that stance from prose, ARGUE display hints, or caller-supplied grant payload fields; if the selected member has no matching same-turn hand raise with a non-empty `intent` or `reason`, `council.grant` fails closed before appending `speaker_selected`.
+
 ### speaker_selected
 
 Origin class: `participant_cli`.
@@ -1458,6 +1460,8 @@ Canonical command: `atn-control council grant`.
 `selection_mode` and scoring rules are normative in `07-moderator-policy.md`.
 
 For Discord-thread councils, `selection_mode` may also be `moderator_direct` or `role_order` per `07-moderator-policy.md`. These modes still use `speaker_selected` as the durable floor-grant record. If the session has `session_created.payload.turn_mode`, that value is only the intended/default policy. The durable per-turn audit fact is this event's `payload.selection_mode`. A per-turn `selection_mode` may deviate from `turn_mode` only when `payload.reason` is present and names the operational reason for the deviation.
+
+For selected-runner dispatch, `speaker_selected.payload.stance_assignment` is control-owned derived evidence from the prior matching `hand_raise` event. It is not accepted from the `council.grant` request payload as an authority shortcut.
 
 ### speech
 

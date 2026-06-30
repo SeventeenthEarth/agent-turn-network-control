@@ -512,9 +512,11 @@ func councilTransition(metadata *SessionMetadata, index *LogIndex, current Phase
 			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "reason", "reason is required when selection_mode deviates from turn_mode")
 		}
 		delete(payload, "stance_assignment")
-		if stanceAssignment := selectedGrantStanceAssignment(index, member, turn); strings.TrimSpace(stanceAssignment) != "" {
-			payload["stance_assignment"] = stanceAssignment
+		stanceAssignment := strings.TrimSpace(selectedGrantStanceAssignment(index, member, turn))
+		if stanceAssignment == "" {
+			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "stance_assignment", "speaker grant requires matching hand_raise intent or reason")
 		}
+		payload["stance_assignment"] = stanceAssignment
 		turnPtr = intPtr(turn)
 		return "speaker_selected", "discussion", actor, []string{member}, turnPtr, nil
 	case "speak":

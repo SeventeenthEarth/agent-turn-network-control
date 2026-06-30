@@ -1040,6 +1040,7 @@ func (a App) runCouncilEvent(sub string, args []string, stdout io.Writer, stderr
 	payload := map[string]any{}
 	linkedResult := map[string]any{}
 	var evidence []string
+	grantTargetSource := ""
 	for i := 1; i < len(args); i++ {
 		switch args[i] {
 		case "--from", "--actor":
@@ -1092,7 +1093,26 @@ func (a App) runCouncilEvent(sub string, args []string, stdout io.Writer, stderr
 			if i+1 >= len(args) {
 				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--to requires a value", protocol.ExitUsage, nil))
 			}
-			payload["member"] = args[i+1]
+			value := args[i+1]
+			if grantTargetSource == "member" && payload["member"] != value {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "council grant --member must match --to when both are provided", protocol.ExitUsage, nil))
+			}
+			payload["member"] = value
+			grantTargetSource = "to"
+			i++
+		case "--member":
+			if sub != "grant" {
+				return writeProtocolError(stderr, protocol.UnsupportedFeature("council "+sub+" --member"))
+			}
+			if i+1 >= len(args) {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--member requires a value", protocol.ExitUsage, nil))
+			}
+			value := args[i+1]
+			if grantTargetSource == "to" && payload["member"] != value {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "council grant --member must match --to when both are provided", protocol.ExitUsage, nil))
+			}
+			payload["member"] = value
+			grantTargetSource = "member"
 			i++
 		case "--mode":
 			if i+1 >= len(args) {

@@ -131,6 +131,86 @@ func TestIntegrationCouncilLifecycleFailClosedGuardsAndProjection(t *testing.T) 
 	}
 }
 
+func TestUnitCOUNCILSTAB001GrantRequiresPriorHandRaiseStanceSource(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		setup         func(t *testing.T, sessionDir string, metadata *SessionMetadata)
+		payload       map[string]any
+		wantIssuePath string
+	}{
+		{
+			name:          "no prior hand raise",
+			payload:       map[string]any{"turn": 1, "member": "agent-1", "selection_mode": "moderator_direct"},
+			wantIssuePath: "stance_assignment",
+		},
+		{
+			name: "caller stance assignment cannot repair missing hand raise stance",
+			setup: func(t *testing.T, sessionDir string, metadata *SessionMetadata) {
+				appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-1", CommandID: "cmd_stance_missing_raise", Payload: map[string]any{"turn": 1, "wants_to_speak": true}, Now: fixedRuntime().Now().Add(3 * time.Second)})
+			},
+			payload:       map[string]any{"turn": 1, "member": "agent-1", "selection_mode": "moderator_direct", "stance_assignment": "support"},
+			wantIssuePath: "stance_assignment",
+		},
+		{
+			name: "wrong member hand raise does not satisfy grant",
+			setup: func(t *testing.T, sessionDir string, metadata *SessionMetadata) {
+				appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-2", CommandID: "cmd_stance_wrong_member_raise", Payload: map[string]any{"turn": 1, "intent": "challenge"}, Now: fixedRuntime().Now().Add(3 * time.Second)})
+			},
+			payload:       map[string]any{"turn": 1, "member": "agent-1", "selection_mode": "moderator_direct"},
+			wantIssuePath: "stance_assignment",
+		},
+		{
+			name: "wrong turn hand raise does not satisfy grant",
+			setup: func(t *testing.T, sessionDir string, metadata *SessionMetadata) {
+				appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-1", CommandID: "cmd_stance_wrong_turn_raise", Payload: map[string]any{"turn": 1, "intent": "challenge"}, Now: fixedRuntime().Now().Add(3 * time.Second)})
+				appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "poll", Actor: "agent-mod", CommandID: "cmd_stance_poll_2", Payload: map[string]any{"turn": 2}, Now: fixedRuntime().Now().Add(4 * time.Second)})
+			},
+			payload:       map[string]any{"turn": 2, "member": "agent-1", "selection_mode": "moderator_direct"},
+			wantIssuePath: "stance_assignment",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sessionDir, metadata := grantStanceCouncilForTest(t, "sess_council_stab_"+strings.ReplaceAll(tc.name, " ", "_"))
+			if tc.setup != nil {
+				tc.setup(t, sessionDir, metadata)
+			}
+			before := eventCountForTest(t, sessionDir, metadata)
+			_, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_grant_" + strings.ReplaceAll(tc.name, " ", "_"), Payload: tc.payload, Now: fixedRuntime().Now().Add(5 * time.Second)})
+			if err == nil {
+				t.Fatalf("grant without matching stance-bearing hand_raise must fail closed")
+			}
+			assertStorageIssue(t, err, CategoryInvalidEnvelope)
+			if !strings.Contains(err.Error(), tc.wantIssuePath) {
+				t.Fatalf("error should name %s, got %v", tc.wantIssuePath, err)
+			}
+			if after := eventCountForTest(t, sessionDir, metadata); after != before {
+				t.Fatalf("failed grant appended event: before=%d after=%d", before, after)
+			}
+		})
+	}
+}
+
+func TestUnitCOUNCILSTAB001GrantDerivesStanceFromPriorHandRaise(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		handPayload map[string]any
+		wantStance  string
+	}{
+		{name: "intent preferred over reason", handPayload: map[string]any{"turn": 1, "intent": "challenge", "reason": "fallback reason"}, wantStance: "challenge"},
+		{name: "reason used without intent", handPayload: map[string]any{"turn": 1, "reason": "need a risk response"}, wantStance: "need a risk response"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sessionDir, metadata := grantStanceCouncilForTest(t, "sess_council_stab_positive_"+strings.ReplaceAll(tc.name, " ", "_"))
+			appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-1", CommandID: "cmd_positive_raise_" + strings.ReplaceAll(tc.name, " ", "_"), Payload: tc.handPayload, Now: fixedRuntime().Now().Add(3 * time.Second)})
+			result := appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_positive_grant_" + strings.ReplaceAll(tc.name, " ", "_"), Payload: map[string]any{"turn": 1, "member": "agent-1", "selection_mode": "moderator_direct", "stance_assignment": "caller must be ignored"}, Now: fixedRuntime().Now().Add(4 * time.Second)})
+			event := eventByIDForTest(t, sessionDir, metadata, result.EventID)
+			if got := payloadStringDefault(event.Payload, "stance_assignment", ""); got != tc.wantStance {
+				t.Fatalf("stance_assignment = %q, want %q; payload=%#v", got, tc.wantStance, event.Payload)
+			}
+		})
+	}
+}
+
 func TestUnitNEWFIX007CouncilLockAgendaRequiresStructuredContextAtStorageBoundary(t *testing.T) {
 	dataHome, loaded := loadedCouncilRegistry(t)
 	metadata, _, _, err := CreateCouncil(dataHome, loaded, CouncilStartSpec{
@@ -605,23 +685,21 @@ func TestUnitCouncilArgumentGraphAutoSelectionScopeAndNoConsecutiveSpeaker(t *te
 			assertStorageIssue(t, err, CategoryCommandConflict)
 		}
 	})
-	t.Run("compatibility no eligible preserves fallback", func(t *testing.T) {
+	t.Run("compatibility no eligible fails without stance source", func(t *testing.T) {
 		sessionDir, metadata := argumentGraphCouncilForTest(t, "sess_argue_auto_no_eligible_compat", Limits{})
-		result := appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_auto_compat_no_eligible", Payload: map[string]any{"turn": 1, "auto": true}, Now: fixedRuntime().Now().Add(10 * time.Second)})
-		event := eventByIDForTest(t, sessionDir, metadata, result.EventID)
-		if event.Payload["member"] != "agent-1" {
-			t.Fatalf("compatibility auto fallback selected %#v", event.Payload)
-		}
-		if event.Payload["selection_mode"] != "relevance" {
-			t.Fatalf("compatibility auto fallback should retain the additive relevance mode marker: %#v", event.Payload)
-		}
-		if _, ok := event.Payload["selection_score"]; !ok {
-			t.Fatalf("compatibility auto fallback should record selection_score: %#v", event.Payload)
+		if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_auto_compat_no_eligible", Payload: map[string]any{"turn": 1, "auto": true}, Now: fixedRuntime().Now().Add(10 * time.Second)}); err == nil {
+			t.Fatalf("auto grant without stance-bearing hand_raise must fail closed")
+		} else {
+			assertStorageIssue(t, err, CategoryInvalidEnvelope)
+			if !strings.Contains(err.Error(), "stance_assignment") {
+				t.Fatalf("auto grant error should name stance_assignment, got %v", err)
+			}
 		}
 	})
 	t.Run("quality-aware auto avoids immediately previous speaker when another eligible member exists", func(t *testing.T) {
 		limits := Limits{Council: CouncilLimits{DiscussionQuality: &DiscussionQualityLimits{Mode: "quality_warn"}}}
 		sessionDir, metadata := argumentGraphCouncilForTest(t, "sess_argue_auto_no_consecutive", limits)
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-1", CommandID: "cmd_auto_first_raise", Payload: map[string]any{"turn": 1, "intent": "opening"}, Now: fixedRuntime().Now().Add(9 * time.Second)})
 		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_auto_first_grant", Payload: map[string]any{"turn": 1, "member": "agent-1", "selection_mode": "moderator_direct"}, Now: fixedRuntime().Now().Add(10 * time.Second)})
 		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "speak", Actor: "agent-1", CommandID: "cmd_auto_first_speak", Payload: map[string]any{"turn": 1, "speech": "opening"}, Now: fixedRuntime().Now().Add(11 * time.Second)})
 		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "poll", Actor: "agent-mod", CommandID: "cmd_auto_poll_2", Payload: map[string]any{"turn": 2}, Now: fixedRuntime().Now().Add(12 * time.Second)})
@@ -964,6 +1042,29 @@ func appendCouncilForTest(t *testing.T, sessionDir string, metadata *SessionMeta
 	return result
 }
 
+func grantStanceCouncilForTest(t *testing.T, sessionID string) (string, *SessionMetadata) {
+	t.Helper()
+	dataHome, loaded := loadedCouncilRegistry(t)
+	metadata, _, _, err := CreateCouncil(dataHome, loaded, CouncilStartSpec{
+		Session: SessionSpec{
+			ID:        sessionID,
+			Title:     "grant stance",
+			Moderator: "agent-mod",
+			EventID:   "evt_" + sessionID + "_created",
+			CommandID: "cmd_" + sessionID + "_new",
+		},
+		Members: []string{"agent-1", "agent-2"},
+		Now:     fixedRuntime().Now(),
+	}, fixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateCouncil: %v", err)
+	}
+	sessionDir, _ := SessionDir(dataHome, metadata.ID)
+	appendRawEventForTest(t, sessionDir, metadata, "evt_"+sessionID+"_prep", "cmd_"+sessionID+"_prep", "preparation_requested", "preparation", "agent-mod", []string{"agent-1", "agent-2"}, map[string]any{"timeout_sec": 1}, time.Second)
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "poll", Actor: "agent-mod", CommandID: "cmd_" + sessionID + "_poll_1", Payload: map[string]any{"turn": 1}, Now: fixedRuntime().Now().Add(2 * time.Second)})
+	return sessionDir, metadata
+}
+
 func argumentGraphCouncilForTest(t *testing.T, sessionID string, limits Limits) (string, *SessionMetadata) {
 	t.Helper()
 	dataHome, loaded := loadedCouncilRegistry(t)
@@ -991,9 +1092,11 @@ func argumentGraphCouncilForTest(t *testing.T, sessionID string, limits Limits) 
 func appendArgumentGraphTargetForTest(t *testing.T, sessionDir string, metadata *SessionMetadata) {
 	t.Helper()
 	appendRawEventForTest(t, sessionDir, metadata, "evt_argue_target_poll", "cmd_argue_target_poll", "hand_raise_requested", "discussion", "agent-mod", []string{"agent-1", "agent-2"}, map[string]any{"turn": 1}, 9*time.Second)
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-1", CommandID: "cmd_argue_target_raise", Payload: map[string]any{"turn": 1, "intent": "opening", "reason": "opening target claim"}, Now: fixedRuntime().Now().Add(9*time.Second + 500*time.Millisecond)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_argue_target_grant", Payload: map[string]any{"turn": 1, "member": "agent-1", "selection_mode": "moderator_direct"}, Now: fixedRuntime().Now().Add(10 * time.Second)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "speak", Actor: "agent-1", CommandID: "cmd_argue_target_speech", Payload: map[string]any{"turn": 1, "speech": "Opening claim.", "claims": []any{map[string]any{"claim_id": "T1.C1", "summary": "opening claim"}}, "contribution_type": "new_axis", "new_axis_reason": "opening axis"}, Now: fixedRuntime().Now().Add(11 * time.Second)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "poll", Actor: "agent-mod", CommandID: "cmd_argue_poll_2", Payload: map[string]any{"turn": 2}, Now: fixedRuntime().Now().Add(12 * time.Second)})
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-2", CommandID: "cmd_argue_raise_2", Payload: map[string]any{"turn": 2, "intent": "response", "reason": "respond to opening claim"}, Now: fixedRuntime().Now().Add(13 * time.Second)})
 }
 
 func loadedCouncilRegistry(t *testing.T) (string, *registry.LoadedRegistry) {
