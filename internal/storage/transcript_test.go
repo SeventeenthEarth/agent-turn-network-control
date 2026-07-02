@@ -143,7 +143,7 @@ func TestUnitSURFD002TranscriptProjectsVisibleSurfaceDeliveryStates(t *testing.T
 	})
 	appendTranscriptEvent(t, sessionDir, metadata, councilTranscriptEvent(metadata, "evt_final_posted", "finalized", "council_finalized", map[string]any{
 		"final_summary":           "accepted",
-		"surface_evidence":        map[string]any{"kind": "discord_thread", "thread_id": "thread-surfd-002", "final_message_id": "msg-final-001"},
+		"surface_evidence":        map[string]any{"status": "posted", "kind": "discord_thread", "thread_id": "thread-surfd-002", "final_message_id": "msg-final-001"},
 		"linked_authority_result": map[string]any{"status": "posted", "kanban_card_id": "t_surfd_002", "kanban_comment_id": "comment-001"},
 	}))
 	appendTranscriptEvent(t, sessionDir, metadata, councilTranscriptEvent(metadata, "evt_final_string_any_evidence", "finalized", "council_finalized", map[string]any{
@@ -172,6 +172,9 @@ func TestUnitSURFD002TranscriptProjectsVisibleSurfaceDeliveryStates(t *testing.T
 		if !strings.Contains(string(out), want) {
 			t.Fatalf("SURFD-002 transcript missing %q:\n%s", want, string(out))
 		}
+	}
+	if strings.Contains(string(out), "| `evt_final_string_any_evidence` | `council_finalized` | `visible_surface` | `posted` |") {
+		t.Fatalf("generic evidence[] must not prove posted visible closeout delivery:\n%s", string(out))
 	}
 }
 
@@ -258,7 +261,7 @@ func TestUnitSURFD002ExportManifestDeclaresVisibleEvidenceProjection(t *testing.
 		t.Fatalf("WriteSessionYAMLAtomic: %v", err)
 	}
 	appendTranscriptEvent(t, sessionDir, metadata, councilTranscriptEvent(metadata, "evt_final_export", "finalized", "council_finalized", map[string]any{
-		"surface_evidence":        map[string]any{"kind": "discord_thread", "final_message_id": "msg-export-final"},
+		"surface_evidence":        map[string]any{"status": "posted", "kind": "discord_thread", "final_message_id": "msg-export-final"},
 		"linked_authority_result": map[string]any{"status": "posted", "kanban_comment_id": "comment-export"},
 	}))
 	if err := os.WriteFile(filepath.Join(sessionDir, registry.SnapshotFileName), []byte("schema_version: 1\n"), 0o600); err != nil {

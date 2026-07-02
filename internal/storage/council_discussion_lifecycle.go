@@ -7,39 +7,43 @@ import (
 )
 
 type CouncilDiscussionLifecycle struct {
-	Configured                          bool              `json:"configured"`
-	MaxDiscussionTurns                  int               `json:"max_discussion_turns,omitempty"`
-	LegacyMaxTurnsDisplay               int               `json:"legacy_max_turns_display,omitempty"`
-	ParticipantCount                    int               `json:"participant_count"`
-	ExpectedVisibleTurns                int               `json:"expected_visible_turns,omitempty"`
-	OpeningEventID                      string            `json:"opening_event_id,omitempty"`
-	OpeningTurn                         int               `json:"opening_turn,omitempty"`
-	DiscussionTurnsPresent              []int             `json:"discussion_turns_present,omitempty"`
-	MissingDiscussionTurns              []int             `json:"missing_discussion_turns,omitempty"`
-	CloseoutMembersPresent              []string          `json:"closeout_members_present,omitempty"`
-	MissingCloseoutMembers              []string          `json:"missing_closeout_members,omitempty"`
-	DiscussionTurnsRequired             int               `json:"discussion_turns_required,omitempty"`
-	DiscussionTurnsPresentCount         int               `json:"discussion_turns_present_count"`
-	DiscussionTurnsComplete             bool              `json:"discussion_turns_complete"`
-	ParticipantCloseoutsRequired        int               `json:"participant_closeouts_required,omitempty"`
-	ParticipantCloseoutsPresentCount    int               `json:"participant_closeouts_present_count"`
-	ParticipantCloseoutsComplete        bool              `json:"participant_closeouts_complete"`
-	ModeratorOpeningPresent             bool              `json:"moderator_opening_present"`
-	ModeratorSynthesisPresent           bool              `json:"moderator_synthesis_present"`
-	TerminalVisibleCloseoutProofStatus  string            `json:"terminal_visible_closeout_proof_status,omitempty"`
-	TerminalVisibleCloseoutProofBlocker string            `json:"terminal_visible_closeout_proof_blocker,omitempty"`
-	TerminalPhase                       string            `json:"terminal_phase,omitempty"`
-	CompletionVerdict                   string            `json:"completion_verdict,omitempty"`
-	TerminalEventID                     string            `json:"terminal_event_id,omitempty"`
-	TerminalEventType                   string            `json:"terminal_event_type,omitempty"`
-	ProposeReady                        bool              `json:"propose_ready"`
-	TerminalVisible                     bool              `json:"terminal_visible"`
-	BlockingReasons                     []string          `json:"blocking_reasons,omitempty"`
-	VisibleTurnTotal                    int               `json:"visible_turn_total,omitempty"`
-	VisibleTurnAccounting               map[string]int    `json:"visible_turn_accounting,omitempty"`
-	SpeechStages                        map[string]string `json:"-"`
-	SpeechVisibleTurnIndexes            map[string]int    `json:"-"`
-	SpeechVisibleTurnTotalByID          map[string]int    `json:"-"`
+	Configured                            bool              `json:"configured"`
+	MaxDiscussionTurns                    int               `json:"max_discussion_turns,omitempty"`
+	LegacyMaxTurnsDisplay                 int               `json:"legacy_max_turns_display,omitempty"`
+	ParticipantCount                      int               `json:"participant_count"`
+	ExpectedVisibleTurns                  int               `json:"expected_visible_turns,omitempty"`
+	TerminalSynthesisTurn                 int               `json:"terminal_synthesis_turn,omitempty"`
+	TerminalSynthesisExpectedVisibleIndex int               `json:"terminal_synthesis_expected_visible_index,omitempty"`
+	OpeningEventID                        string            `json:"opening_event_id,omitempty"`
+	OpeningTurn                           int               `json:"opening_turn,omitempty"`
+	DiscussionTurnsPresent                []int             `json:"discussion_turns_present,omitempty"`
+	MissingDiscussionTurns                []int             `json:"missing_discussion_turns,omitempty"`
+	CloseoutMembersPresent                []string          `json:"closeout_members_present,omitempty"`
+	MissingCloseoutMembers                []string          `json:"missing_closeout_members,omitempty"`
+	DiscussionTurnsRequired               int               `json:"discussion_turns_required,omitempty"`
+	DiscussionTurnsPresentCount           int               `json:"discussion_turns_present_count"`
+	DiscussionTurnsComplete               bool              `json:"discussion_turns_complete"`
+	ParticipantCloseoutsRequired          int               `json:"participant_closeouts_required,omitempty"`
+	ParticipantCloseoutsPresentCount      int               `json:"participant_closeouts_present_count"`
+	ParticipantCloseoutsComplete          bool              `json:"participant_closeouts_complete"`
+	ModeratorOpeningPresent               bool              `json:"moderator_opening_present"`
+	ModeratorSynthesisPresent             bool              `json:"moderator_synthesis_present"`
+	TerminalSynthesisSummaryPresent       bool              `json:"terminal_synthesis_summary_present"`
+	TerminalVisibleCloseoutProofStatus    string            `json:"terminal_visible_closeout_proof_status,omitempty"`
+	TerminalVisibleCloseoutProofBlocker   string            `json:"terminal_visible_closeout_proof_blocker,omitempty"`
+	TerminalPhase                         string            `json:"terminal_phase,omitempty"`
+	CompletionVerdict                     string            `json:"completion_verdict,omitempty"`
+	TerminalEventID                       string            `json:"terminal_event_id,omitempty"`
+	TerminalSynthesisEventID              string            `json:"terminal_synthesis_event_id,omitempty"`
+	TerminalEventType                     string            `json:"terminal_event_type,omitempty"`
+	ProposeReady                          bool              `json:"propose_ready"`
+	TerminalVisible                       bool              `json:"terminal_visible"`
+	BlockingReasons                       []string          `json:"blocking_reasons,omitempty"`
+	VisibleTurnTotal                      int               `json:"visible_turn_total,omitempty"`
+	VisibleTurnAccounting                 map[string]int    `json:"visible_turn_accounting,omitempty"`
+	SpeechStages                          map[string]string `json:"-"`
+	SpeechVisibleTurnIndexes              map[string]int    `json:"-"`
+	SpeechVisibleTurnTotalByID            map[string]int    `json:"-"`
 }
 
 func councilDiscussionLifecycle(metadata *SessionMetadata, index *LogIndex) CouncilDiscussionLifecycle {
@@ -62,6 +66,8 @@ func councilDiscussionLifecycle(metadata *SessionMetadata, index *LogIndex) Coun
 	lifecycle.DiscussionTurnsRequired = maxDiscussionTurns
 	lifecycle.ParticipantCloseoutsRequired = lifecycle.ParticipantCount
 	lifecycle.ExpectedVisibleTurns = maxDiscussionTurns + lifecycle.ParticipantCount + 2
+	lifecycle.TerminalSynthesisTurn = maxDiscussionTurns + lifecycle.ParticipantCount + 1
+	lifecycle.TerminalSynthesisExpectedVisibleIndex = lifecycle.ExpectedVisibleTurns
 	lifecycle.VisibleTurnTotal = lifecycle.ExpectedVisibleTurns
 
 	discussionTurns := map[int]bool{}
@@ -110,6 +116,7 @@ func councilDiscussionLifecycle(metadata *SessionMetadata, index *LogIndex) Coun
 			}
 		case "council_finalized", "council_unresolved":
 			lifecycle.TerminalEventID = event.EventID
+			lifecycle.TerminalSynthesisEventID = event.EventID
 			lifecycle.TerminalEventType = event.Type
 			lifecycle.TerminalVisible = true
 			terminalPayload = event.Payload
@@ -140,7 +147,8 @@ func councilDiscussionLifecycle(metadata *SessionMetadata, index *LogIndex) Coun
 	lifecycle.ParticipantCloseoutsPresentCount = len(lifecycle.CloseoutMembersPresent)
 	lifecycle.ParticipantCloseoutsComplete = lifecycle.Configured && len(lifecycle.MissingCloseoutMembers) == 0
 	lifecycle.ModeratorOpeningPresent = lifecycle.OpeningEventID != ""
-	lifecycle.ModeratorSynthesisPresent = lifecycle.TerminalEventID != "" && (lifecycle.TerminalEventType == "council_finalized" || lifecycle.TerminalEventType == "council_unresolved")
+	lifecycle.TerminalSynthesisSummaryPresent = terminalSynthesisSummaryPresent(lifecycle.TerminalEventType, terminalPayload)
+	lifecycle.ModeratorSynthesisPresent = lifecycleTerminalSynthesisPresent(lifecycle, terminalPayload)
 
 	if lifecycle.OpeningEventID == "" {
 		lifecycle.BlockingReasons = append(lifecycle.BlockingReasons, "missing_moderator_opening")
@@ -178,7 +186,7 @@ func terminalVisibleCloseoutProofStatus(eventType string, payload map[string]any
 	if !ok {
 		return "missing", "surface_evidence missing"
 	}
-	status, evidence := deliveryEvidenceStatus(surfaceValue)
+	status, evidence := visibleCloseoutSurfaceStatus(surfaceValue)
 	status, evidence = closeoutProjectionStatus(payload, status, evidence)
 	switch status {
 	case "posted", "failed", "pending_followup":
@@ -194,6 +202,27 @@ func terminalVisibleCloseoutProofStatus(eventType string, payload map[string]any
 		}
 		return "unproven", evidence
 	}
+}
+
+func terminalSynthesisSummaryPresent(eventType string, payload map[string]any) bool {
+	switch eventType {
+	case "council_finalized":
+		return strings.TrimSpace(payloadStringDefault(payload, "final_summary", "")) != ""
+	case "council_unresolved":
+		return strings.TrimSpace(payloadStringDefault(payload, "reason", "")) != ""
+	default:
+		return false
+	}
+}
+
+func lifecycleTerminalSynthesisPresent(lifecycle CouncilDiscussionLifecycle, payload map[string]any) bool {
+	if lifecycle.TerminalEventID == "" || !lifecycle.Configured {
+		return false
+	}
+	if !lifecycle.ModeratorOpeningPresent || !lifecycle.DiscussionTurnsComplete || !lifecycle.ParticipantCloseoutsComplete {
+		return false
+	}
+	return terminalSynthesisSummaryPresent(lifecycle.TerminalEventType, payload)
 }
 
 func terminalLifecyclePhase(eventType, proofStatus string) string {

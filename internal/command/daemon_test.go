@@ -666,6 +666,192 @@ members:
 	}
 }
 
+func TestIntegrationLVCOR002CouncilFinalizeAndUnresolvedFromFileJSON(t *testing.T) {
+	dataHome := commandDaemonFixture(t)
+	binDir := filepath.Join(dataHome, "bin")
+	if err := os.Mkdir(binDir, 0o700); err != nil {
+		t.Fatalf("mkdir LVCOR-002 wrapper bin: %v", err)
+	}
+	for _, wrapper := range []string{"agent-mod", "agent-1"} {
+		if err := os.WriteFile(filepath.Join(binDir, wrapper), []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
+			t.Fatalf("write LVCOR-002 wrapper %s: %v", wrapper, err)
+		}
+	}
+	registryYAML := fmt.Sprintf(`schema_version: 1
+wrapper_path_allowlist:
+  - %s
+members:
+  agent-mod:
+    display_name: Moderator
+    wrapper: agent-mod
+    workspace: /tmp/agent-mod
+    role: moderator
+    enabled: true
+    adapter_kind: hermes-agent
+    runtime_kind: hermes-cli-stream
+  agent-1:
+    display_name: Agent One
+    wrapper: agent-1
+    workspace: /tmp/agent-1
+    role: council_member
+    enabled: true
+    adapter_kind: hermes-agent
+    runtime_kind: hermes-cli-stream
+`, binDir)
+	if err := os.WriteFile(registry.RegistryPath(dataHome), []byte(registryYAML), 0o600); err != nil {
+		t.Fatalf("write LVCOR-002 enabled registry: %v", err)
+	}
+	t.Setenv("ATN_HOME", dataHome)
+	app, cancel := cliWithInProcessDaemon(t)
+	defer cancel()
+	var startOut, startErr bytes.Buffer
+	if exitCode := app.Run([]string{"daemon", "start"}, &startOut, &startErr); exitCode != 0 {
+		t.Fatalf("start daemon: exit=%d stdout=%q stderr=%q", exitCode, startOut.String(), startErr.String())
+	}
+
+	runOK := func(args ...string) string {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		if exitCode := app.Run(args, &stdout, &stderr); exitCode != 0 {
+			t.Fatalf("%v exit=%d stdout=%q stderr=%q", args, exitCode, stdout.String(), stderr.String())
+		}
+		if !json.Valid(stdout.Bytes()) {
+			t.Fatalf("%v expected JSON stdout, got %q", args, stdout.String())
+		}
+		return stdout.String()
+	}
+	runFail := func(args ...string) string {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		if exitCode := app.Run(args, &stdout, &stderr); exitCode == 0 {
+			t.Fatalf("%v expected failure, stdout=%q stderr=%q", args, stdout.String(), stderr.String())
+		}
+		if !strings.Contains(stderr.String(), `"error"`) {
+			t.Fatalf("%v expected structured error, got stdout=%q stderr=%q", args, stdout.String(), stderr.String())
+		}
+		return stderr.String()
+	}
+
+	runOK("council", "new", "LVCOR-002 finalize file", "--session-id", "sess_lvcor002_finalize_cli", "--members", "agent-1", "--moderator", "agent-mod", "--requested-output-mode", "local-daemon-only", "--explicit-non-visible-override", "true", "--override-reason", "CLI from-file schema regression only; live-visible storage proof is covered by storage tests.", "--command-id", "cmd_lvcor002_finalize_new")
+	runOK("council", "request-attendance", "sess_lvcor002_finalize_cli", "--from", "agent-mod", "--timeout", "5m", "--command-id", "cmd_lvcor002_finalize_attendance")
+	runOK("council", "attend", "sess_lvcor002_finalize_cli", "--from", "agent-1", "--status", "present", "--summary", "Present.", "--command-id", "cmd_lvcor002_finalize_attend")
+	runOK("council", "lock-agenda", "sess_lvcor002_finalize_cli", "--from", "agent-mod", "--decision-question", "What proves LVCOR-002?", "--success-criteria", "Finalize records exact visible closeout proof.", "--out-of-scope-policy", "Do not infer missing closeout proof.", "--command-id", "cmd_lvcor002_finalize_agenda")
+	runOK("council", "prepare", "sess_lvcor002_finalize_cli", "--from", "agent-mod", "--timeout", "10m", "--command-id", "cmd_lvcor002_finalize_prepare")
+	runOK("council", "ready", "sess_lvcor002_finalize_cli", "--from", "agent-1", "--summary", "Ready.", "--command-id", "cmd_lvcor002_finalize_ready")
+	runOK("council", "poll", "sess_lvcor002_finalize_cli", "--from", "agent-mod", "--research-timeout", "10m", "--command-id", "cmd_lvcor002_finalize_poll")
+	runOK("council", "hand-raise", "sess_lvcor002_finalize_cli", "--from", "agent-1", "--round", "1", "--intent", "closeout", "--reason", "Need one bounded closeout turn.", "--command-id", "cmd_lvcor002_finalize_raise")
+	runOK("council", "grant", "sess_lvcor002_finalize_cli", "--from", "agent-mod", "--member", "agent-1", "--round", "1", "--mode", "moderator_direct", "--command-id", "cmd_lvcor002_finalize_grant")
+	runOK("council", "speak", "sess_lvcor002_finalize_cli", "--from", "agent-1", "--round", "1", "--speech", "Lifecycle evidence is complete.", "--command-id", "cmd_lvcor002_finalize_speak")
+	draftPath := filepath.Join(t.TempDir(), "draft.md")
+	if err := os.WriteFile(draftPath, []byte("Finalize from-file proof is now canonical."), 0o600); err != nil {
+		t.Fatalf("write draft: %v", err)
+	}
+	runOK("council", "propose", "sess_lvcor002_finalize_cli", "--from", "agent-mod", "--command-id", "cmd_lvcor002_finalize_propose", "--from-file", draftPath)
+	runOK("council", "request-vote", "sess_lvcor002_finalize_cli", "--from", "agent-mod", "--draft-version", "1", "--timeout", "10m", "--command-id", "cmd_lvcor002_finalize_request_vote")
+	runOK("council", "vote", "sess_lvcor002_finalize_cli", "--from", "agent-1", "--vote", "approve", "--reason", "Ready.", "--command-id", "cmd_lvcor002_finalize_vote")
+	finalizePath := filepath.Join(t.TempDir(), "finalize.json")
+	if err := os.WriteFile(finalizePath, []byte(`{"final_summary":"LVCOR-002 finalize from-file proof.","surface_evidence":{"status":"posted","kind":"discord_thread","thread_id":"thread-lvcor002-finalize","final_message_id":"msg-lvcor002-finalize"},"linked_authority_result":{"status":"posted","kanban_comment_id":"kc_lvcor002_finalize"}}`), 0o600); err != nil {
+		t.Fatalf("write finalize payload: %v", err)
+	}
+	runOK("council", "finalize", "sess_lvcor002_finalize_cli", "--from", "agent-mod", "--command-id", "cmd_lvcor002_finalize", "--from-file", finalizePath)
+	finalizeDir, err := storage.SessionDir(dataHome, "sess_lvcor002_finalize_cli")
+	if err != nil {
+		t.Fatalf("finalize session dir: %v", err)
+	}
+	finalizeMeta, err := storage.LoadSessionYAML(finalizeDir)
+	if err != nil {
+		t.Fatalf("load finalize metadata: %v", err)
+	}
+	finalizeIndex, err := storage.ReadLogIndex(finalizeDir, finalizeMeta)
+	if err != nil {
+		t.Fatalf("read finalize log: %v", err)
+	}
+	finalized := finalizeIndex.Events[len(finalizeIndex.Events)-1]
+	if finalized.Type != "council_finalized" {
+		t.Fatalf("finalize from-file type = %s payload=%#v", finalized.Type, finalized.Payload)
+	}
+	if _, ok := finalized.Payload["surface_evidence"].(map[string]any); !ok {
+		t.Fatalf("finalize from-file surface_evidence missing: %#v", finalized.Payload)
+	}
+	if _, ok := finalized.Payload["linked_authority_result"].(map[string]any); !ok {
+		t.Fatalf("finalize from-file linked_authority_result missing: %#v", finalized.Payload)
+	}
+	if got := finalized.Payload["final_summary"]; got != "LVCOR-002 finalize from-file proof." {
+		t.Fatalf("finalize from-file summary = %#v", got)
+	}
+
+	missingFinalizePath := filepath.Join(t.TempDir(), "finalize-missing.json")
+	if err := os.WriteFile(missingFinalizePath, []byte(`{"surface_evidence":{"status":"posted","thread_id":"thread-lvcor002-finalize","final_message_id":"msg-lvcor002-finalize"}}`), 0o600); err != nil {
+		t.Fatalf("write finalize missing payload: %v", err)
+	}
+	missingFinalize := runFail("council", "finalize", "sess_lvcor002_finalize_cli", "--from", "agent-mod", "--command-id", "cmd_lvcor002_finalize_missing", "--from-file", missingFinalizePath)
+	if !strings.Contains(missingFinalize, "missing required field final_summary") {
+		t.Fatalf("finalize --from-file missing summary should fail closed, got %s", missingFinalize)
+	}
+
+	malformedSurfacePath := filepath.Join(t.TempDir(), "finalize-malformed-surface.json")
+	if err := os.WriteFile(malformedSurfacePath, []byte(`{"final_summary":"Malformed surface evidence must fail.","surface_evidence":"posted"}`), 0o600); err != nil {
+		t.Fatalf("write malformed surface payload: %v", err)
+	}
+	malformedSurface := runFail("council", "finalize", "sess_lvcor002_finalize_cli", "--from", "agent-mod", "--command-id", "cmd_lvcor002_finalize_malformed_surface", "--from-file", malformedSurfacePath)
+	if !strings.Contains(malformedSurface, "surface_evidence must be a non-empty object") {
+		t.Fatalf("finalize --from-file malformed surface_evidence should fail closed, got %s", malformedSurface)
+	}
+
+	unsupportedFinalizePath := filepath.Join(t.TempDir(), "finalize-unsupported.json")
+	if err := os.WriteFile(unsupportedFinalizePath, []byte(`{"final_summary":"Unsupported field must fail.","summary":"legacy hint"}`), 0o600); err != nil {
+		t.Fatalf("write unsupported finalize payload: %v", err)
+	}
+	unsupportedFinalize := runFail("council", "finalize", "sess_lvcor002_finalize_cli", "--from", "agent-mod", "--command-id", "cmd_lvcor002_finalize_unsupported", "--from-file", unsupportedFinalizePath)
+	if !strings.Contains(unsupportedFinalize, "unsupported field") || !strings.Contains(unsupportedFinalize, "summary") {
+		t.Fatalf("finalize --from-file unsupported field should fail closed, got %s", unsupportedFinalize)
+	}
+
+	runOK("council", "new", "LVCOR-002 unresolved file", "--session-id", "sess_lvcor002_unresolved_cli", "--members", "agent-1", "--moderator", "agent-mod", "--requested-output-mode", "local-daemon-only", "--explicit-non-visible-override", "true", "--override-reason", "CLI from-file schema regression only; unresolved remains an honest terminal alternative.", "--command-id", "cmd_lvcor002_unresolved_new")
+	runOK("council", "request-attendance", "sess_lvcor002_unresolved_cli", "--from", "agent-mod", "--timeout", "5m", "--command-id", "cmd_lvcor002_unresolved_attendance")
+	runOK("council", "attend", "sess_lvcor002_unresolved_cli", "--from", "agent-1", "--status", "present", "--summary", "Present.", "--command-id", "cmd_lvcor002_unresolved_attend")
+	runOK("council", "lock-agenda", "sess_lvcor002_unresolved_cli", "--from", "agent-mod", "--decision-question", "What proves unresolved from-file support?", "--success-criteria", "Unresolved accepts a structured JSON payload.", "--out-of-scope-policy", "Do not invent finalization success.", "--command-id", "cmd_lvcor002_unresolved_agenda")
+	runOK("council", "prepare", "sess_lvcor002_unresolved_cli", "--from", "agent-mod", "--timeout", "10m", "--command-id", "cmd_lvcor002_unresolved_prepare")
+	runOK("council", "ready", "sess_lvcor002_unresolved_cli", "--from", "agent-1", "--summary", "Ready.", "--command-id", "cmd_lvcor002_unresolved_ready")
+	runOK("council", "poll", "sess_lvcor002_unresolved_cli", "--from", "agent-mod", "--research-timeout", "10m", "--command-id", "cmd_lvcor002_unresolved_poll")
+	unresolvedPath := filepath.Join(t.TempDir(), "unresolved.json")
+	if err := os.WriteFile(unresolvedPath, []byte(`{"reason":"Visible closeout proof still needs follow-up.","timeout_evidence":"operator follow-up required","surface_evidence":{"status":"pending_followup","kind":"discord_thread","thread_id":"thread-lvcor002-unresolved","followup_card_id":"card-lvcor002-unresolved"}}`), 0o600); err != nil {
+		t.Fatalf("write unresolved payload: %v", err)
+	}
+	runOK("council", "unresolved", "sess_lvcor002_unresolved_cli", "--from", "agent-mod", "--command-id", "cmd_lvcor002_unresolved", "--from-file", unresolvedPath)
+	unresolvedDir, err := storage.SessionDir(dataHome, "sess_lvcor002_unresolved_cli")
+	if err != nil {
+		t.Fatalf("unresolved session dir: %v", err)
+	}
+	unresolvedMeta, err := storage.LoadSessionYAML(unresolvedDir)
+	if err != nil {
+		t.Fatalf("load unresolved metadata: %v", err)
+	}
+	unresolvedIndex, err := storage.ReadLogIndex(unresolvedDir, unresolvedMeta)
+	if err != nil {
+		t.Fatalf("read unresolved log: %v", err)
+	}
+	unresolved := unresolvedIndex.Events[len(unresolvedIndex.Events)-1]
+	if unresolved.Type != "council_unresolved" {
+		t.Fatalf("unresolved from-file type = %s payload=%#v", unresolved.Type, unresolved.Payload)
+	}
+	if got := unresolved.Payload["reason"]; got != "Visible closeout proof still needs follow-up." {
+		t.Fatalf("unresolved from-file reason = %#v", got)
+	}
+	if _, ok := unresolved.Payload["surface_evidence"].(map[string]any); !ok {
+		t.Fatalf("unresolved from-file surface_evidence missing: %#v", unresolved.Payload)
+	}
+
+	unsupportedUnresolvedPath := filepath.Join(t.TempDir(), "unresolved-unsupported.json")
+	if err := os.WriteFile(unsupportedUnresolvedPath, []byte(`{"reason":"still blocked","summary":"unsupported"}`), 0o600); err != nil {
+		t.Fatalf("write unresolved unsupported payload: %v", err)
+	}
+	unsupportedUnresolved := runFail("council", "unresolved", "sess_lvcor002_unresolved_cli", "--from", "agent-mod", "--command-id", "cmd_lvcor002_unresolved_unsupported", "--from-file", unsupportedUnresolvedPath)
+	if !strings.Contains(unsupportedUnresolved, "unsupported field") || !strings.Contains(unsupportedUnresolved, "summary") {
+		t.Fatalf("unresolved --from-file unsupported field should fail closed, got %s", unsupportedUnresolved)
+	}
+}
+
 func TestIntegrationCLIDelegateBlockResumeLimitsAndCancel(t *testing.T) {
 	dataHome := commandDaemonFixture(t)
 	t.Setenv("ATN_HOME", dataHome)

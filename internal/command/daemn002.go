@@ -1188,6 +1188,9 @@ func councilPayloadFromFile(sub string, path string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if sub == "finalize" || sub == "unresolved" {
+		return councilTerminalPayloadFromFile(sub, content)
+	}
 	if sub != "lock-agenda" {
 		key := "draft"
 		if sub == "speak" {
@@ -1234,6 +1237,55 @@ func councilPayloadFromFile(sub string, path string) (map[string]any, error) {
 		if _, ok := payload[required]; !ok {
 			return nil, fmt.Errorf("council lock-agenda --from-file missing required field %s", required)
 		}
+	}
+	return payload, nil
+}
+
+func councilTerminalPayloadFromFile(sub string, content []byte) (map[string]any, error) {
+	var input map[string]any
+	if err := json.Unmarshal(content, &input); err != nil {
+		return nil, fmt.Errorf("council %s --from-file requires a JSON object: %w", sub, err)
+	}
+	if input == nil {
+		return nil, fmt.Errorf("council %s --from-file requires a JSON object", sub)
+	}
+	payload := map[string]any{}
+	stringKeys := map[string]struct{}{}
+	objectKeys := map[string]struct{}{"surface_evidence": {}}
+	required := ""
+	switch sub {
+	case "finalize":
+		stringKeys["final_summary"] = struct{}{}
+		objectKeys["linked_authority_result"] = struct{}{}
+		required = "final_summary"
+	case "unresolved":
+		stringKeys["reason"] = struct{}{}
+		stringKeys["timeout_evidence"] = struct{}{}
+		required = "reason"
+	default:
+		return nil, fmt.Errorf("council %s --from-file is not a terminal payload", sub)
+	}
+	for key, value := range input {
+		if _, ok := stringKeys[key]; ok {
+			text, ok := value.(string)
+			if !ok || strings.TrimSpace(text) == "" {
+				return nil, fmt.Errorf("council %s --from-file %s must be a non-empty string", sub, key)
+			}
+			payload[key] = text
+			continue
+		}
+		if _, ok := objectKeys[key]; ok {
+			object, ok := value.(map[string]any)
+			if !ok || len(object) == 0 {
+				return nil, fmt.Errorf("council %s --from-file %s must be a non-empty object", sub, key)
+			}
+			payload[key] = object
+			continue
+		}
+		return nil, fmt.Errorf("council %s --from-file unsupported field %q", sub, key)
+	}
+	if _, ok := payload[required]; !ok {
+		return nil, fmt.Errorf("council %s --from-file missing required field %s", sub, required)
 	}
 	return payload, nil
 }

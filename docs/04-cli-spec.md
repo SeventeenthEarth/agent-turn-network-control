@@ -226,7 +226,7 @@ Rules:
 - `stream` emits replayed events first, then live events when `--follow` is set. `stream` and `stream status` are read-only.
 - `stream ack` emits `stream_cursor_acknowledged`.
 - `stream status` includes derived `participant_runtime_readiness` for required participants. Daemon/socket/gateway liveness, transcript/export artifacts, and visible-surface pointers are not inputs to this readiness result.
-- Council `status` / `stream status` include derived `discussion_lifecycle` when available. With `limits.max_discussion_turns` configured, `council propose` requires the T0 moderator opening, T1..Tmax selected participant discussion speeches, and one selected closeout speech per participant; `council unresolved` remains available as the fail-closed terminal path. The lifecycle status is additive and fail-closed: operator finality should use `completion_verdict` plus `terminal_visible_closeout_proof_status`, not legacy `propose_ready`, discussion counts, or terminal event presence alone. `completion_verdict=finalized` is valid only when the terminal visible closeout proof status is `posted`.
+- Council `status` / `stream status` include derived `discussion_lifecycle` when available. With `limits.max_discussion_turns` configured, `council propose` requires the T0 moderator opening, T1..Tmax selected participant discussion speeches, and one selected closeout speech per participant; the terminal moderator synthesis/final closeout is accounted as T(n+p+1), with `terminal_synthesis_turn`, `terminal_synthesis_expected_visible_index`, and terminal event/summary fields derived from session parameters. `council finalize` requires posted visible closeout proof for standard live-visible `discord_thread` sessions; `council unresolved` remains available as the fail-closed terminal path. The lifecycle status is additive and fail-closed: operator finality should use `completion_verdict` plus `terminal_visible_closeout_proof_status`, not legacy `propose_ready`, discussion counts, or terminal event presence alone. `completion_verdict=finalized` is valid only when the terminal visible closeout proof status is `posted`.
 - Every emitted line includes `event_id`, `cursor`, `session_id`, `type`, `from`, `to`, and `payload`. `from` is a string; `to` is always an array of strings (per `03-protocol-spec.md`).
 - The stream command does **not** hide events based on `to`. A member runtime may observe events not addressed to it; it decides whether to act by inspecting event type, sender, recipients, role, phase, and policy.
 - Member runtimes must acknowledge processed cursors.
@@ -869,11 +869,41 @@ atn-control council propose <session_id> --from-file draft.md
 atn-control council request-vote <session_id> --draft-version 1 --timeout 10m
 atn-control council vote <session_id> --from agent-3 --vote approve_with_conditions --reason "..." --required-change "..."
 atn-control council revise <session_id> --from-file draft_v2.md --reason "Addressed agent-2 block vote."
-atn-control council finalize <session_id> \
-  --authority-return-status posted \
-  --kanban-comment-id kc_123 \
-  --vault-decision-note docs/decisions/topic-a.md
-atn-control council unresolved <session_id> --reason "persistent blocking objection"
+atn-control council finalize <session_id> --from-file finalize.json
+atn-control council unresolved <session_id> --from-file unresolved.json
+```
+
+Example `finalize.json` for a standard live-visible `discord_thread` council:
+
+```json
+{
+  "final_summary": "Decision summary visible to the council.",
+  "surface_evidence": {
+    "status": "posted",
+    "kind": "discord_thread",
+    "thread_id": "thread-id-from-session-surface",
+    "final_message_id": "discord-message-id"
+  },
+  "linked_authority_result": {
+    "status": "posted",
+    "kanban_comment_id": "kc_123"
+  }
+}
+```
+
+Example `unresolved.json`:
+
+```json
+{
+  "reason": "visible closeout proof still needs follow-up",
+  "timeout_evidence": "operator follow-up required",
+  "surface_evidence": {
+    "status": "pending_followup",
+    "kind": "discord_thread",
+    "thread_id": "thread-id-from-session-surface",
+    "followup_card_id": "t_followup"
+  }
+}
 ```
 
 Emits:
@@ -884,6 +914,10 @@ Emits:
 - `council vote` → `consensus_vote`.
 - `council finalize` → `council_finalized`.
 - `council unresolved` → `council_unresolved`.
+
+`council finalize --from-file <finalize.json>` is a command-specific structured JSON path. The file must be a JSON object with required non-empty string `final_summary`, optional object `surface_evidence`, and optional object `linked_authority_result`. Unsupported fields fail closed before daemon submission. For standard live-visible `discord_thread` councils, daemon validation then requires posted visible closeout proof: `surface_evidence.status` must be explicitly `posted`, `surface_evidence.thread_id` must match the configured session thread, and `surface_evidence.final_message_id`, `message_id`, `message_ref`, or an explicitly typed visible-message equivalent must be present. `kanban_comment_id`, `vault_decision_note`, and generic return evidence belong in `linked_authority_result`; they do not satisfy visible-surface proof. Invalid statuses such as `complete`, missing/empty status, malformed/non-object `surface_evidence`, missing visible-message pointers, missing thread binding, failed/pending/unproven evidence, or wrong-thread evidence produce structured validation errors rather than finalized success.
+
+`council unresolved --from-file <unresolved.json>` is also structured JSON. It requires non-empty string `reason` and may include `timeout_evidence` plus object `surface_evidence`; unsupported fields fail closed. `unresolved` records an honest terminal alternative and follow-up evidence, not finalized success.
 
 When the session has `linked_authority`, `council finalize` must record `linked_authority_result.status` as `posted`, `failed`, or `pending_followup`:
 

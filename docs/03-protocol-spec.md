@@ -201,9 +201,9 @@ When `limits.max_discussion_turns` is configured, the derived council discussion
 - T0 moderator opening from the first moderator `hand_raise_requested` discussion-opening event.
 - T1..Tmax selected participant discussion speeches with `payload.turn <= max_discussion_turns`.
 - One selected participant closeout speech per council member with `payload.turn > max_discussion_turns`.
-- Final moderator conclusion from terminal `council_finalized` or `council_unresolved`.
+- T(n+p+1) moderator terminal synthesis/final closeout from terminal `council_finalized` or `council_unresolved`, where `n = limits.max_discussion_turns` and `p = participant_count`.
 
-The expected visible turn total is `max_discussion_turns + participant_count + 2`. `council.propose` must fail closed until T0, the participant discussion window, and one closeout speech per member are present. `council.unresolved` remains available as a fail-closed terminal path. Lifecycle accounting does not repair selected-runner accounting or visible delivery proof.
+The expected visible turn total is `max_discussion_turns + participant_count + 2`. The terminal synthesis turn is `max_discussion_turns + participant_count + 1`, and its expected visible index is the total. `council.propose` must fail closed until T0, the participant discussion window, and one closeout speech per member are present. `council.finalize` must fail closed for standard live-visible `discord_thread` councils when terminal visible closeout proof is missing, malformed, pending, failed, unproven, missing a concrete final-message/equivalent pointer, missing the configured thread binding, or bound to the wrong thread. `council.unresolved` remains available as the honest fail-closed terminal path with diagnostics. Lifecycle accounting does not repair selected-runner accounting or visible delivery proof.
 
 ### Surface rendering evidence contract
 
@@ -220,8 +220,8 @@ Minimum event inputs for the visible surface contract:
 | Moderator surface note | `moderator_intervention` and other typed council events | Renderable only as typed events; free-form Discord replies are evidence/presentation, not implicit state. |
 | Draft closeout proposal | `draft_conclusion` | Renderable as a moderator draft/proposal only. It is not terminal, not a final result, and not proof that a human-readable closeout was delivered. |
 | Vote closeout state | `consensus_vote_requested` and `consensus_vote` | Renderable as voting state over a specific `draft_version`. Votes do not prove final closeout until a terminal outcome event is appended and projected. |
-| Final visible result | `council_finalized` | `payload.final_summary`, `payload.consensus`, optional `payload.surface_evidence`, and required `payload.linked_authority_result` when linked authority was configured. |
-| Unresolved visible result | `council_unresolved` | Records the durable unresolved outcome; a visible unresolved notice must point back to this event rather than inventing a final decision. |
+| Final visible result | `council_finalized` | `payload.final_summary`, `payload.consensus`, required posted `payload.surface_evidence` for standard live-visible `discord_thread` finalization, and required `payload.linked_authority_result` when linked authority was configured. |
+| Unresolved visible result | `council_unresolved` | Records the durable unresolved outcome plus diagnostics/follow-up evidence when closeout proof is incomplete; a visible unresolved notice must point back to this event rather than inventing a final decision. |
 
 Control status/export expose the derived `discussion_lifecycle` object. Export bundle `summary_turn_accounting` rows keep existing turn/member/event id fields and add `lifecycle_stage`, `visible_turn_index`, and `visible_turn_total` when a speech contributes lifecycle evidence. The lifecycle object also exposes additive fail-closed status axes: required/present/complete counts for discussion turns and participant closeouts, `moderator_opening_present`, `moderator_synthesis_present`, `terminal_phase`, `terminal_visible_closeout_proof_status`, and `completion_verdict`. A finalized verdict requires a posted terminal visible closeout proof; missing, failed, pending, unproven, malformed, or mismatched proof must not be reported as finalized completion.
 
@@ -1605,9 +1605,10 @@ Canonical command: `atn-control council finalize`.
     "consensus": "approve",
     "decision_question_event_id": "evt_agenda_locked_01",
     "surface_evidence": {
+      "status": "posted",
       "kind": "discord_thread",
       "thread_id": "1507515847227215932",
-      "final_message_id": "optional"
+      "final_message_id": "msg_123"
     },
     "linked_authority_result": {
       "status": "posted",
@@ -1628,7 +1629,9 @@ Canonical command: `atn-control council finalize`.
 - `failed`: the return attempt failed; `failure_reason` and follow-up handling evidence are required.
 - `pending_followup`: a clearly linked follow-up/review card or pending-review handoff remains; `followup_card_id` or equivalent evidence is required.
 
-`surface_evidence` records visible-room delivery evidence for the final result. It is optional because a council may finalize before a moderator/Gray workflow posts the final summary to the visible room. When present, a `final_message_id` or equivalent pointer is evidence that the final summary was posted; it is not the source of the final decision. If a visible moderator closeout is required, `council_finalized` without posted `surface_evidence` or an equivalent projection/export pointer is durable finalization only, not visible UX success.
+`surface_evidence` records visible-room delivery evidence for the final result. For standard live-visible `discord_thread` councils, `council.finalize` requires `surface_evidence` to be an object with explicit `status: "posted"`, the configured `thread_id`, and a visible-message proof pointer: `final_message_id`, `message_id`, `message_ref`, or an explicitly typed visible-message equivalent accepted by control. Missing/empty `status`, malformed object shape, unsupported status, failed, pending, unproven, missing visible-message pointer, missing-thread, or wrong-thread evidence fails closed before finalization. `kanban_comment_id`, `vault_decision_note`, and generic linked-authority evidence are not visible-surface proof and must be recorded under `linked_authority_result` instead. Non-visible/local-daemon-only councils may still record durable finalization without visible-surface proof when explicitly approved, but that is not visible UX success. The posted pointer is evidence that the final summary was posted; it is not the source of the final decision.
+
+`council.unresolved` is the honest terminal alternative when visible closeout proof is incomplete or follow-up is required. It may carry `surface_evidence.status` such as `pending_followup` plus `timeout_evidence`/follow-up pointers and must not be reported as finalized success.
 
 The daemon/replay must not create Kanban comments, Vault notes, or visible-room messages directly. Absence of posted evidence, or status `failed`/`pending_followup`, means the origin authority path remains blocked/pending review or must be represented by a linked follow-up; final reports must not claim linked authority return or visible delivery is complete.
 

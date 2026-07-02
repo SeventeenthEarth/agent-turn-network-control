@@ -228,6 +228,108 @@ func TestLVCOR001FiveTwoFixtureProvesNoHardCodedT20(t *testing.T) {
 	}
 }
 
+func TestLVCOR002FinalizeParameterizedTerminalSynthesisFifteenFour(t *testing.T) {
+	sessionDir, metadata := lvcor001LifecycleCouncilForTestWithSurface(t, "sess_lvcor002_fifteen_four", 15, []string{"agent-1", "agent-2", "agent-3", "agent-4"}, &Surface{Kind: "discord_thread", Platform: "discord", ThreadID: "thread-lvcor002-fifteen-four"})
+	appendLVCOR001OpeningAndDiscussion(t, sessionDir, metadata, 15)
+	appendLVCOR001Closeouts(t, sessionDir, metadata, 16, []string{"agent-1", "agent-2", "agent-3", "agent-4"})
+	appendLVCOR002ConsensusReady(t, sessionDir, metadata, []string{"agent-1", "agent-2", "agent-3", "agent-4"}, 90*time.Second)
+	if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "finalize", Actor: "agent-mod", CommandID: "cmd_lvcor002_fifteen_four_finalize", Payload: map[string]any{"final_summary": "Consensus reached after the parameterized visible lifecycle.", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "thread_id": metadata.Surface.ThreadID, "final_message_id": "msg-lvcor002-fifteen-four-final"}}, Now: fixedRuntime().Now().Add(100 * time.Second)}); err != nil {
+		t.Fatalf("finalize after T0..T20 lifecycle: %v", err)
+	}
+
+	status, err := CouncilStatusFromLog(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("CouncilStatusFromLog: %v", err)
+	}
+	lifecycle := status["discussion_lifecycle"].(CouncilDiscussionLifecycle)
+	if lifecycle.ExpectedVisibleTurns != 21 || lifecycle.VisibleTurnTotal != 21 {
+		t.Fatalf("15/4 expected visible turns mismatch: %#v", lifecycle)
+	}
+	if lifecycle.TerminalSynthesisTurn != 20 || lifecycle.TerminalSynthesisExpectedVisibleIndex != 21 {
+		t.Fatalf("15/4 terminal synthesis accounting mismatch: %#v", lifecycle)
+	}
+	if lifecycle.TerminalSynthesisEventID == "" || lifecycle.TerminalSynthesisEventID != lifecycle.TerminalEventID {
+		t.Fatalf("15/4 terminal synthesis event binding mismatch: %#v", lifecycle)
+	}
+	if !lifecycle.TerminalSynthesisSummaryPresent || !lifecycle.ModeratorSynthesisPresent {
+		t.Fatalf("15/4 terminal summary/synthesis presence mismatch: %#v", lifecycle)
+	}
+	if lifecycle.TerminalPhase != "finalized" || lifecycle.TerminalVisibleCloseoutProofStatus != "posted" || lifecycle.CompletionVerdict != "finalized" {
+		t.Fatalf("15/4 terminal verdict mismatch: %#v", lifecycle)
+	}
+}
+
+func TestLVCOR002FinalizeParameterizedTerminalSynthesisFiveTwo(t *testing.T) {
+	sessionDir, metadata := lvcor001LifecycleCouncilForTestWithSurface(t, "sess_lvcor002_five_two", 5, []string{"agent-1", "agent-2"}, &Surface{Kind: "discord_thread", Platform: "discord", ThreadID: "thread-lvcor002-five-two"})
+	appendLVCOR001OpeningAndDiscussion(t, sessionDir, metadata, 5)
+	appendLVCOR001Closeouts(t, sessionDir, metadata, 6, []string{"agent-1", "agent-2"})
+	appendLVCOR002ConsensusReady(t, sessionDir, metadata, []string{"agent-1", "agent-2"}, 90*time.Second)
+	if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "finalize", Actor: "agent-mod", CommandID: "cmd_lvcor002_five_two_finalize", Payload: map[string]any{"final_summary": "Consensus reached for the smaller parameterized council.", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "thread_id": metadata.Surface.ThreadID, "final_message_id": "msg-lvcor002-five-two-final"}}, Now: fixedRuntime().Now().Add(100 * time.Second)}); err != nil {
+		t.Fatalf("finalize after T0..T8 lifecycle: %v", err)
+	}
+
+	status, err := CouncilStatusFromLog(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("CouncilStatusFromLog: %v", err)
+	}
+	lifecycle := status["discussion_lifecycle"].(CouncilDiscussionLifecycle)
+	if lifecycle.ExpectedVisibleTurns != 9 || lifecycle.VisibleTurnTotal != 9 {
+		t.Fatalf("5/2 expected visible turns mismatch: %#v", lifecycle)
+	}
+	if lifecycle.TerminalSynthesisTurn != 8 || lifecycle.TerminalSynthesisExpectedVisibleIndex != 9 {
+		t.Fatalf("5/2 terminal synthesis accounting mismatch: %#v", lifecycle)
+	}
+	if lifecycle.TerminalPhase != "finalized" || lifecycle.TerminalVisibleCloseoutProofStatus != "posted" || lifecycle.CompletionVerdict != "finalized" {
+		t.Fatalf("5/2 terminal verdict mismatch: %#v", lifecycle)
+	}
+}
+
+func TestLVCOR002FinalizeProofRequiresExplicitPostedVisibleMessagePointer(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		payload map[string]any
+		want    string
+	}{
+		{
+			name:    "missing_status_with_final_message",
+			payload: map[string]any{"final_summary": "must fail without explicit posted status", "surface_evidence": map[string]any{"kind": "discord_thread", "thread_id": "thread-lvcor002-red-gray", "final_message_id": "msg-lvcor002-red-gray-final"}},
+			want:    "surface_evidence.status",
+		},
+		{
+			name:    "empty_status_with_final_message",
+			payload: map[string]any{"final_summary": "must fail without explicit posted status", "surface_evidence": map[string]any{"status": "", "kind": "discord_thread", "thread_id": "thread-lvcor002-red-gray", "final_message_id": "msg-lvcor002-red-gray-final"}},
+			want:    "surface_evidence.status",
+		},
+		{
+			name:    "posted_with_kanban_comment_only",
+			payload: map[string]any{"final_summary": "kanban comment is linked authority, not visible proof", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "thread_id": "thread-lvcor002-red-gray", "kanban_comment_id": "kc-lvcor002-red-gray"}},
+			want:    "final_message_id",
+		},
+		{
+			name:    "posted_with_vault_decision_note_only",
+			payload: map[string]any{"final_summary": "vault note is linked authority, not visible proof", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "thread_id": "thread-lvcor002-red-gray", "vault_decision_note": "vault/lvcor002-red-gray.md"}},
+			want:    "final_message_id",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sessionDir, metadata := lvcor001LifecycleCouncilForTestWithSurface(t, "sess_lvcor002_red_gray_"+tc.name, 5, []string{"agent-1", "agent-2"}, &Surface{Kind: "discord_thread", Platform: "discord", ThreadID: "thread-lvcor002-red-gray"})
+			appendLVCOR001OpeningAndDiscussion(t, sessionDir, metadata, 5)
+			appendLVCOR001Closeouts(t, sessionDir, metadata, 6, []string{"agent-1", "agent-2"})
+			appendLVCOR002ConsensusReady(t, sessionDir, metadata, []string{"agent-1", "agent-2"}, 90*time.Second)
+
+			if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "finalize", Actor: "agent-mod", CommandID: "cmd_lvcor002_red_gray_" + tc.name, Payload: tc.payload, Now: fixedRuntime().Now().Add(100 * time.Second)}); err == nil {
+				t.Fatalf("council.finalize should fail closed for %s", tc.name)
+			} else if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("council.finalize error for %s missing %q: %v", tc.name, tc.want, err)
+			}
+
+			if _, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "unresolved", Actor: "agent-mod", CommandID: "cmd_lvcor002_red_gray_unresolved_" + tc.name, Payload: map[string]any{"reason": "visible closeout proof remains incomplete", "timeout_evidence": "operator visible proof follow-up required", "surface_evidence": map[string]any{"status": "pending_followup", "kind": "discord_thread", "thread_id": metadata.Surface.ThreadID, "followup_card_id": "card-lvcor002-red-gray"}}, Now: fixedRuntime().Now().Add(101 * time.Second)}); err != nil {
+				t.Fatalf("council.unresolved should remain available for incomplete proof case %s: %v", tc.name, err)
+			}
+		})
+	}
+}
+
 func TestLVCOR001FinalizedWithoutVisibleProofFailsClosed(t *testing.T) {
 	sessionDir, metadata := lvcor001LifecycleCouncilForTest(t, "sess_lvcor001_finalized_missing_proof", 5, []string{"agent-1", "agent-2"})
 	appendLVCOR001OpeningAndDiscussion(t, sessionDir, metadata, 5)
@@ -428,10 +530,16 @@ func lvcor001LifecycleCouncilForTestWithSurface(t *testing.T, sessionID string, 
 		t.Fatalf("CreateCouncil: %v", err)
 	}
 	sessionDir, _ := SessionDir(dataHome, metadata.ID)
-	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "prepare", Actor: "agent-mod", CommandID: "cmd_" + sessionID + "_prepare", Payload: map[string]any{"timeout_sec": 60}, Now: fixedRuntime().Now().Add(time.Second)})
+	if surface != nil && surface.Kind == "discord_thread" {
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "request-attendance", Actor: "agent-mod", CommandID: "cmd_" + sessionID + "_attendance", Payload: map[string]any{"timeout_sec": 60}, Now: fixedRuntime().Now().Add(time.Second)})
+		for idx, member := range members {
+			appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "attend", Actor: member, CommandID: fmt.Sprintf("cmd_%s_attend_%s", sessionID, member), Payload: map[string]any{"status": "present", "summary": "ready"}, Now: fixedRuntime().Now().Add(time.Duration(idx+2) * time.Second)})
+		}
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "lock-agenda", Actor: "agent-mod", CommandID: "cmd_" + sessionID + "_agenda", Payload: map[string]any{"decision_question": "LVCOR lifecycle?", "success_criteria": "Record parameterized lifecycle evidence.", "out_of_scope_policy": "Do not infer missing proof."}, Now: fixedRuntime().Now().Add(time.Duration(len(members)+2) * time.Second)})
+	}
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "prepare", Actor: "agent-mod", CommandID: "cmd_" + sessionID + "_prepare", Payload: map[string]any{"timeout_sec": 60}, Now: fixedRuntime().Now().Add(time.Duration(len(members)+3) * time.Second)})
 	return sessionDir, metadata
 }
-
 func appendLVCOR001OpeningAndDiscussion(t *testing.T, sessionDir string, metadata *SessionMetadata, maxDiscussionTurns int) {
 	t.Helper()
 	members := councilMembers(metadata)
@@ -457,6 +565,15 @@ func appendLVCOR001SpeechTurn(t *testing.T, sessionDir string, metadata *Session
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: member, CommandID: fmt.Sprintf("cmd_%s_raise_%s_%d", metadata.ID, member, turn), Payload: map[string]any{"turn": turn, "intent": "discussion", "reason": "selected lifecycle turn"}, Now: fixedRuntime().Now().Add(delta - time.Second)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: fmt.Sprintf("cmd_%s_grant_%s_%d", metadata.ID, member, turn), Payload: map[string]any{"turn": turn, "member": member, "selection_mode": "moderator_direct"}, Now: fixedRuntime().Now().Add(delta)})
 	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "speak", Actor: member, CommandID: fmt.Sprintf("cmd_%s_speak_%s_%d", metadata.ID, member, turn), Payload: map[string]any{"turn": turn, "speech": "turn speech"}, Now: fixedRuntime().Now().Add(delta + time.Second)})
+}
+
+func appendLVCOR002ConsensusReady(t *testing.T, sessionDir string, metadata *SessionMetadata, members []string, delta time.Duration) {
+	t.Helper()
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "propose", Actor: "agent-mod", CommandID: "cmd_" + metadata.ID + "_propose", Payload: map[string]any{"draft": "parameterized closeout ready"}, Now: fixedRuntime().Now().Add(delta)})
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "request-vote", Actor: "agent-mod", CommandID: "cmd_" + metadata.ID + "_request_vote", Payload: map[string]any{"draft_version": 1}, Now: fixedRuntime().Now().Add(delta + time.Second)})
+	for idx, member := range members {
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "vote", Actor: member, CommandID: fmt.Sprintf("cmd_%s_vote_%s", metadata.ID, member), Payload: map[string]any{"draft_version": 1, "vote": "approve", "reason": "ready"}, Now: fixedRuntime().Now().Add(delta + time.Duration(idx+2)*time.Second)})
+	}
 }
 
 func runfix2LifecycleCouncilForTest(t *testing.T, sessionID string) (string, *SessionMetadata) {

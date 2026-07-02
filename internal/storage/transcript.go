@@ -396,7 +396,7 @@ func visibleSurfaceProjectionRows(events []EventEnvelope) []surfaceProjectionRow
 			}
 			rows = append(rows, surfaceProjectionRow{EventID: event.EventID, EventType: event.Type, Target: "speech", Status: status, Evidence: evidence})
 		case "council_finalized", "council_unresolved", "session_cancelled":
-			status, evidence := deliveryEvidenceStatus(event.Payload["surface_evidence"])
+			status, evidence := visibleCloseoutSurfaceStatus(event.Payload["surface_evidence"])
 			status, evidence = closeoutProjectionStatus(event.Payload, status, evidence)
 			rows = append(rows, surfaceProjectionRow{EventID: event.EventID, EventType: event.Type, Target: "visible_surface", Status: status, Evidence: evidence})
 			if _, ok := event.Payload["linked_authority_result"]; ok {
@@ -406,6 +406,32 @@ func visibleSurfaceProjectionRows(events []EventEnvelope) []surfaceProjectionRow
 		}
 	}
 	return rows
+}
+
+func visibleCloseoutSurfaceStatus(value any) (string, string) {
+	payload, ok := asStringMap(value)
+	if !ok || len(payload) == 0 {
+		return "missing/unproven", ""
+	}
+	status, _ := stringValue(payload["status"])
+	status = strings.TrimSpace(status)
+	switch status {
+	case "posted":
+		if !hasVisibleCloseoutMessagePointer(payload) {
+			status = "missing/unproven"
+		}
+	case "failed":
+		if !hasAnyEvidencePointer(payload, "failure_reason", "reason") {
+			status = "missing/unproven"
+		}
+	case "pending_followup":
+		if !hasAnyEvidencePointer(payload, "followup_card_id", "pending_review", "handoff", "reason") {
+			status = "missing/unproven"
+		}
+	default:
+		status = "missing/unproven"
+	}
+	return status, mustCompactJSON(payload)
 }
 
 func deliveryEvidenceStatus(value any) (string, string) {

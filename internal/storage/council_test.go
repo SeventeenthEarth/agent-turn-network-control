@@ -320,6 +320,60 @@ func TestUnitRUNFIX3004FinalizeRequiresVisibleCloseoutProofAndExactThreadBinding
 	}
 }
 
+func TestUnitLVCOR002FinalizeSurfaceEvidenceDiagnosticsStayExact(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		payload      map[string]any
+		wantCategory string
+		wantSnippets []string
+	}{
+		{
+			name:         "malformed surface evidence object",
+			payload:      map[string]any{"final_summary": "done", "surface_evidence": "bad-shape"},
+			wantCategory: CategoryInvalidEnvelope,
+			wantSnippets: []string{"surface_evidence", "object"},
+		},
+		{
+			name:         "unsupported surface evidence status",
+			payload:      map[string]any{"final_summary": "done", "surface_evidence": map[string]any{"status": "complete", "thread_id": "thread-placeholder", "final_message_id": "msg-placeholder"}},
+			wantCategory: CategoryInvalidEnvelope,
+			wantSnippets: []string{"surface_evidence.status", "posted", "failed", "pending_followup"},
+		},
+		{
+			name:         "posted without concrete final message pointer",
+			payload:      map[string]any{"final_summary": "done", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "thread_id": "thread-placeholder"}},
+			wantCategory: CategoryCommandConflict,
+			wantSnippets: []string{"missing_final_message_id", "surface_evidence.final_message_id"},
+		},
+		{
+			name:         "posted without thread binding",
+			payload:      map[string]any{"final_summary": "done", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "final_message_id": "msg-no-thread"}},
+			wantCategory: CategoryCommandConflict,
+			wantSnippets: []string{"missing_thread_binding", "surface_evidence.thread_id"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sessionDir, metadata := runfix3004ConsensusVoteCouncil(t, "sess_"+strings.ReplaceAll(tc.name, " ", "_"))
+			payload := clonePayload(tc.payload)
+			if evidence, ok := payload["surface_evidence"].(map[string]any); ok {
+				if evidence["thread_id"] == "thread-placeholder" {
+					evidence["thread_id"] = metadata.Surface.ThreadID
+				}
+			}
+			_, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "finalize", Actor: "agent-mod", CommandID: "cmd_" + strings.ReplaceAll(tc.name, " ", "_"), Payload: payload, Now: fixedRuntime().Now().Add(90 * time.Second)})
+			if err == nil {
+				t.Fatalf("%s must fail closed", tc.name)
+			}
+			assertStorageIssue(t, err, tc.wantCategory)
+			for _, want := range tc.wantSnippets {
+				if !strings.Contains(err.Error(), want) {
+					t.Fatalf("%s error missing %q: %v", tc.name, want, err)
+				}
+			}
+		})
+	}
+}
+
 func TestUnitRUNFIX3004UnresolvedAppendsWithCloseoutDiagnostics(t *testing.T) {
 	sessionDir, metadata := runfix3004LifecycleCouncilForTest(t, "sess_runfix3004_unresolved")
 	appendRUNFIX2LifecycleOpeningAndDiscussion(t, sessionDir, metadata)

@@ -904,6 +904,9 @@ func validateFinalizeReady(metadata *SessionMetadata, index *LogIndex, payload m
 	if strings.TrimSpace(payloadStringDefault(payload, "final_summary", "")) == "" {
 		return NewValidationError(CategoryInvalidEnvelope, "final_summary", "final_summary is required")
 	}
+	if err := validateVisibleCloseoutEvidenceEnvelope(metadata, payload); err != nil {
+		return err
+	}
 	diagnostics = append(diagnostics, visibleCloseoutDiagnostics(metadata, payload, "finalization")...)
 	if len(diagnostics) > 0 {
 		return closeoutDiagnosticsError(diagnostics)
@@ -1209,6 +1212,34 @@ func unresolvedCloseoutDiagnostics(metadata *SessionMetadata, index *LogIndex, p
 	return diagnostics
 }
 
+func validateVisibleCloseoutEvidenceEnvelope(metadata *SessionMetadata, payload map[string]any) error {
+	if metadata == nil || metadata.Surface == nil || metadata.Surface.Kind != "discord_thread" {
+		return nil
+	}
+	raw, ok := payload["surface_evidence"]
+	if !ok {
+		return nil
+	}
+	surfaceEvidence, ok := asStringMap(raw)
+	if !ok || len(surfaceEvidence) == 0 {
+		return NewValidationError(CategoryInvalidEnvelope, "surface_evidence", "surface_evidence must be an object")
+	}
+	status := strings.TrimSpace(anyString(surfaceEvidence, "status"))
+	if status == "" {
+		return NewValidationError(CategoryInvalidEnvelope, "surface_evidence.status", "surface_evidence.status is required and must be one of posted, failed, pending_followup")
+	}
+	switch status {
+	case "posted", "failed", "pending_followup":
+		return nil
+	default:
+		return NewValidationError(CategoryInvalidEnvelope, "surface_evidence.status", "surface_evidence.status must be one of posted, failed, pending_followup")
+	}
+}
+
+func hasVisibleCloseoutMessagePointer(payload map[string]any) bool {
+	return hasAnyEvidencePointer(payload, "final_message_id", "message_id", "message_ref")
+}
+
 func visibleCloseoutDiagnostics(metadata *SessionMetadata, payload map[string]any, stage string) []map[string]any {
 	if metadata == nil || metadata.Surface == nil || metadata.Surface.Kind != "discord_thread" {
 		return nil
@@ -1219,16 +1250,21 @@ func visibleCloseoutDiagnostics(metadata *SessionMetadata, payload map[string]an
 		return []map[string]any{closeoutDiagnostic("missing_visible_closeout_proof", stage, "surface_evidence is missing", nil, expectedThreadID, "")}
 	}
 	diagnostics := []map[string]any{}
-	status, _ := deliveryEvidenceStatus(surfaceEvidence)
-	switch status {
-	case "posted":
-		// Exact-thread binding still needs to be checked below.
-	case "failed":
-		diagnostics = append(diagnostics, closeoutDiagnostic("visible_closeout_failed", stage, firstNonEmptyString(strings.TrimSpace(anyString(surfaceEvidence, "failure_reason", "reason")), "visible closeout delivery failed"), nil, expectedThreadID, strings.TrimSpace(anyString(surfaceEvidence, "thread_id"))))
-	case "pending_followup":
-		diagnostics = append(diagnostics, closeoutDiagnostic("visible_closeout_pending_followup", stage, firstNonEmptyString(strings.TrimSpace(anyString(surfaceEvidence, "reason")), strings.TrimSpace(anyString(surfaceEvidence, "followup_card_id")), "visible closeout delivery is pending follow-up"), nil, expectedThreadID, strings.TrimSpace(anyString(surfaceEvidence, "thread_id"))))
-	default:
-		diagnostics = append(diagnostics, closeoutDiagnostic("missing_visible_closeout_proof", stage, "visible closeout evidence is missing or unproven", nil, expectedThreadID, strings.TrimSpace(anyString(surfaceEvidence, "thread_id"))))
+	rawStatus := strings.TrimSpace(anyString(surfaceEvidence, "status"))
+	status, _ := visibleCloseoutSurfaceStatus(surfaceEvidence)
+	if rawStatus == "posted" && !hasVisibleCloseoutMessagePointer(surfaceEvidence) {
+		diagnostics = append(diagnostics, closeoutDiagnostic("missing_final_message_id", stage, "surface_evidence.final_message_id or accepted visible message equivalent is required for posted visible closeout proof", nil, expectedThreadID, strings.TrimSpace(anyString(surfaceEvidence, "thread_id"))))
+	} else {
+		switch status {
+		case "posted":
+			// Exact-thread binding still needs to be checked below.
+		case "failed":
+			diagnostics = append(diagnostics, closeoutDiagnostic("visible_closeout_failed", stage, firstNonEmptyString(strings.TrimSpace(anyString(surfaceEvidence, "failure_reason", "reason")), "visible closeout delivery failed"), nil, expectedThreadID, strings.TrimSpace(anyString(surfaceEvidence, "thread_id"))))
+		case "pending_followup":
+			diagnostics = append(diagnostics, closeoutDiagnostic("visible_closeout_pending_followup", stage, firstNonEmptyString(strings.TrimSpace(anyString(surfaceEvidence, "reason")), strings.TrimSpace(anyString(surfaceEvidence, "followup_card_id")), "visible closeout delivery is pending follow-up"), nil, expectedThreadID, strings.TrimSpace(anyString(surfaceEvidence, "thread_id"))))
+		default:
+			diagnostics = append(diagnostics, closeoutDiagnostic("missing_visible_closeout_proof", stage, "visible closeout evidence is missing or unproven", nil, expectedThreadID, strings.TrimSpace(anyString(surfaceEvidence, "thread_id"))))
+		}
 	}
 	if expectedThreadID != "" {
 		observedThreadID := strings.TrimSpace(anyString(surfaceEvidence, "thread_id"))
