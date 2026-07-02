@@ -836,7 +836,7 @@ atn-control council hand-raise <session_id> --from agent-3 --intent rebuttal --r
 atn-control council grant <session_id> --auto
 atn-control council grant <session_id> --to agent-3
 atn-control council grant <session_id> --member agent-3
-atn-control council grant <session_id> --to agent-3 --mode role_order --round 1 --reason "Round 1 risk review"
+atn-control council grant <session_id> --to agent-3 --mode role_order --turn 1 --reason "Turn 1 risk review"
 atn-control council speak <session_id> --from agent-3 --stdin
 ```
 
@@ -849,7 +849,11 @@ Emits:
 
 `council grant --mode <mode>` writes the per-turn `speaker_selected.payload.selection_mode`. If a session was created with `--turn-mode`, the grant mode may match that default or deliberately deviate from it. Any deviation requires `--reason`; the persisted `speaker_selected` event must include that reason so audit/replay can explain the difference.
 
-`council grant --member <id>` is an operator alias for `--to <id>`. Supplying both with different values fails closed. For selected-runner councils, `grant` derives `speaker_selected.payload.stance_assignment` only from a matching same-member/same-turn `hand_raise.payload.intent` or `hand_raise.payload.reason`; caller-supplied grant payload stance is not authority, and a grant without that stance-bearing hand raise is rejected before appending `speaker_selected`.
+`council grant --member <id>` is an operator alias for `--to <id>`. Supplying both with different values fails closed. `--turn <n>` is the canonical turn field; `--round <n>` remains a CLI compatibility alias only and writes `payload.turn`. Structured lifecycle `--from-file` payloads for `hand-raise`, `grant`, and `speak` require canonical field names and reject legacy `payload.round` before daemon submission with a migration hint to `turn`.
+
+For selected-runner councils, `grant` derives `speaker_selected.payload.stance_assignment` only from a matching same-member/same-turn `hand_raise.payload.intent` or `hand_raise.payload.reason`; caller-supplied grant payload stance is not authority, and a grant without that stance-bearing hand raise is rejected before appending `speaker_selected`.
+
+`council.grant` transport/runner status is not collapsed into daemon command failure. If the `speaker_selected` append succeeds but selected-runner dispatch times out or reaches another terminal runner failure, the command response remains OK with `append_status=accepted`, `dispatch_status=runner_terminal_failure`, `runner_status` such as `timeout`, `speech_link_status=missing_linked_runner_speech`, `followup_required=true`, and event pointers such as `grant_event_id` plus `runner_failure_event_id`. A daemon command failure is reserved for validation, lifecycle, storage, or unsupported-runtime errors before the durable append/status handoff.
 
 ### Intervene
 

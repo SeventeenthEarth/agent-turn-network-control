@@ -265,6 +265,21 @@ NEXFIX task order and current status:
 Current status: `completed/local-proof`. Local deterministic gates have been updated, official Red/Orange reviews approved the bounded evidence, the prior Gray status/SOT traceability blocker was remediated, post-MAR second-color review cards Red `t_9746263a`, Orange `t_3e11441a`, Gray `t_6fb1f968`, and Blue `t_e33a4835` approved proceeding to KAH `final_verify`, final verification gates passed, and improve/lessons were recorded. Live Discord rerun, production activation, profile/provider/gateway/auth/token mutation, push, and broad readiness remain unclaimed and approval-gated.
 
 
+### LVCOR: live-visible council one-pass reliability
+
+`LVCOR` records Jooyoo's 2026-06-30 request-changes package for one-pass live-visible council reliability. The standard live-visible lifecycle shape is parameterized: for `max_discussion_turns = n` and `participant_count = p`, expected visible turns are T0 moderator opening, T1..Tn selected participant discussion turns, T(n+1)..T(n+p) participant closeouts, and T(n+p+1) moderator synthesis/terminal closeout, for `n + p + 2` visible turns. LVCOR remains a local/cross-repo hardening lane and does not authorize live Discord rerun, production activation, profile/provider/gateway/auth/token/model mutation, push, or broad readiness.
+
+Control-owned LVCOR status:
+
+| Task ID | Status | Control-owned contract |
+|---|---|---|
+| LVCOR-001 | completed/control-local | Dynamic full-lifecycle accounting/status guard is implemented and accepted. Status separates discussion turns, participant closeouts, moderator opening/synthesis, terminal visible closeout proof status/blocker, terminal phase, and completion verdict. |
+| LVCOR-002 | completed/control-local | Terminal moderator synthesis/finalize proof is parameterized and visible-closeout proof for standard `discord_thread` finalization must be posted, thread-bound, and pointer-bearing; `council.unresolved` remains the honest terminal alternative. |
+| LVCOR-003 | completed/control-local | CLI/daemon schema discoverability and timeout/status semantics are implemented, MAR-reviewed, post-MAR color-reviewed, and final-closed in bounded KAH run `run-20260702T100541Z-519854f32aea`; post-MAR official second-color review completed at KAH event `evt-003600`, workflow revision 37, and final KAH closeout completed at `evt-003602`, revision 39. Canonical CLI/operator field is `turn`; `--round` is a CLI compatibility alias only, while structured lifecycle `--from-file` rejects `payload.round` with a migration hint. `council.grant` append success is separated from selected-runner dispatch status: runner timeout after durable `speaker_selected` append is reported as accepted append plus runner/speech follow-up required, not daemon command failure. |
+| LVCOR-004 | planned/plugin | Plugin-owned lifecycle envelope golden tests must consume the daemon-accepted payload shapes and preserve caller IDs without plugin lifecycle/log/cursor/dedupe ownership. |
+| LVCOR-005 | planned/cross-repo | Parameterized full-shape acceptance proof must consume completed LVCOR-001 through LVCOR-004 fixes and prove the 15-turn/4-participant and 5-turn/2-participant shapes before one-pass success claims. |
+
+
 ### MEMBR: Member runtime profile invocation
 
 Exit: a selected participant can be invoked through a real member profile/wrapper path and produce or fail a participant response with durable daemon evidence. This exit does not claim always-on production runtimes.

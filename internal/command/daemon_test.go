@@ -63,6 +63,39 @@ func TestUnitCOUNCILSTAB001CouncilGrantMemberAliasParsesBeforeDaemon(t *testing.
 	}
 }
 
+func TestUnitLVCOR003CouncilLifecycleFromFileSchemaDiagnostics(t *testing.T) {
+	dataHome := commandDaemonFixture(t)
+	t.Setenv("ATN_HOME", dataHome)
+	app := command.NewCLI()
+	path := filepath.Join(t.TempDir(), "hand-raise-legacy.json")
+	if err := os.WriteFile(path, []byte(`{"round":1,"member":"agent-1","reason":"legacy round field"}`), 0o600); err != nil {
+		t.Fatalf("write legacy hand-raise payload: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	exitCode := app.Run([]string{"council", "hand-raise", "sess_lvcor003_schema", "--from", "agent-1", "--command-id", "cmd_lvcor003_schema", "--from-file", path}, &stdout, &stderr)
+	if exitCode != protocol.ExitUsage {
+		t.Fatalf("legacy lifecycle payload should fail before daemon submit, exit=%d stdout=%q stderr=%q", exitCode, stdout.String(), stderr.String())
+	}
+	for _, want := range []string{"payload.round", "canonical field", "turn", "council hand-raise --from-file"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Fatalf("schema diagnostic missing %q: %s", want, stderr.String())
+		}
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	exitCode = app.Run([]string{"council", "--help"}, &stdout, &stderr)
+	if exitCode != protocol.ExitOK {
+		t.Fatalf("council help exit=%d stderr=%q", exitCode, stderr.String())
+	}
+	for _, want := range []string{"--turn <n>", "--from-file <json>", "final_summary", "surface_evidence"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("council help missing canonical lifecycle hint %q:\n%s", want, stdout.String())
+		}
+	}
+}
+
 func TestUnitTranscriptExportTailCLIValidationDoesNotRequireDaemon(t *testing.T) {
 	app := command.NewCLIWithRuntime(commandFixedRuntime())
 	for _, tc := range []struct {

@@ -884,7 +884,7 @@ func repoRootForConformance() (string, error) {
 
 func (a App) runCouncil(args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 || isHelp(args[0]) {
-		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s council new <title> --members <member[,member...]> --moderator <member> --requested-output-mode live_visible_thread --surface discord_thread --surface-platform discord --thread-id <id> [--request-source discord_thread] [--visible-output-required true]\n  %s council new <title> --members <member[,member...]> --moderator <member> --requested-output-mode local-daemon-only --explicit-non-visible-override true --override-reason <reason>\n  %s council <action> <session_id> [--from <member>] [--command-id <id>] [action flags]\n", a.Name, a.Name, a.Name)
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s council new <title> --members <member[,member...]> --moderator <member> --requested-output-mode live_visible_thread --surface discord_thread --surface-platform discord --thread-id <id> [--request-source discord_thread] [--visible-output-required true]\n  %s council new <title> --members <member[,member...]> --moderator <member> --requested-output-mode local-daemon-only --explicit-non-visible-override true --override-reason <reason>\n  %s council <action> <session_id> [--from <member>] [--command-id <id>] [--turn <n>] [action flags]\n\nCanonical lifecycle fields: use --turn <n> / JSON field turn (legacy round is rejected in --from-file diagnostics), grant target member, hand-raise intent/reason, terminal final_summary, surface_evidence, and linked_authority_result.\nStructured lifecycle JSON: council hand-raise|grant|speak|finalize|unresolved ... --from-file <json>.\n", a.Name, a.Name, a.Name)
 		return protocol.ExitOK
 	}
 	sub := args[0]
@@ -1069,13 +1069,13 @@ func (a App) runCouncilEvent(sub string, args []string, stdout io.Writer, stderr
 			}
 			payload[key] = sec
 			i++
-		case "--round":
+		case "--turn", "--round":
 			if i+1 >= len(args) {
-				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--round requires a value", protocol.ExitUsage, nil))
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
 			}
 			value, ok := positiveIntArg(args[i+1])
 			if !ok {
-				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "--round must be positive", protocol.ExitUsage, nil))
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" must be positive", protocol.ExitUsage, nil))
 			}
 			payload["turn"] = value
 			i++
@@ -1191,6 +1191,9 @@ func councilPayloadFromFile(sub string, path string) (map[string]any, error) {
 	if sub == "finalize" || sub == "unresolved" {
 		return councilTerminalPayloadFromFile(sub, content)
 	}
+	if sub == "hand-raise" || sub == "grant" || sub == "speak" {
+		return councilLifecyclePayloadFromFile(sub, content)
+	}
 	if sub != "lock-agenda" {
 		key := "draft"
 		if sub == "speak" {
@@ -1237,6 +1240,99 @@ func councilPayloadFromFile(sub string, path string) (map[string]any, error) {
 		if _, ok := payload[required]; !ok {
 			return nil, fmt.Errorf("council lock-agenda --from-file missing required field %s", required)
 		}
+	}
+	return payload, nil
+}
+
+func councilLifecyclePayloadFromFile(sub string, content []byte) (map[string]any, error) {
+	var input map[string]any
+	if err := json.Unmarshal(content, &input); err != nil {
+		return nil, fmt.Errorf("council %s --from-file requires a JSON object with canonical payload fields: %w", sub, err)
+	}
+	if input == nil {
+		return nil, fmt.Errorf("council %s --from-file requires a JSON object", sub)
+	}
+	stringKeys := map[string]struct{}{}
+	intKeys := map[string]struct{}{"turn": {}}
+	boolKeys := map[string]struct{}{}
+	arrayKeys := map[string]struct{}{}
+	objectArrayKeys := map[string]struct{}{}
+	switch sub {
+	case "hand-raise":
+		stringKeys["intent"] = struct{}{}
+		stringKeys["reason"] = struct{}{}
+		arrayKeys["target_event_ids"] = struct{}{}
+		arrayKeys["target_claim_ids"] = struct{}{}
+		objectArrayKeys["target_links"] = struct{}{}
+	case "grant":
+		stringKeys["member"] = struct{}{}
+		stringKeys["selection_mode"] = struct{}{}
+		boolKeys["auto"] = struct{}{}
+	case "speak":
+		stringKeys["speech"] = struct{}{}
+		stringKeys["contribution_type"] = struct{}{}
+		stringKeys["new_axis_reason"] = struct{}{}
+		stringKeys["responds_to_event_id"] = struct{}{}
+		objectArrayKeys["claims"] = struct{}{}
+		objectArrayKeys["stance_links"] = struct{}{}
+		objectArrayKeys["evidence"] = struct{}{}
+	default:
+		return nil, fmt.Errorf("council %s --from-file does not support lifecycle JSON", sub)
+	}
+	payload := map[string]any{}
+	if _, ok := input["round"]; ok {
+		return nil, fmt.Errorf("council %s --from-file unsupported field payload.round; use canonical field \"turn\"", sub)
+	}
+	for key, value := range input {
+		if key == "round" {
+			return nil, fmt.Errorf("council %s --from-file unsupported field payload.round; use canonical field \"turn\"", sub)
+		}
+		if _, ok := stringKeys[key]; ok {
+			text, ok := value.(string)
+			if !ok || strings.TrimSpace(text) == "" {
+				return nil, fmt.Errorf("council %s --from-file payload.%s must be a non-empty string", sub, key)
+			}
+			payload[key] = text
+			continue
+		}
+		if _, ok := intKeys[key]; ok {
+			integer, ok := jsonPositiveInt(value)
+			if !ok {
+				return nil, fmt.Errorf("council %s --from-file payload.%s must be a positive integer", sub, key)
+			}
+			payload[key] = integer
+			continue
+		}
+		if _, ok := boolKeys[key]; ok {
+			boolean, ok := value.(bool)
+			if !ok {
+				return nil, fmt.Errorf("council %s --from-file payload.%s must be a boolean", sub, key)
+			}
+			payload[key] = boolean
+			continue
+		}
+		if _, ok := arrayKeys[key]; ok {
+			array, ok := value.([]any)
+			if !ok {
+				return nil, fmt.Errorf("council %s --from-file payload.%s must be an array", sub, key)
+			}
+			payload[key] = array
+			continue
+		}
+		if _, ok := objectArrayKeys[key]; ok {
+			array, ok := value.([]any)
+			if !ok {
+				return nil, fmt.Errorf("council %s --from-file payload.%s must be an array", sub, key)
+			}
+			for _, item := range array {
+				if _, ok := item.(map[string]any); !ok {
+					return nil, fmt.Errorf("council %s --from-file payload.%s entries must be objects", sub, key)
+				}
+			}
+			payload[key] = array
+			continue
+		}
+		return nil, fmt.Errorf("council %s --from-file unsupported field payload.%s", sub, key)
 	}
 	return payload, nil
 }

@@ -118,7 +118,67 @@ func (s *Server) handleCouncilEvent(request protocol.CommandRequest) protocol.Co
 	if dispatchErr := s.dispatchSelectedSpeakerAfterGrant(context.Background(), sessionDir, metadata, result); dispatchErr != nil {
 		return protocol.ErrorResponse(request, daemonProtocolError(dispatchErr))
 	}
+	if action == "grant" {
+		return s.councilGrantAppendResponse(request, sessionDir, metadata, result, dedup)
+	}
 	return eventAppendResponse(request, result, dedup)
+}
+
+func (s *Server) councilGrantAppendResponse(request protocol.CommandRequest, sessionDir string, metadata *storage.SessionMetadata, result storage.AppendResult, dedup bool) protocol.CommandResponse {
+	response := map[string]any{
+		"cursor":         result.Cursor,
+		"event_id":       result.EventID,
+		"offset":         result.Offset,
+		"deduplicated":   dedup,
+		"append_status":  "accepted",
+		"grant_event_id": result.EventID,
+	}
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		response["dispatch_status"] = "status_unavailable"
+		response["followup_required"] = true
+		response["status_error"] = err.Error()
+		return protocol.SuccessResponse(request, response)
+	}
+	accounting := storage.SelectedRunnerAccountingFromIndex(metadata, index)
+	for _, grant := range accounting.SelectedRunners {
+		if grant.SelectedEventID != result.EventID {
+			continue
+		}
+		response["selected_event_id"] = grant.SelectedEventID
+		response["selected_member"] = grant.Member
+		if grant.Turn > 0 {
+			response["turn"] = grant.Turn
+		}
+		response["dispatch_status"] = grant.Status
+		response["runner_status"] = grant.RunnerStatus
+		response["speech_link_status"] = grant.SpeechLinkStatus
+		response["followup_required"] = grant.FollowupRequired
+		if len(grant.RunnerStartEventIDs) > 0 {
+			response["runner_started_event_id"] = grant.RunnerStartEventIDs[0]
+		}
+		if len(grant.RunnerSucceededEventIDs) > 0 {
+			response["runner_succeeded_event_id"] = grant.RunnerSucceededEventIDs[0]
+		}
+		if len(grant.TerminalFailureEventIDs) > 0 {
+			response["runner_failure_event_id"] = grant.TerminalFailureEventIDs[0]
+		}
+		if len(grant.TerminalDiscardEventIDs) > 0 {
+			response["runner_discard_event_id"] = grant.TerminalDiscardEventIDs[0]
+		}
+		if len(grant.DispatchFailureEventIDs) > 0 {
+			response["dispatch_failure_event_id"] = grant.DispatchFailureEventIDs[0]
+		}
+		if len(grant.LinkedRunnerSpeechEventIDs) > 0 {
+			response["linked_runner_speech_event_id"] = grant.LinkedRunnerSpeechEventIDs[0]
+		}
+		return protocol.SuccessResponse(request, response)
+	}
+	response["dispatch_status"] = "pending"
+	response["runner_status"] = "pending"
+	response["speech_link_status"] = "pending"
+	response["followup_required"] = true
+	return protocol.SuccessResponse(request, response)
 }
 
 func councilRequestContextParam(request protocol.CommandRequest) map[string]any {

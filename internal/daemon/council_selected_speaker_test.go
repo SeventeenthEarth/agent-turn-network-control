@@ -301,6 +301,28 @@ func TestCouncilGrantBoundedDispatchTimeoutRecordsFailure(t *testing.T) {
 	if failure.Payload["reason"] != "dispatch_timeout" || failure.CausationEventID == "" {
 		t.Fatalf("timeout failure must be durable and causally linked: %#v", failure)
 	}
+	for key, want := range map[string]any{
+		"append_status":      "accepted",
+		"dispatch_status":    "runner_terminal_failure",
+		"runner_status":      "timeout",
+		"speech_link_status": "missing_linked_runner_speech",
+		"followup_required":  true,
+	} {
+		if got := response.Result[key]; got != want {
+			t.Fatalf("timeout response %s=%#v want %#v result=%#v", key, got, want, response.Result)
+		}
+	}
+	if response.Result["grant_event_id"] == "" || response.Result["selected_event_id"] == "" || response.Result["runner_failure_event_id"] == "" {
+		t.Fatalf("timeout response missing event pointers: %#v", response.Result)
+	}
+	accounting := storage.SelectedRunnerAccountingFromIndex(metadata, index)
+	if len(accounting.SelectedRunners) != 1 {
+		t.Fatalf("selected-runner accounting missing grant row: %#v", accounting)
+	}
+	grant := accounting.SelectedRunners[0]
+	if grant.RunnerStatus != "timeout" || grant.SpeechLinkStatus != "missing_linked_runner_speech" || !grant.FollowupRequired {
+		t.Fatalf("timeout accounting must expose runner/speech/followup axes: %#v", grant)
+	}
 }
 
 func TestCouncilGrantUnsupportedAdapterFailsClosedBeforeSelectedRunnerLaunch(t *testing.T) {
