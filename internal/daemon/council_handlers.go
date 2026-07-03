@@ -16,6 +16,7 @@ import (
 
 const (
 	defaultSelectedSpeakerDispatchTimeout = 30 * time.Second
+	defaultLiveVisibleMaxDiscussionTurns  = 15
 	requiredLiveVisibleDispatchTimeoutSec = 120
 )
 
@@ -43,9 +44,22 @@ func (s *Server) handleCouncilNew(request protocol.CommandRequest) protocol.Comm
 		return protocol.ErrorResponse(request, daemonProtocolError(err))
 	}
 	requestContext := councilRequestContextParam(request)
+	standardLiveVisibleDefaults := selectedRunnerTimeoutPolicyRequired(surface, requestContext)
+	if standardLiveVisibleDefaults {
+		if limits.MaxDiscussionTurns <= 0 {
+			limits.MaxDiscussionTurns = defaultLiveVisibleMaxDiscussionTurns
+		}
+		if limits.DispatchTimeoutSec <= 0 {
+			limits.DispatchTimeoutSec = requiredLiveVisibleDispatchTimeoutSec
+		}
+	}
 	requestContext, timeoutEvidence, err := s.normalizeSelectedRunnerTimeoutRequestContext(surface, limits, requestContext)
 	if err != nil {
 		return protocol.ErrorResponse(request, daemonProtocolError(err))
+	}
+	turnMode := stringParam(request, "turn_mode")
+	if standardLiveVisibleDefaults && turnMode == "" {
+		turnMode = "relevance"
 	}
 	startSpec := storage.CouncilStartSpec{
 		Session: storage.SessionSpec{
@@ -57,7 +71,7 @@ func (s *Server) handleCouncilNew(request protocol.CommandRequest) protocol.Comm
 			RequestContext:                requestContext,
 			LinkedAuthority:               linkedAuthorityParam(request),
 			SelectedRunnerTimeoutEvidence: timeoutEvidence,
-			TurnMode:                      stringParam(request, "turn_mode"),
+			TurnMode:                      turnMode,
 			Limits:                        limits,
 			EventID:                       eventID,
 			CommandID:                     commandID,
@@ -331,7 +345,7 @@ func (s *Server) normalizeSelectedRunnerTimeoutRequestContext(surface *storage.S
 	}
 	configured := limits.DispatchTimeoutSec
 	if configured <= 0 {
-		return nil, nil, storage.NewValidationError(storage.CategoryInvalidEnvelope, "limits.dispatch_timeout_sec", "Discord live-visible selected-runner councils require explicit limits.dispatch_timeout_sec")
+		return nil, nil, storage.NewValidationError(storage.CategoryInvalidEnvelope, "limits.dispatch_timeout_sec", "Discord live-visible selected-runner councils require configured limits.dispatch_timeout_sec")
 	}
 	override, present, err := selectedRunnerTimeoutOverrideFromContext(context)
 	if err != nil {

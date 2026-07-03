@@ -203,7 +203,7 @@ The 2026-06-30 Jooyoo KLM token/speed council blocker is a release blocker for a
 
 LVCOR is the five-task cross-repo request-changes epic created from Jooyoo's 2026-06-30 one-pass live-visible council reliability report: `17thHermes:40_outputs/team/jooyoo/atn/2026-06-30-atn-developer-request-changes.md`. The epic fixes the standard operator path so live-visible council completion is parameterized by `max_discussion_turns = n` and `participant_count = p`: T0 moderator opening, T1..Tn selected participant discussion, T(n+1)..T(n+p) participant closeouts, and T(n+p+1) moderator synthesis / terminal closeout. Expected visible turns are `n + p + 2`; hard-coded T20 handling is invalid except for the specific 15-turn/4-participant instance.
 
-LVCOR does not authorize production activation, live Discord rollout, default Discord activation, daemon/profile/provider/gateway/auth/token/model mutation, package publication, push, or broad rollout.
+LVCOR did not by itself authorize production activation, live Discord rollout, default Discord activation, daemon/profile/provider/gateway/auth/token/model mutation, package publication, push, or broad rollout. The later default-setting update promotes Discord-origin decision-bearing councils to the standard live-visible lifecycle using the completed LVCOR/NEWFIX proof stack and Jooyoo live-success evidence while keeping production readiness, push, and runtime/profile/provider/gateway/auth/token mutation separately approval-gated.
 
 | Task ID | Task Title | Task Status | Task Description |
 | --- | --- | --- | --- |

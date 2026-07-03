@@ -456,15 +456,14 @@ func TestUnitDaemonCouncilNewRejectsIncompleteNonVisibleOverride(t *testing.T) {
 		})
 	}
 }
-func TestUnitDaemonCouncilNewRejectsLiveVisibleSelectedRunnerWithoutDispatchTimeout(t *testing.T) {
+func TestUnitDaemonCouncilNewDefaultsLiveVisibleSelectedRunnerDispatchTimeout(t *testing.T) {
 	dataHome := enabledCouncilDataHome(t)
-	before := treeFingerprint(t, dataHome)
 	server := daemon.NewServer(dataHome, daemonFixedRuntime())
 	response := server.Handle(protocol.NewRequest("missing-dispatch-timeout", "council.new", map[string]any{
 		"session_id": "sess_missing_dispatch_timeout",
 		"moderator":  "agent-mod",
 		"members":    []any{"agent-1"},
-		"title":      "missing selected-runner timeout rejected",
+		"title":      "default selected-runner timeout applied",
 		"request_context": map[string]any{
 			"source":                "discord_thread",
 			"requested_output_mode": "live_visible_thread",
@@ -476,15 +475,28 @@ func TestUnitDaemonCouncilNewRejectsLiveVisibleSelectedRunnerWithoutDispatchTime
 			"thread_id":  "thread-visible",
 		},
 	}))
-	after := treeFingerprint(t, dataHome)
-	if response.OK || response.Error == nil {
-		t.Fatalf("live-visible council.new without dispatch_timeout_sec must fail closed: %+v", response)
+	if !response.OK {
+		t.Fatalf("live-visible council.new without dispatch_timeout_sec should use default 120: %+v", response)
 	}
-	if !strings.Contains(response.Error.Message, "dispatch_timeout_sec") {
-		t.Fatalf("validation error should mention dispatch_timeout_sec, got %+v", response.Error)
+	sessionDir, err := storage.SessionDir(dataHome, "sess_missing_dispatch_timeout")
+	if err != nil {
+		t.Fatalf("SessionDir: %v", err)
 	}
-	if before != after {
-		t.Fatalf("invalid timeout request wrote files\nbefore=%s\nafter=%s", before, after)
+	metadata, err := storage.LoadSessionYAML(sessionDir)
+	if err != nil {
+		t.Fatalf("LoadSessionYAML: %v", err)
+	}
+	if metadata.Limits.DispatchTimeoutSec != 120 {
+		t.Fatalf("live-visible default dispatch timeout should persist in metadata limits, got %#v", metadata.Limits)
+	}
+	if metadata.Limits.MaxDiscussionTurns != 15 {
+		t.Fatalf("live-visible default max discussion turns should persist in metadata limits, got %#v", metadata.Limits)
+	}
+	if metadata.TurnMode != "relevance" {
+		t.Fatalf("live-visible default turn mode should be relevance, got %q", metadata.TurnMode)
+	}
+	if metadata.SelectedRunnerTimeoutEvidence == nil || !metadata.SelectedRunnerTimeoutEvidence.PolicyRequired || metadata.SelectedRunnerTimeoutEvidence.ConfiguredTimeoutSec != 120 || metadata.SelectedRunnerTimeoutEvidence.ApprovedAlternative {
+		t.Fatalf("unexpected selected_runner_timeout_evidence in metadata: %#v", metadata.SelectedRunnerTimeoutEvidence)
 	}
 }
 

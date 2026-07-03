@@ -152,6 +152,12 @@ Any high-severity `changes_requested` finding should become a `revision_requeste
 
 # Council policy
 
+## Standard live-visible decision council default
+
+For Discord-origin decision-bearing councils, the moderator should run `standard_live_visible_decision_council` by default: exact live thread binding, bounded `max_discussion_turns`, selected-runner dispatch timeout defaulted to 120 seconds unless an approved alternative is recorded, lifecycle prerequisites before discussion, per-turn `poll` or hand-raise evaluation, competitive hand-raise candidates where available, `relevance` grant with a recorded reason, selected-runner linked speech only, visible delivery proof for each selected speech, one participant closeout per member after the discussion window, proposal, all-member vote, visible moderator synthesis, and terminal `council.finalize` with matching posted `surface_evidence`.
+
+This is a lifecycle policy, not a `turn_mode=selected_runner` metadata switch. `turn_mode` may declare the intended floor policy such as `relevance`; the durable audit facts are the per-turn `speaker_selected.payload.selection_mode`, runner events, canonical `speech`, vote events, and final visible closeout evidence. Exploratory councils may explicitly opt out of proposal/vote, but they must still report live-visible delivery, selected-runner accounting, closeout, and terminal outcome evidence separately.
+
 ## Speaker selection
 
 Eligible speakers are scored after each hand raise. The default Release v1 formula is fixed below; weights live in a config module (`engine.policy.scoring`) and are overridable per session via `limits.council.speaker_scoring`.

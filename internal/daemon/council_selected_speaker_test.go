@@ -219,7 +219,7 @@ func TestCouncilGrantStartedOnlyReplayRecordsStaleIncompleteDispatch(t *testing.
 		Payload: map[string]any{
 			"turn":           1,
 			"member":         "agent-1",
-			"selection_mode": "moderator_direct",
+			"selection_mode": "relevance",
 		},
 		Now: daemonFixedRuntime().Now().Add(7 * time.Second),
 	})
@@ -552,7 +552,7 @@ func councilGrantRequestForTurn(sessionID, commandID, member string, turn int) p
 		"payload": map[string]any{
 			"turn":           turn,
 			"member":         member,
-			"selection_mode": "moderator_direct",
+			"selection_mode": "relevance",
 		},
 	})
 }
