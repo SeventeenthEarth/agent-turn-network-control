@@ -34,7 +34,7 @@ DELEG-002 publishes plugin-consumable delegation/review examples without adding 
 
 COUNC-001 publishes plugin-consumable council examples for static fake-daemon and parser tests. The fixtures are deterministic examples of local command/event/error envelopes; they do not claim live Discord thread readiness.
 
-The manifest intentionally includes request/response fixtures for the full public council command family from `docs/04-cli-spec.md`:
+The manifest intentionally includes request/response fixtures for the full public council command family from `docs/spec/protocol-and-cli.md`:
 
 - `council.new`
 - `council.request_attendance`

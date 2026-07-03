@@ -1,10 +1,16 @@
+# Cross Repo Contract
+
+---
+
+## Merged from `docs/spec/cross-repo-contract.md`
+
 # Cross-Repo Parallel Development
 
 ## Goal
 
 Enable `atn-control` and `atn-plugin` to develop independently while checking each other's milestones through an explicit protocol/conformance contract.
 
-This document is the control-side SOT for cross-repo development. The plugin-side companion is `../../agent-turn-network-plugin/docs/07-core-compatibility.md`.
+This document is the control-side SOT for cross-repo development. The plugin-side companion is `../../agent-turn-network-plugin/docs/spec/compatibility-and-operations.md`.
 
 ## Development principle
 
@@ -85,7 +91,7 @@ Control owns `testdata/conformance/manifest.json`. Every contract-affecting chan
 
 1. `testdata/conformance/manifest.json`;
 2. this document;
-3. plugin `docs/07-core-compatibility.md` or its supported-version matrix;
+3. plugin `docs/spec/compatibility-and-operations.md` or its supported-version matrix;
 4. cross-repo check scripts if the expected shape changes.
 
 Valid fixture manifest entries should remain schema-valid examples. Malformed JSON or intentionally schema-invalid daemon payloads are negative-test inputs: either place them in a clearly marked invalid-fixture policy surface or document them as plugin-local fail-closed tests derived from the command/structured-error schemas. Do not list invalid payloads as ordinary valid conformance fixtures unless the manifest and checker explicitly support that category.
@@ -122,3 +128,63 @@ A cross-repo feature is release-ready only when:
 - both cross-repo check commands pass;
 - plugin fake-daemon integration tests pass;
 - isolated E2E is either configured and passing or explicitly documented as not part of that milestone.
+
+---
+
+## Merged from `docs/spec/cross-repo-contract.md`
+
+# Distribution and Plugin Compatibility
+
+## Goal
+
+A user should be able to install the Go control runtime, start the daemon, verify the CLI, then optionally install the Python Hermes plugin from `atn-plugin`.
+
+## Control distribution
+
+The control repository ships two binaries:
+
+- `atn-controld` — daemon, state authority, stream hub, storage owner
+- `atn-control` — canonical CLI for diagnostics, recovery, manual operation, and tests
+
+Supported install shapes may include source build, release archives, Homebrew/tap, or `go install` once module paths are fixed. The exact distribution mechanism must not change the authority boundary: CLI and plugin remain clients of the daemon.
+
+## Companion plugin distribution
+
+The Hermes plugin is distributed separately from the control runtime, in the companion `atn-plugin` repository. It contains Python plugin code, a Python daemon client, tool/slash-command bindings, and a bundled skill. The plugin repo owns its Python packaging details.
+
+Control docs must specify the daemon contract the plugin consumes:
+
+- command envelope schema;
+- stream frame schema;
+- structured error schema;
+- version/feature compatibility endpoint;
+- delivery evidence command path;
+- transcript/export local rendering commands and control-owned conformance fixtures;
+- conformance fixture version.
+
+For TRANS-001, plugin distribution handoff is limited to consuming the control-owned `transcript.render` and `export.bundle` command fixtures plus the local bundle shape documented by the manifest. This is not a live Discord, Hermes, KAB, gateway, or production install readiness claim, and the control repo must not mutate plugin source while publishing the handoff.
+
+For post-Release live-local work, `24-live-transport-control-sot.md` owns the control-side `LTRAN`, `MEMBR`, and `SURFD` gates. The companion plugin repo may start its matching plugin epic only after the control epic boundary is complete.
+
+## Compatibility rule
+
+The plugin may support multiple control protocol versions only when it can prove behavior through conformance tests. If the daemon reports an unsupported protocol or missing required feature, the plugin fails closed and points to the CLI fallback.
+
+## Root README requirements for this repo
+
+The control root README should include:
+
+1. What ATN control/runtime is and is not.
+2. How to build/install `atn-controld` and `atn-control`.
+3. Data home resolution and registry setup.
+4. Daemon start/status/stop.
+5. First delegation example through CLI.
+6. Council example through CLI.
+7. Transcript/export example.
+8. How to run `make test`, `make test-prepare`, `make test-unit`, `make test-int`, `make test-e2e`.
+9. How to install the companion plugin and where its docs live.
+10. Fail-close and recovery guidance.
+
+## Deprecated distribution assumptions
+
+Pre-split Python package entry points for the control repo are no longer valid. The control repo must not describe itself as a Python package or as the owner of Hermes plugin implementation files.

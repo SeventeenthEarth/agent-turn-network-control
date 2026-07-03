@@ -1,6 +1,12 @@
+# Deprecated
+
+---
+
+## Merged from `docs/adr/deprecated.md`
+
 # Deprecated: Distribution, Hermes Plugin, and Bundled Hermes Skill
 
-This file is retained only to preserve links from older drafts. After the repo split, the authoritative control distribution document is `11-distribution-and-plugin.md`.
+This file is retained only to preserve links from older drafts. After the repo split, the authoritative control distribution document is `../spec/cross-repo-contract.md`.
 
 - Control daemon/CLI distribution belongs to this repository, `atn-control`.
 - Hermes plugin packaging, plugin tools, plugin slash commands, and bundled skill implementation belong to `../../agent-turn-network-plugin`.

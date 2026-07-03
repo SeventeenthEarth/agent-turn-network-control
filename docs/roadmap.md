@@ -2,7 +2,9 @@
 
 ## Roadmap rule
 
-This roadmap is for the Go control repository. Python Hermes plugin roadmap items live in `../../agent-turn-network-plugin/docs/06-implementation-epics-tasks.md`.
+This roadmap is the SSOT for Go control epic/task status, sequencing, and evidence pointers. Python Hermes plugin roadmap status lives in `../../agent-turn-network-plugin/docs/roadmap.md`.
+
+Other control docs may cite task IDs for context, but current task status must be read from this file. `docs/todo/implementation-decomposition.md` remains a decomposition/reference document, not the status owner.
 
 Roadmap tasks must be **capability-sized**, not file-sized. Each row should normally be large enough for one Kkachi/KAH task contract, one implementation lane, tests, docs/evidence update, role review, and one commit. Split a task only when dependency order, approval gate, failure domain, or reviewer specialty is materially different.
 
@@ -118,12 +120,12 @@ Live readiness, production activation, Discord delivery, package publication, ho
 | ATN-004 | Control code and binary rename | completed/local-proof | Renamed the control Go module, CLI binary, daemon binary, data-home/env/socket/protocol markers, daemon principal, conformance fixtures, tests, scripts, and Makefile surfaces to `atn-control`, `atn-controld`, `ATN_HOME`, `ATN_CONTROLD_PATH`, `~/.atn`, XDG `agent-turn-network`, and `atn-protocol-v1alpha0` with no aliases. |
 | ATN-005 | Plugin package, tools, skills, and final guardrails | completed/local-proof | Plugin-owned task renamed the package/import/manifest/tools/bundled skills to ATN names, updated no-alias guardrails, and closed final cross-repo ATN compatibility proof. |
 
-Every roadmap item must map to the Makefile target taxonomy in `18-testing-strategy.md` and to the phase dependencies in `09-implementation-epics.md`. For legacy repo-owned epics, active task transfer between this control repo and the plugin repo happens only at an epic boundary. For an accepted cross-repo epic such as RUNFIX, transfer happens at the globally ordered task boundary recorded in both repos' SOT tables. When a task ID is cited outside its repo-local roadmap, qualify it as `control/<task-id>` or `plugin/<task-id>`.
+Every roadmap item must map to the Makefile target taxonomy in `docs/spec/testing-and-tooling.md` and to the phase dependencies in `docs/todo/implementation-decomposition.md`. For legacy repo-owned epics, active task transfer between this control repo and the plugin repo happens only at an epic boundary. For an accepted cross-repo epic such as RUNFIX, transfer happens at the globally ordered task boundary recorded in both repos' SOT tables. When a task ID is cited outside its repo-local roadmap, qualify it as `control/<task-id>` or `plugin/<task-id>`.
 
 
 ## RUNFIX — ATN council runner, activation, and discussion-quality remediation
 
-RUNFIX is a cross-repo remediation epic using a single global task sequence across control and plugin. This control roadmap lists only control-owned rows; plugin-owned rows live in `../../agent-turn-network-plugin/docs/06-implementation-epics-tasks.md`.
+RUNFIX is a cross-repo remediation epic using a single global task sequence across control and plugin. This control roadmap lists only control-owned rows; plugin-owned rows live in `../../agent-turn-network-plugin/docs/roadmap.md`.
 
 Legacy pre-ATN artifact and label fragments in older RUNFIX rows are historical/provenance only, not current public ATN aliases.
 
@@ -148,7 +150,7 @@ Plugin-owned `plugin/RUNFIX-012` now has local implementation proof under plugin
 
 ## RUNFIX2 — ATN discussion runtime usability hardening
 
-RUNFIX2 is a five-task cross-repo epic created from the 2026-06-20 KLM/주유 live discussion dogfood. This control roadmap lists control-owned rows and bounded companion plugin status notes; plugin-owned implementation authority remains in `../../agent-turn-network-plugin/docs/06-implementation-epics-tasks.md`. The epic distinguishes production/operator enablement defaults from evidence-derived pass labels and does not authorize production activation, profile/provider/gateway/auth/token mutation, push, broad rollout, live pilot success, or unapproved live Discord delivery.
+RUNFIX2 is a five-task cross-repo epic created from the 2026-06-20 KLM/주유 live discussion dogfood. This control roadmap lists control-owned rows and bounded companion plugin status notes; plugin-owned implementation authority remains in `../../agent-turn-network-plugin/docs/roadmap.md`. The epic distinguishes production/operator enablement defaults from evidence-derived pass labels and does not authorize production activation, profile/provider/gateway/auth/token mutation, push, broad rollout, live pilot success, or unapproved live Discord delivery.
 
 | Task ID | Task Title | Task Status | Task Description |
 | --- | --- | --- | --- |

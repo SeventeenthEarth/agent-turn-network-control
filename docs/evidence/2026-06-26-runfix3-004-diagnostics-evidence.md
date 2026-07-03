@@ -13,8 +13,8 @@
 
 ## Canonical status mirrors
 - `docs/roadmap.md`
-- `docs/09-implementation-epics.md`
-- `docs/24-live-transport-control-sot.md`
+- `docs/todo/implementation-decomposition.md`
+- `docs/spec/live-transport-control-sot.md`
 
 
 ## Verification

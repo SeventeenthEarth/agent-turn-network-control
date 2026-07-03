@@ -1,3 +1,67 @@
+# Agent Turn Network Overview
+
+## Purpose
+
+`atn-control` is the control/runtime authority repository for Agent Turn Network (ATN) real Hermes team member coordination. The product/runtime surface is `atn-control`. It owns durable sessions for delegation, review, and council discussion through a Go daemon, a minimal Go CLI, typed protocol contracts, an append-only `channel.jsonl` event log, and SQLite projections.
+
+ATN is not a Discord bot and not a Hermes plugin. Discord and Hermes are important surfaces, but the canonical state remains daemon-owned typed events.
+
+## Repository boundary
+
+This repository is the **control authority repository**:
+
+- repo: `atn-control`
+- implementation language for control runtime: Go
+- binaries: `atn-controld` and `atn-control`
+- SOT documents: protocol, state machine, storage, security, operations, testing, and release roadmap
+- companion plugin repository: `../../agent-turn-network-plugin`
+
+The companion repository contains the Python Hermes plugin adapter and its own docs. Duplication is allowed only for operator-facing summaries and compatibility contracts. If the same rule appears in both repositories, the daemon/state/protocol authority lives here unless explicitly marked as plugin UX guidance.
+
+## Primary customer
+
+The first-class runtime user is Hermes Agent: long-lived moderator and member profile processes that can observe a stream, persist cursors, and write typed ATN commands. Reactive terminal tools may be invoked by adapters, but they are not the primary coordination runtime.
+
+## Control model
+
+```text
+User / external authority
+  -> Moderator Hermes runtime or operator
+    -> ATN command contract
+      -> atn-controld
+        -> validate identity, command, and state transition
+        -> append channel.jsonl
+        -> update SQLite projection
+        -> publish stream frames
+          -> member Hermes runtimes / plugin / CLI stream observers
+```
+
+The Go CLI uses the same protocol contract as other clients. The Python plugin implements a separate client in the plugin repo; it does not share source code with the Go CLI. Cross-language compatibility is enforced by protocol schemas and conformance tests, not by shared implementation files.
+
+## Session types
+
+- `delegation` — moderator assigns work to one or more real members, receives progress/questions/submissions, and finalizes through acceptance or cancellation.
+- `council` — multiple members prepare, speak under turn control, and finalize a conclusion or unresolved report.
+
+Review is a quality gate inside delegation, not a separate top-level session type.
+
+## Non-goals
+
+- Do not modify Hermes core.
+- Do not make the Hermes plugin the source of truth or the only recovery path.
+- Do not require Discord tokens inside `atn-controld`.
+- Do not treat Discord message order or transcript text as authoritative state.
+- Do not replace real member profiles with simulated role prompts.
+- Do not run multiple concurrent sessions in Release v1.
+
+## Release v1 scope
+
+Release v1 covers registry, storage, daemon, CLI, protocol/conformance contracts, member runtime contract, `hermes-agent` runner adapter, delegation, review gate, council, transcript/export, distribution, observability, disaster recovery, and tests. The Python Hermes plugin is delivered by the companion repository and must remain an adapter over this daemon contract.
+
+---
+
+## Merged from `docs/spec/overview.md`
+
 # Product Requirements
 
 ## Goal
@@ -18,7 +82,7 @@ The user asks the moderator to discuss topic A with agent-1, agent-2, and agent-
 
 ### Global session rule
 
-The system must allow only one active session at a time across delegation and council types. Normative semantics (which states count as active, how `blocked` interacts with the lock, exit conditions, and the forward-compatibility rules for future multi-session work) are defined in `13-operational-contracts.md` §5 Concurrency model. State exit conditions are enumerated in `06-state-machine.md`.
+The system must allow only one active session at a time across delegation and council types. Normative semantics (which states count as active, how `blocked` interacts with the lock, exit conditions, and the forward-compatibility rules for future multi-session work) are defined in `operations.md` §5 Concurrency model. State exit conditions are enumerated in `architecture.md`.
 
 In summary, `open` and `blocked` sessions both count as active. Only `terminal` sessions release the single-active-session lock.
 
@@ -31,7 +95,7 @@ In summary, `open` and `blocked` sessions both count as active. Only `terminal` 
 - The daemon must expose a replayable stream/watch interface so moderator and member runtimes can observe session events in near real time; the CLI and Hermes plugin both consume this through the ATN protocol client/contract.
 - Stream delivery must be replayable from a durable cursor; disconnects must resume without losing events.
 - All agent-originated writes must still go through typed ATN command models validated by the daemon. Hermes plugin tools should call the ATN protocol client/contract directly; the CLI remains the canonical fallback path. No integration may mutate daemon state directly or append to `channel.jsonl` outside the daemon.
-- Every participant-originated event must have an explicit canonical CLI command path (see `04-cli-spec.md` event-to-command coverage matrix) and, when exposed through the Hermes plugin, a documented plugin tool/slash-command equivalent that maps to the same command model.
+- Every participant-originated event must have an explicit canonical CLI command path (see `protocol-and-cli.md` event-to-command coverage matrix) and, when exposed through the Hermes plugin, a documented plugin tool/slash-command equivalent that maps to the same command model.
 - Every state-mutating CLI command must declare the protocol event type or event sequence it emits.
 - Ambiguous state-mutating commands are not allowed; clarification answers, general delegation messages, review verdicts, escalation delivery reports, and council readiness must each have explicit commands.
 - Every session has an exact lifecycle `phase` and a derived roll-up `status`. `phase` is used for state transitions; `status` is used for UI, query, and active-session lock checks. Allowed `status` values are `open`, `blocked`, and `terminal`. The active-session lock is held whenever `status != terminal`.
@@ -94,7 +158,7 @@ In summary, `open` and `blocked` sessions both count as active. Only `terminal` 
 
 ## Engineering requirements
 
-Implementation must follow `10-engineering-principles.md`.
+Implementation must follow `10-overview.md`.
 
 Required baseline:
 
@@ -113,9 +177,9 @@ Required baseline:
 - Member runtimes must preserve their own stream cursor and member AI session handle across reconnects.
 - The daemon may provide local SSE, WebSocket, Unix socket, or local HTTP internally, but the stable agent-facing interface is the plugin protocol-client stream plus typed ATN commands, with the CLI stream and canonical CLI command paths as the diagnostics/recovery/manual fallback.
 - The system must not restart or alter unrelated team member gateways.
-- The system must expose operational health, metrics, and structured errors sufficient for local monitoring and debugging. See `16-observability.md`.
-- The system must document backup, restore, corruption recovery, and projection rebuild procedures. See `17-disaster-recovery.md`.
-- The system must support setup and diagnostic commands (`atn-control init`, `atn-control doctor`, `atn-control storage verify`, `atn-control storage rebuild-projection`) without weakening the security model. See `04-cli-spec.md` and `12-security.md`.
+- The system must expose operational health, metrics, and structured errors sufficient for local monitoring and debugging. See `16-operations.md`.
+- The system must document backup, restore, corruption recovery, and projection rebuild procedures. See `17-operations.md`.
+- The system must support setup and diagnostic commands (`atn-control init`, `atn-control doctor`, `atn-control storage verify`, `atn-control storage rebuild-projection`) without weakening the security model. See `protocol-and-cli.md` and `12-operations.md`.
 
 ## Distribution requirements
 
@@ -123,17 +187,17 @@ Required baseline:
 - The Go build must expose both `atn-control` and `atn-controld` binaries.
 - The data home must resolve in the order `$ATN_HOME` > `$XDG_DATA_HOME/agent-turn-network` > `~/.atn/`.
 - The companion plugin repository must include a bundled Hermes skill that teaches Hermes how to operate `atn-control` safely through the daemon/CLI contract.
-- The Release v1 skill must cover delegation, review gate, council preparation/discussion/consensus, transcript, user escalation (delivery policy and rate limits), daemon status checks, budget and limit extensions, and fail-close behavior; the plugin repository owns the skill implementation, while this repository owns the daemon/CLI contract it documents (see `11-distribution-and-plugin.md`).
+- The Release v1 skill must cover delegation, review gate, council preparation/discussion/consensus, transcript, user escalation (delivery policy and rate limits), daemon status checks, budget and limit extensions, and fail-close behavior; the plugin repository owns the skill implementation, while this repository owns the daemon/CLI contract it documents (see `cross-repo-contract.md`).
 - Installation docs must distinguish code install, data home, registry setup, daemon setup, and optional launchd integration.
 
 ## Default limits
 
-Process limits (full set in `13-operational-contracts.md`):
+Process limits (full set in `operations.md`):
 
 - `max_turns`: 300 for council discussions
 - `max_consensus_rounds`: 20 for council consensus (hard cap; the moderator should normally resolve far earlier)
-- `consensus_round_warning_threshold`: 3 (soft control, moderator policy guidance, see `07-moderator-policy.md`)
-- `no_progress_round_limit`: 3 (soft control, moderator policy guidance, see `07-moderator-policy.md`)
+- `consensus_round_warning_threshold`: 3 (soft control, moderator policy guidance, see `architecture.md`)
+- `no_progress_round_limit`: 3 (soft control, moderator policy guidance, see `architecture.md`)
 - `preparation_timeout`: 10 minutes
 - `hand_raise_research_timeout`: 10 minutes
 - `delegation_update_timeout`: configurable per task
@@ -155,7 +219,7 @@ Runner call accounting is independent from cost parsing. A runner invocation cou
 
 For `max_runner_calls`, the daemon checks **before** launching the next runner invocation. For `max_tokens_total` and `max_usd`, the daemon checks **after** terminal runner events with parsed cost update the observed totals.
 
-Escalation limits (normative policy in `07-moderator-policy.md`):
+Escalation limits (normative policy in `architecture.md`):
 
 - `max_user_escalations`: 10 per session
 - Duplicate-question debounce: 10 minutes
@@ -167,4 +231,101 @@ Low-urgency batching window starts when the first `escalation_batched` event for
 
 ## Release v1 scope
 
-Release v1 delivers delegation sessions, the review gate, and council sessions (preparation, hand-raise discussion, and the consensus gate). The full specification in this docs directory is the product vision; Release v1 is implemented through sequential Implementation Phases and must not introduce contracts that would block future releases (envelope must be versioned, adapter interface must remain pluggable, scoring weights must be externally configurable). Release v1 ships exactly one runner adapter (`hermes-agent`); other adapter kinds are Future release candidates. See `09-implementation-epics.md` and `13-operational-contracts.md` for scope boundaries.
+Release v1 delivers delegation sessions, the review gate, and council sessions (preparation, hand-raise discussion, and the consensus gate). The full specification in this docs directory is the product vision; Release v1 is implemented through sequential Implementation Phases and must not introduce contracts that would block future releases (envelope must be versioned, adapter interface must remain pluggable, scoring weights must be externally configurable). Release v1 ships exactly one runner adapter (`hermes-agent`); other adapter kinds are Future release candidates. See `docs/todo/implementation-decomposition.md` and `operations.md` for scope boundaries.
+
+---
+
+## Merged from `docs/spec/overview.md`
+
+# Engineering Principles
+
+These principles are mandatory for `atn-control` design, implementation, review, and future maintenance.
+
+## Core motto
+
+Build the system correctly, not merely minimally. Problems must be understood at the root and fixed at the proper boundary.
+
+## Principles
+
+### Clean Architecture
+
+- Keep domain logic independent from CLI, daemon transport, storage, and member runner details.
+- The debate/delegation state machines belong in the domain layer.
+- SQLite, JSONL, sockets, plugin tools, CLI commands, and subprocess invocation are adapters. (External delivery — Telegram, Slack, Discord, etc. — is not part of the daemon at all; it lives in the Hermes plugin/gateway helper or equivalent moderator runtime gateway skill, which records its results back through typed ATN commands.)
+- Adapters must not own policy decisions.
+
+### Single Responsibility Principle
+
+Each module should have one reason to change.
+
+Examples:
+
+- Registry loader validates member metadata only.
+- Runner invokes member wrappers only.
+- Storage appends events and maintains projections only.
+- Engine decides valid transitions and policy outcomes only.
+- Transcript renderer renders events only.
+
+### Maintainability, extensibility, performance
+
+Every meaningful design decision must consider:
+
+1. maintainability
+2. future feature extension
+3. performance and operational cost
+
+The preferred design is the one that balances all three for the product direction, not the one with the smallest immediate diff.
+
+### Optimal change over minimal change
+
+Do not patch symptoms just to make the current case pass. Fix the real cause at the correct layer, while keeping the change reviewable.
+
+### Root-cause first
+
+Before changing behavior, inspect the actual code path, protocol state, storage record, adapter boundary, or runtime output that caused the problem.
+
+### No masking failures
+
+Do not hide invalid state, missing authority, broken protocol, or failed dispatch behind a superficial fallback.
+
+### Fallback only with explicit user permission
+
+Fallback behavior is allowed only when the user has approved it or when the product contract explicitly defines it.
+
+If fallback is approved, it must be visible in events and reports.
+
+### Fail closed by default
+
+When data, authority, protocol state, lifecycle status, or invariants are invalid, the system must stop the affected operation and report a clear blocked/error state.
+
+Examples:
+
+- Missing registry: do not dispatch.
+- Unknown member wrapper: do not substitute another member.
+- Broken event log: stop writes and require recovery.
+- Block vote in council: do not finalize.
+- User-authority question in delegation: enter `waiting_user`, do not guess.
+
+### Auditability
+
+All important decisions, fallbacks, failures, escalations, interventions, votes, review findings, and acceptances must be recorded in `channel.jsonl`.
+
+### Review standard
+
+Code review must check:
+
+- architecture boundary violations
+- SRP violations
+- hidden fallback behavior
+- fail-open behavior
+- insufficient root-cause analysis
+- missing event/audit records
+- performance risks in daemon loops, subprocess handling, and transcript generation
+- security invariant violations (see `12-operations.md`): unchecked wrapper paths, `shell=True`, unsanitized environment, missing redaction, artifact paths escaping the workspace, unsafe registry file handling (registry symlinks, group/world writable registry files, unsafe data home permissions, owner mismatch, parsing a different file than the one validated, missing registry snapshot, non-atomic snapshot writes)
+- operational contract violations (see `operations.md`): missing `schema_version` or `correlation_id`; missing `command_id` where required (CLI-originated or daemon-follow-CLI events); missing `causation_event_id` when `command_id` is null; runner-accounted events missing `runner` metadata; terminal runner events missing a `cost` field; using `cost.source` as the runner invocation marker; failure to count runner calls when `cost: null`; missing durable runner failure or discard records; missing budget breach events; idempotency bypass; operational events not carrying `session_id`; session creation without a frozen `registry_snapshot.yaml`; using live `registry.yaml` to reinterpret an existing session. (`cost: null` is allowed only as an explicit missing-cost record for terminal runner events; it must remain visible in projections and reports.)
+- hard-coded constants that should live in session limits (timeouts, token caps, budget ceilings)
+- timeout classes applied to the wrong boundary (dispatch vs. research vs. clarification vs. escalation)
+- missing observability for critical daemon loops, stream lag, append latency, replay duration, runner failures, and blocked-session age (see `16-operations.md`)
+- missing disaster recovery procedure for storage corruption, projection mismatch, registry snapshot failure, or active-session lock mismatch (see `17-operations.md`)
+- missing tests for command idempotency, fake runner behavior, stream cursor replay, blocked-state recovery (`session_resumed` and `limits_extended`), structured JSON errors, and projection rebuild (see `docs/spec/testing-and-tooling.md`)
+- undocumented changes to the developer toolchain or package layout; update `19-testing-and-tooling.md` before changing Python version, build backend, test runner, lint/format tool, or type checker

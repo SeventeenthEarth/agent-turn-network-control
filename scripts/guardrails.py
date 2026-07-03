@@ -15,13 +15,17 @@ VALID_REASONS = {
 }
 REQUIRED_DOCS = [
     "README.md",
-    "00-overview.md",
-    "02-architecture.md",
-    "09-implementation-epics.md",
-    "11-distribution-and-plugin.md",
-    "18-testing-strategy.md",
-    "19-tooling.md",
-    "21-cross-repo-development.md",
+    "spec/overview.md",
+    "spec/architecture.md",
+    "spec/protocol-and-cli.md",
+    "roadmap.md",
+    "todo/implementation-decomposition.md",
+    "spec/cross-repo-contract.md",
+    "spec/operations.md",
+    "spec/testing-and-tooling.md",
+    "spec/live-transport-control-sot.md",
+    "spec/council-argument-graph-sot.md",
+    "spec/agent-turn-network-control-naming-sot.md",
 ]
 REQUIRED_MAKE_TARGETS = [
     "test-prepare:",

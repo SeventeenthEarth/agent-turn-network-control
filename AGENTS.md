@@ -69,15 +69,14 @@ When instructions conflict, use this order:
 1. 주군's explicit current instruction.
 2. Team registry authority from `/Users/draccoon/Workspace/Hermes/17thHermes/01_references/team/team-agent-registry.yaml`.
 3. This repo's SOT/docs:
-   - `docs/24-live-transport-control-sot.md`
-   - `docs/09-implementation-epics.md`
+   - `docs/spec/live-transport-control-sot.md`
+   - `docs/todo/implementation-decomposition.md`
    - `docs/roadmap.md`
-   - `docs/03-protocol-spec.md`
-   - `docs/04-cli-spec.md`
-   - `docs/07-moderator-policy.md`
-   - `docs/13-operational-contracts.md`
-   - `docs/18-testing-strategy.md`
-   - `docs/21-cross-repo-development.md`
+   - `docs/spec/protocol-and-cli.md`
+   - `docs/spec/architecture.md`
+   - `docs/spec/operations.md`
+   - `docs/spec/testing-and-tooling.md`
+   - `docs/spec/cross-repo-contract.md`
 4. Optional workflow helper state under `.kkachi/` only when that helper is explicitly selected and available.
 
 Do not infer Kkachi helper policy from memory alone. Resolve the relevant source or evidence file before architecture, readiness, activation, review, or final claims.

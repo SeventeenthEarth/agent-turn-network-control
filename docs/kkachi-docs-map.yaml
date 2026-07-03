@@ -5,14 +5,14 @@ local_plugin_workspace: "../agent-turn-network-plugin"
 path_note: "ATN-001 locks the public rename, ATN-002 scrubs control docs, ATN-003 scrubs plugin docs, ATN-004 completes the control code/runtime rename, and ATN-005 now completes the plugin package/tool/guardrail rename work."
 roadmap: "docs/roadmap.md"
 sot_docs:
-  - "docs/03-protocol-spec.md"
-  - "docs/02-architecture.md"
-  - "docs/24-live-transport-control-sot.md"
-  - "docs/25-council-argument-graph-sot.md"
-  - "docs/27-agent-turn-network-control-naming-sot.md"
-adr_dir: "docs"
-todo_dir: "docs"
-spec_dir: "docs"
+  - "docs/spec/protocol-and-cli.md"
+  - "docs/spec/architecture.md"
+  - "docs/spec/live-transport-control-sot.md"
+  - "docs/spec/council-argument-graph-sot.md"
+  - "docs/spec/agent-turn-network-control-naming-sot.md"
+adr_dir: "docs/adr"
+todo_dir: "docs/todo"
+spec_dir: "docs/spec"
 test_commands:
   - "make test-prepare"
   - "make docs-guardrails"
@@ -42,8 +42,8 @@ workflow:
 
 runfix:
   epic: "RUNFIX"
-  control_sot: "docs/24-live-transport-control-sot.md"
-  plugin_sot: "../agent-turn-network-plugin/docs/10-live-transport-sot.md"
+  control_sot: "docs/spec/live-transport-control-sot.md"
+  plugin_sot: "../agent-turn-network-plugin/docs/spec/live-transport-sot.md"
   cross_repo_dag:
     - "control/RUNFIX-001"
     - "plugin/RUNFIX-002"
@@ -67,8 +67,8 @@ runfix:
 
 atn:
   epic: "ATN"
-  control_sot: "docs/27-agent-turn-network-control-naming-sot.md"
-  plugin_sot: "../agent-turn-network-plugin/docs/13-agent-turn-network-plugin-naming-sot.md"
+  control_sot: "docs/spec/agent-turn-network-control-naming-sot.md"
+  plugin_sot: "../agent-turn-network-plugin/docs/spec/agent-turn-network-plugin-naming-sot.md"
   cross_repo_sequence:
     - "cross-repo/ATN-001"
     - "control/ATN-002"
@@ -80,8 +80,8 @@ atn:
 nexfix:
   epic: "NEXFIX"
   task_prefix_exception: "NEWFIX"
-  control_sot: "docs/24-live-transport-control-sot.md"
-  plugin_sot: "../agent-turn-network-plugin/docs/10-live-transport-sot.md"
+  control_sot: "docs/spec/live-transport-control-sot.md"
+  plugin_sot: "../agent-turn-network-plugin/docs/spec/live-transport-sot.md"
   vault_sot: "17thHermes:40_outputs/team/macho/atn/2026-06-26-atn-selected-runner-prompt-envelope-nexfix-sot.md"
   runtime_delivery_sot: "17thHermes:40_outputs/team/macho/atn/2026-06-28-atn-live-visible-selected-runner-runtime-delivery-newfix003-sot.md"
   prompt_evidence_contract: "selected_runner_prompt_evidence"
@@ -99,8 +99,8 @@ nexfix:
 
 council_stab:
   epic: "COUNCIL-STAB"
-  control_sot: "docs/24-live-transport-control-sot.md"
-  plugin_sot: "../agent-turn-network-plugin/docs/10-live-transport-sot.md"
+  control_sot: "docs/spec/live-transport-control-sot.md"
+  plugin_sot: "../agent-turn-network-plugin/docs/spec/live-transport-sot.md"
   blocker_report: "17thHermes:40_outputs/team/jooyoo/atn/2026-06-30-klm-token-speed-council-atn-blocker-report.md"
   cross_repo_sequence:
     - "cross-repo/COUNCIL-STAB-001"

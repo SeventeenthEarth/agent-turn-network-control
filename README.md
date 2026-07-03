@@ -16,11 +16,11 @@ Start at [`docs/README.md`](docs/README.md).
 
 Key docs:
 
-- [`docs/00-overview.md`](docs/00-overview.md) — purpose and repo boundary
-- [`docs/02-architecture.md`](docs/02-architecture.md) — Go daemon/CLI architecture
-- [`docs/18-testing-strategy.md`](docs/18-testing-strategy.md) — test layers and isolated E2E policy
-- [`docs/19-tooling.md`](docs/19-tooling.md) — Go tooling and Makefile contract
-- [`docs/11-distribution-and-plugin.md`](docs/11-distribution-and-plugin.md) — core distribution and plugin compatibility handoff
+- [`docs/spec/overview.md`](docs/spec/overview.md) — purpose and repo boundary
+- [`docs/spec/architecture.md`](docs/spec/architecture.md) — Go daemon/CLI architecture
+- [`docs/spec/protocol-and-cli.md`](docs/spec/protocol-and-cli.md) — protocol, CLI, and conformance fixtures
+- [`docs/spec/testing-and-tooling.md`](docs/spec/testing-and-tooling.md) — test layers, release gates, and Makefile contract
+- [`docs/spec/cross-repo-contract.md`](docs/spec/cross-repo-contract.md) — core distribution and plugin compatibility handoff
 
 ## Current state
 

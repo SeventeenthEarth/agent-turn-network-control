@@ -204,7 +204,7 @@ def require(path: Path, label: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def require_list(manifest: dict, key: str) -> list[str]:
+def require_list(manifest: dict[str, object], key: str) -> list[str]:
     value = manifest.get(key)
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise SystemExit(f"core manifest {key} must be a string list")
@@ -307,8 +307,11 @@ for fixture in fixtures:
         require_json_file(fixture, "fixture")
 
 plugin_readme = require(PLUGIN / "docs" / "README.md", "plugin docs README")
-compat = require(PLUGIN / "docs" / "07-core-compatibility.md", "plugin core compatibility doc")
-contract = require(PLUGIN / "docs" / "02-plugin-contract.md", "plugin contract doc")
+compat = require(
+    PLUGIN / "docs" / "spec" / "compatibility-and-operations.md",
+    "plugin core compatibility doc",
+)
+contract = require(PLUGIN / "docs" / "spec" / "architecture.md", "plugin contract doc")
 makefile = require(PLUGIN / "Makefile", "plugin Makefile")
 
 required_phrases = [
