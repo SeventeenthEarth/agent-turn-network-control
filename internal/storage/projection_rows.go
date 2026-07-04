@@ -86,14 +86,15 @@ type delegationReviewProjection struct {
 }
 
 type handRaiseProjection struct {
-	sessionID                                            string
-	turn                                                 int
-	member                                               string
-	wantsToSpeak, eligible                               bool
-	intent, reason, evidenceSummary, ineligibilityReason string
-	relevance, urgency                                   int
-	hasRelevance, hasUrgency                             bool
-	createdAt                                            string
+	sessionID                                                                                                                       string
+	turn                                                                                                                            int
+	member                                                                                                                          string
+	wantsToSpeak, eligible                                                                                                          bool
+	intent, reason, evidenceSummary, ineligibilityReason, dropStatus, dropEventID, requestEventID, observedCursor, stanceContinuity string
+	currentStanceSummary, acceptedClaimsJSON                                                                                        string
+	relevance, urgency                                                                                                              int
+	hasRelevance, hasUrgency                                                                                                        bool
+	createdAt                                                                                                                       string
 }
 
 type attendanceProjection struct {
@@ -510,21 +511,36 @@ func (s *projectionState) applyCouncilEvent(session *sessionProjection, event Ev
 			surfaceEvidenceJSON: surfaceEvidenceJSON,
 			lockedAt:            timeText(event.CreatedAt),
 		}
-	case "hand_raise":
+	case "hand_raise", "hand_raise_dropped":
 		turn := anyInt(event.Payload, "turn")
 		if event.Turn != nil {
 			turn = *event.Turn
 		}
+		status := "raised"
+		if event.Type == "hand_raise_dropped" {
+			status = "dropped"
+		}
+		acceptedClaimsJSON, _ := canonicalJSONRequired(anySlice(event.Payload, "accepted_claims"))
 		row := &handRaiseProjection{
-			sessionID:       event.SessionID,
-			turn:            turn,
-			member:          event.From,
-			wantsToSpeak:    anyBool(event.Payload, "wants_to_speak"),
-			intent:          anyString(event.Payload, "intent"),
-			reason:          anyString(event.Payload, "reason"),
-			evidenceSummary: anyString(event.Payload, "evidence_summary"),
-			eligible:        true,
-			createdAt:       timeText(event.CreatedAt),
+			sessionID:            event.SessionID,
+			turn:                 turn,
+			member:               event.From,
+			wantsToSpeak:         anyBool(event.Payload, "wants_to_speak"),
+			intent:               anyString(event.Payload, "intent"),
+			reason:               anyString(event.Payload, "reason"),
+			evidenceSummary:      anyString(event.Payload, "evidence_summary"),
+			eligible:             event.Type != "hand_raise_dropped",
+			dropStatus:           status,
+			dropEventID:          anyString(event.Payload, "drop_event_id"),
+			requestEventID:       anyString(event.Payload, "request_event_id"),
+			observedCursor:       anyString(event.Payload, "observed_cursor"),
+			stanceContinuity:     anyString(event.Payload, "stance_continuity"),
+			currentStanceSummary: anyString(event.Payload, "current_stance_summary"),
+			acceptedClaimsJSON:   acceptedClaimsJSON,
+			createdAt:            timeText(event.CreatedAt),
+		}
+		if event.Type == "hand_raise_dropped" {
+			row.dropEventID = event.EventID
 		}
 		if value, ok := anyFloat(event.Payload, "relevance"); ok {
 			row.relevance, row.hasRelevance = int(value), true

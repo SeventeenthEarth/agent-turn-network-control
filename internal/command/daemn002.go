@@ -884,7 +884,7 @@ func repoRootForConformance() (string, error) {
 
 func (a App) runCouncil(args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 || isHelp(args[0]) {
-		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s council new <title> --members <member[,member...]> --moderator <member> --requested-output-mode live_visible_thread --surface discord_thread --surface-platform discord --thread-id <id> [--request-source discord_thread] [--visible-output-required true]\n  %s council new <title> --members <member[,member...]> --moderator <member> --requested-output-mode local-daemon-only --explicit-non-visible-override true --override-reason <reason>\n  %s council <action> <session_id> [--from <member>] [--command-id <id>] [--turn <n>] [action flags]\n\nCanonical lifecycle fields: use --turn <n> / JSON field turn (legacy round is rejected in --from-file diagnostics), grant target member, hand-raise intent/reason, terminal final_summary, surface_evidence, and linked_authority_result.\nStructured lifecycle JSON: council hand-raise|grant|speak|finalize|unresolved ... --from-file <json>.\n", a.Name, a.Name, a.Name)
+		_, _ = fmt.Fprintf(stdout, "Usage:\n  %s council new <title> --members <member[,member...]> --moderator <member> --requested-output-mode live_visible_thread --surface discord_thread --surface-platform discord --thread-id <id> [--request-source discord_thread] [--visible-output-required true]\n  %s council new <title> --members <member[,member...]> --moderator <member> --requested-output-mode local-daemon-only --explicit-non-visible-override true --override-reason <reason>\n  %s council <action> <session_id> [--from <member>] [--command-id <id>] [--turn <n>] [action flags]\n\nCanonical lifecycle fields: use --turn <n> / JSON field turn (legacy round is rejected in --from-file diagnostics), grant target member, hand-raise intent/reason, drop reason/request_event_id, terminal final_summary, surface_evidence, and linked_authority_result.\nStructured lifecycle JSON: council hand-raise|drop|grant|speak|finalize|unresolved ... --from-file <json>.\n", a.Name, a.Name, a.Name)
 		return protocol.ExitOK
 	}
 	sub := args[0]
@@ -1121,6 +1121,9 @@ func (a App) runCouncilEvent(sub string, args []string, stdout io.Writer, stderr
 			payload["selection_mode"] = args[i+1]
 			i++
 		case "--auto":
+			if sub != "grant" {
+				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, "council "+sub+" --auto is unsupported; auto council.drop is reserved for PRSLR-003 daemon timeout handling", protocol.ExitUsage, nil))
+			}
 			payload["auto"] = true
 		case "--from-file":
 			if i+1 >= len(args) {
@@ -1134,7 +1137,7 @@ func (a App) runCouncilEvent(sub string, args []string, stdout io.Writer, stderr
 				payload[key] = value
 			}
 			i++
-		case "--decision-question", "--success-criteria", "--out-of-scope-policy", "--status", "--summary", "--notes", "--reason", "--intent", "--message", "--speech", "--vote", "--required-change", "--final-summary", "--failure-reason", "--followup-card-id", "--timeout-evidence":
+		case "--decision-question", "--success-criteria", "--out-of-scope-policy", "--status", "--summary", "--notes", "--reason", "--intent", "--message", "--speech", "--vote", "--required-change", "--final-summary", "--failure-reason", "--followup-card-id", "--timeout-evidence", "--request-event-id", "--observed-cursor", "--stance-continuity", "--current-stance-summary":
 			if i+1 >= len(args) {
 				return writeProtocolError(stderr, protocol.NewError(protocol.ErrorValidation, args[i]+" requires a value", protocol.ExitUsage, nil))
 			}
@@ -1191,7 +1194,7 @@ func councilPayloadFromFile(sub string, path string) (map[string]any, error) {
 	if sub == "finalize" || sub == "unresolved" {
 		return councilTerminalPayloadFromFile(sub, content)
 	}
-	if sub == "hand-raise" || sub == "grant" || sub == "speak" {
+	if sub == "hand-raise" || sub == "drop" || sub == "grant" || sub == "speak" {
 		return councilLifecyclePayloadFromFile(sub, content)
 	}
 	if sub != "lock-agenda" {
@@ -1264,6 +1267,13 @@ func councilLifecyclePayloadFromFile(sub string, content []byte) (map[string]any
 		arrayKeys["target_event_ids"] = struct{}{}
 		arrayKeys["target_claim_ids"] = struct{}{}
 		objectArrayKeys["target_links"] = struct{}{}
+	case "drop":
+		stringKeys["reason"] = struct{}{}
+		stringKeys["request_event_id"] = struct{}{}
+		stringKeys["observed_cursor"] = struct{}{}
+		stringKeys["stance_continuity"] = struct{}{}
+		stringKeys["current_stance_summary"] = struct{}{}
+		arrayKeys["accepted_claims"] = struct{}{}
 	case "grant":
 		stringKeys["member"] = struct{}{}
 		stringKeys["selection_mode"] = struct{}{}
@@ -1410,6 +1420,7 @@ var councilEventCommands = map[string]struct{}{
 	"prepared-partial":   {},
 	"poll":               {},
 	"hand-raise":         {},
+	"drop":               {},
 	"grant":              {},
 	"speak":              {},
 	"intervene":          {},

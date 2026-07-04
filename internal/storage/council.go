@@ -120,6 +120,9 @@ func buildCouncilEvent(sessionDir string, metadata *SessionMetadata, spec Counci
 		payload = map[string]any{}
 	}
 	delete(payload, "closeout_diagnostics")
+	if action == "drop" && strings.TrimSpace(spec.CausationEventID) == "" {
+		spec.CausationEventID = strings.TrimSpace(payloadStringDefault(payload, "request_event_id", ""))
+	}
 	payload["session_type"] = string(metadata.SessionType)
 	payload["title"] = metadata.Title
 	payload["moderator"] = metadata.Moderator
@@ -453,14 +456,55 @@ func councilTransition(metadata *SessionMetadata, index *LogIndex, current Phase
 			return "", "", "", nil, nil, err
 		}
 		payload["turn"] = turn
+		if value, ok := payload["wants_to_speak"]; ok && value == false {
+			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "wants_to_speak", "wants_to_speak=false is not a council drop; use council.drop")
+		}
 		if _, ok := payload["wants_to_speak"]; !ok {
 			payload["wants_to_speak"] = true
+		}
+		if err := validateCouncilRaiseOrDropUnique(index, spec.CommandID, actor, turn, "hand_raise"); err != nil {
+			return "", "", "", nil, nil, err
 		}
 		if err := validateArgumentGraphHandRaise(metadata, index, payload); err != nil {
 			return "", "", "", nil, nil, err
 		}
 		turnPtr = intPtr(turn)
 		return "hand_raise", "discussion", actor, []string{metadata.Moderator}, turnPtr, nil
+	case "drop":
+		if err := requirePhase("discussion"); err != nil {
+			return "", "", "", nil, nil, err
+		}
+		if err := requireMember(); err != nil {
+			return "", "", "", nil, nil, err
+		}
+		turn, err := requireTurn(payload, currentCouncilTurn(index))
+		if err != nil {
+			return "", "", "", nil, nil, err
+		}
+		payload["turn"] = turn
+		if strings.TrimSpace(payloadStringDefault(payload, "reason", "")) == "" {
+			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "reason", "drop reason is required")
+		}
+		if anyBool(payload, "auto") {
+			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "auto", "auto=true council.drop is reserved for PRSLR-003 daemon timeout handling")
+		}
+		requestEventID := strings.TrimSpace(payloadStringDefault(payload, "request_event_id", ""))
+		if requestEventID == "" {
+			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "request_event_id", "drop requires matching hand_raise_requested event")
+		}
+		requestEvent, ok := eventByIDAndType(index, requestEventID, "hand_raise_requested")
+		if !ok {
+			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "request_event_id", "drop request_event_id must reference hand_raise_requested in this session")
+		}
+		if anyInt(requestEvent.Payload, "turn") != turn {
+			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "request_event_id", "drop request_event_id must match turn")
+		}
+		if err := validateCouncilRaiseOrDropUnique(index, spec.CommandID, actor, turn, "hand_raise_dropped"); err != nil {
+			return "", "", "", nil, nil, err
+		}
+		payload["wants_to_speak"] = false
+		turnPtr = intPtr(turn)
+		return "hand_raise_dropped", "discussion", actor, []string{metadata.Moderator}, turnPtr, nil
 	case "grant":
 		if err := requirePhase("discussion"); err != nil {
 			return "", "", "", nil, nil, err
@@ -831,6 +875,28 @@ func selectedGrantStanceAssignment(index *LogIndex, member string, turn int) str
 	return ""
 }
 
+func validateCouncilRaiseOrDropUnique(index *LogIndex, commandID, member string, turn int, eventType string) error {
+	if index == nil || turn <= 0 || strings.TrimSpace(member) == "" {
+		return nil
+	}
+	for _, event := range index.Events {
+		if event.Type != "hand_raise" && event.Type != "hand_raise_dropped" {
+			continue
+		}
+		if event.CommandID != "" && commandID != "" && event.CommandID == commandID && event.Type == eventType {
+			continue
+		}
+		if strings.TrimSpace(event.From) != strings.TrimSpace(member) || anyInt(event.Payload, "turn") != turn {
+			continue
+		}
+		if eventType == "hand_raise" && event.Type != "hand_raise_dropped" {
+			continue
+		}
+		return NewValidationError(CategoryCommandConflict, "hand_raise_response", "duplicate_conflicting_response for member and turn")
+	}
+	return nil
+}
+
 func participantsExcept(metadata *SessionMetadata, except string) []string {
 	out := []string{}
 	for _, p := range metadata.Participants {
@@ -1063,18 +1129,31 @@ func councilHandRaiseStatus(index *LogIndex) []map[string]any {
 	turn := currentCouncilTurn(index)
 	rows := []map[string]any{}
 	for _, event := range index.Events {
-		if event.Type != "hand_raise" || anyInt(event.Payload, "turn") != turn {
+		if (event.Type != "hand_raise" && event.Type != "hand_raise_dropped") || anyInt(event.Payload, "turn") != turn {
 			continue
 		}
-		rows = append(rows, map[string]any{
+		status := "raised"
+		if event.Type == "hand_raise_dropped" {
+			status = "dropped"
+		}
+		row := map[string]any{
 			"event_id":       event.EventID,
 			"turn":           turn,
 			"member":         event.From,
+			"status":         status,
 			"wants_to_speak": anyBool(event.Payload, "wants_to_speak"),
 			"intent":         payloadStringDefault(event.Payload, "intent", ""),
 			"reason":         payloadStringDefault(event.Payload, "reason", ""),
 			"created_at":     event.CreatedAt.UTC().Format(time.RFC3339Nano),
-		})
+		}
+		if event.Type == "hand_raise_dropped" {
+			row["drop_event_id"] = event.EventID
+			row["request_event_id"] = payloadStringDefault(event.Payload, "request_event_id", "")
+			row["observed_cursor"] = payloadStringDefault(event.Payload, "observed_cursor", "")
+			row["stance_continuity"] = payloadStringDefault(event.Payload, "stance_continuity", "")
+			row["current_stance_summary"] = payloadStringDefault(event.Payload, "current_stance_summary", "")
+		}
+		rows = append(rows, row)
 	}
 	sort.Slice(rows, func(i, j int) bool {
 		return rows[i]["member"].(string) < rows[j]["member"].(string)

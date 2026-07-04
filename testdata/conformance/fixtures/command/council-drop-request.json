@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "request_id": "req_council_drop_001",
+  "command": "council.drop",
+  "params": {
+    "session_id": "sess_conformance_council",
+    "actor": "agent-2",
+    "command_id": "cmd_council_drop_conformance",
+    "payload": {
+      "turn": 1,
+      "reason": "No new contribution for this response window.",
+      "request_event_id": "evt_hand_raise_requested_cmd_council_poll_conformance",
+      "observed_cursor": "cur_000000000007_evt_hand_raise_requested_cmd_council_poll_conformance",
+      "stance_continuity": "preserved",
+      "current_stance_summary": "No new claim added.",
+      "accepted_claims": [
+        "claim_static_handoff_complete"
+      ]
+    }
+  }
+}

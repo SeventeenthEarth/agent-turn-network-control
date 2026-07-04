@@ -41,7 +41,7 @@ func (s *Server) handleDAEMN002(request protocol.CommandRequest) (protocol.Comma
 	case "delegate.escalation_batches":
 		return s.handleEscalationBatches(request), true
 	case "council.request_attendance", "council.attend", "council.lock_agenda", "council.prepare",
-		"council.ready", "council.prepared_partial", "council.poll", "council.hand_raise",
+		"council.ready", "council.prepared_partial", "council.poll", "council.hand_raise", "council.drop",
 		"council.grant", "council.speak", "council.intervene", "council.propose",
 		"council.revise", "council.request_vote", "council.vote", "council.finalize",
 		"council.unresolved":

@@ -183,6 +183,13 @@ var projectionSchema = []string{
 		evidence_summary TEXT,
 		eligible INTEGER NOT NULL DEFAULT 1,
 		ineligibility_reason TEXT,
+		drop_status TEXT NOT NULL DEFAULT 'raised',
+		drop_event_id TEXT,
+		request_event_id TEXT,
+		observed_cursor TEXT,
+		stance_continuity TEXT,
+		current_stance_summary TEXT,
+		accepted_claims_json TEXT,
 		created_at TEXT NOT NULL,
 		PRIMARY KEY (session_id, turn, member)
 	)`,
@@ -286,7 +293,7 @@ var projectionColumns = map[string][]string{
 	"stream_cursors":                    {"session_id", "member", "cursor", "event_id", "acknowledged_at"},
 	"stream_subscribers":                {"session_id", "member", "subscriber_id", "connected_at", "last_heartbeat_at", "last_cursor", "status"},
 	"delegation_reviews":                {"session_id", "review_round", "reviewer", "verdict", "findings_json", "created_at"},
-	"council_hand_raises":               {"session_id", "turn", "member", "wants_to_speak", "intent", "relevance", "urgency", "reason", "evidence_summary", "eligible", "ineligibility_reason", "created_at"},
+	"council_hand_raises":               {"session_id", "turn", "member", "wants_to_speak", "intent", "relevance", "urgency", "reason", "evidence_summary", "eligible", "ineligibility_reason", "drop_status", "drop_event_id", "request_event_id", "observed_cursor", "stance_continuity", "current_stance_summary", "accepted_claims_json", "created_at"},
 	"council_attendance_projection":     {"session_id", "member", "required", "attendance_requested_event_id", "member_attended_event_id", "attendance_status", "attendance_summary", "surface_evidence_json", "requested_at", "attended_at"},
 	"council_agenda_locks":              {"session_id", "agenda_locked_event_id", "locked_by", "decision_question", "constraints_json", "surface_evidence_json", "locked_at"},
 	"council_votes":                     {"session_id", "consensus_round", "draft_version", "member", "vote", "reason", "required_change", "created_at"},
@@ -433,7 +440,7 @@ func insertProjectionRows(tx *sql.Tx, state *projectionState) error {
 		}
 	}
 	for _, row := range sortedValues(state.handRaises) {
-		_, err := tx.Exec(`INSERT INTO council_hand_raises VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, row.sessionID, row.turn, row.member, boolInt(row.wantsToSpeak), nullString(row.intent), nullInt(row.relevance, row.hasRelevance), nullInt(row.urgency, row.hasUrgency), nullString(row.reason), nullString(row.evidenceSummary), boolInt(row.eligible), nullString(row.ineligibilityReason), row.createdAt)
+		_, err := tx.Exec(`INSERT INTO council_hand_raises VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, row.sessionID, row.turn, row.member, boolInt(row.wantsToSpeak), nullString(row.intent), nullInt(row.relevance, row.hasRelevance), nullInt(row.urgency, row.hasUrgency), nullString(row.reason), nullString(row.evidenceSummary), boolInt(row.eligible), nullString(row.ineligibilityReason), row.dropStatus, nullString(row.dropEventID), nullString(row.requestEventID), nullString(row.observedCursor), nullString(row.stanceContinuity), nullString(row.currentStanceSummary), nullString(row.acceptedClaimsJSON), row.createdAt)
 		if err != nil {
 			return wrapProjectionError(ProjectionErrorStorage, "insert council_hand_raises", err)
 		}

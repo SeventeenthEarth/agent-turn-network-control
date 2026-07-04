@@ -998,6 +998,106 @@ func readOperationalLog(t *testing.T, dataHome string) string {
 	return string(data)
 }
 
+func TestIntegrationPRSLR002CouncilDropCLIAndDaemonRoute(t *testing.T) {
+	dataHome := commandDaemonFixture(t)
+	binDir := filepath.Join(dataHome, "bin")
+	if err := os.Mkdir(binDir, 0o700); err != nil {
+		t.Fatalf("mkdir PRSLR-002 wrapper bin: %v", err)
+	}
+	for _, wrapper := range []string{"agent-mod", "agent-1"} {
+		if err := os.WriteFile(filepath.Join(binDir, wrapper), []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
+			t.Fatalf("write PRSLR-002 wrapper %s: %v", wrapper, err)
+		}
+	}
+	registryYAML := fmt.Sprintf(`schema_version: 1
+wrapper_path_allowlist:
+  - %s
+members:
+  agent-mod:
+    display_name: Moderator
+    wrapper: agent-mod
+    workspace: /tmp/agent-mod
+    role: moderator
+    enabled: true
+    adapter_kind: hermes-agent
+    runtime_kind: hermes-cli-stream
+  agent-1:
+    display_name: Agent One
+    wrapper: agent-1
+    workspace: /tmp/agent-1
+    role: council_member
+    enabled: true
+    adapter_kind: hermes-agent
+    runtime_kind: hermes-cli-stream
+`, binDir)
+	if err := os.WriteFile(registry.RegistryPath(dataHome), []byte(registryYAML), 0o600); err != nil {
+		t.Fatalf("write PRSLR-002 enabled registry: %v", err)
+	}
+	t.Setenv("ATN_HOME", dataHome)
+	app, cancel := cliWithInProcessDaemon(t)
+	defer cancel()
+	var startOut, startErr bytes.Buffer
+	if exitCode := app.Run([]string{"daemon", "start"}, &startOut, &startErr); exitCode != 0 {
+		t.Fatalf("start daemon: exit=%d stdout=%q stderr=%q", exitCode, startOut.String(), startErr.String())
+	}
+	runOK := func(args ...string) string {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		if exitCode := app.Run(args, &stdout, &stderr); exitCode != 0 {
+			t.Fatalf("%v exit=%d stdout=%q stderr=%q", args, exitCode, stdout.String(), stderr.String())
+		}
+		if !json.Valid(stdout.Bytes()) {
+			t.Fatalf("%v expected JSON stdout, got %q", args, stdout.String())
+		}
+		return stdout.String()
+	}
+	runFail := func(args ...string) string {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		if exitCode := app.Run(args, &stdout, &stderr); exitCode == 0 {
+			t.Fatalf("%v expected failure, stdout=%q stderr=%q", args, stdout.String(), stderr.String())
+		}
+		return stderr.String()
+	}
+
+	runOK("council", "new", "PRSLR-002 drop CLI", "--session-id", "sess_prslr002_drop_cli", "--members", "agent-1", "--moderator", "agent-mod", "--requested-output-mode", "local-daemon-only", "--explicit-non-visible-override", "true", "--override-reason", "CLI/daemon route regression only; no live-visible output claim.", "--command-id", "cmd_prslr002_cli_new")
+	runOK("council", "request-attendance", "sess_prslr002_drop_cli", "--from", "agent-mod", "--timeout", "5m", "--command-id", "cmd_prslr002_cli_attendance")
+	runOK("council", "attend", "sess_prslr002_drop_cli", "--from", "agent-1", "--status", "present", "--summary", "Present.", "--command-id", "cmd_prslr002_cli_attend")
+	runOK("council", "lock-agenda", "sess_prslr002_drop_cli", "--from", "agent-mod", "--decision-question", "What proves PRSLR-002?", "--success-criteria", "Drop is a first-class command.", "--out-of-scope-policy", "No runtime scheduler claim.", "--command-id", "cmd_prslr002_cli_agenda")
+	runOK("council", "prepare", "sess_prslr002_drop_cli", "--from", "agent-mod", "--timeout", "10m", "--command-id", "cmd_prslr002_cli_prepare")
+	runOK("council", "ready", "sess_prslr002_drop_cli", "--from", "agent-1", "--summary", "Ready.", "--command-id", "cmd_prslr002_cli_ready")
+	runOK("council", "poll", "sess_prslr002_drop_cli", "--from", "agent-mod", "--research-timeout", "10m", "--command-id", "cmd_prslr002_cli_poll")
+	autoReject := runFail("council", "drop", "sess_prslr002_drop_cli", "--from", "agent-1", "--turn", "1", "--reason", "Forged timeout.", "--request-event-id", "evt_hand_raise_requested_cmd_prslr002_cli_poll", "--auto", "--command-id", "cmd_prslr002_cli_drop_auto")
+	if !strings.Contains(autoReject, "auto") {
+		t.Fatalf("manual council drop --auto should fail closed, got %s", autoReject)
+	}
+	runOK("council", "drop", "sess_prslr002_drop_cli", "--from", "agent-1", "--turn", "1", "--reason", "No new contribution.", "--request-event-id", "evt_hand_raise_requested_cmd_prslr002_cli_poll", "--observed-cursor", "cur_000000000006_evt_hand_raise_requested_cmd_prslr002_cli_poll", "--stance-continuity", "preserved", "--current-stance-summary", "No claim.", "--command-id", "cmd_prslr002_cli_drop")
+	duplicate := runOK("council", "drop", "sess_prslr002_drop_cli", "--from", "agent-1", "--turn", "1", "--reason", "No new contribution.", "--request-event-id", "evt_hand_raise_requested_cmd_prslr002_cli_poll", "--observed-cursor", "cur_000000000006_evt_hand_raise_requested_cmd_prslr002_cli_poll", "--stance-continuity", "preserved", "--current-stance-summary", "No claim.", "--command-id", "cmd_prslr002_cli_drop")
+	if !strings.Contains(duplicate, `"deduplicated":true`) {
+		t.Fatalf("retry should dedupe, got %s", duplicate)
+	}
+	conflict := runFail("council", "drop", "sess_prslr002_drop_cli", "--from", "agent-1", "--turn", "1", "--reason", "Changed.", "--request-event-id", "evt_hand_raise_requested_cmd_prslr002_cli_poll", "--command-id", "cmd_prslr002_cli_drop")
+	if !strings.Contains(conflict, "command_id already used with different payload") {
+		t.Fatalf("conflicting retry should fail closed, got %s", conflict)
+	}
+	sessionDir, err := storage.SessionDir(dataHome, "sess_prslr002_drop_cli")
+	if err != nil {
+		t.Fatalf("session dir: %v", err)
+	}
+	metadata, err := storage.LoadSessionYAML(sessionDir)
+	if err != nil {
+		t.Fatalf("load metadata: %v", err)
+	}
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	last := index.Events[len(index.Events)-1]
+	if last.Type != "hand_raise_dropped" || last.CommandID != "cmd_prslr002_cli_drop" || last.Payload["request_event_id"] != "evt_hand_raise_requested_cmd_prslr002_cli_poll" {
+		t.Fatalf("last drop event mismatch: type=%s command=%s payload=%#v", last.Type, last.CommandID, last.Payload)
+	}
+}
+
 func commandDaemonFixture(t *testing.T) string {
 	t.Helper()
 	dataHome, err := os.MkdirTemp("/private/tmp", "kan-command-daemon-")

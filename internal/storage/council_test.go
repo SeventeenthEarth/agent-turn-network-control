@@ -3,6 +3,7 @@ package storage
 import (
 	"database/sql"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -129,6 +130,147 @@ func TestIntegrationCouncilLifecycleFailClosedGuardsAndProjection(t *testing.T) 
 	if active, err := FindActiveSession(dataHome, fixedRuntime()); err != nil || active != nil {
 		t.Fatalf("finalized council must release active lock, active=%#v err=%v", active, err)
 	}
+}
+
+func TestUnitPRSLR002CouncilDropRecordsAndProjectsCanonicalDrop(t *testing.T) {
+	sessionDir, metadata := grantStanceCouncilForTest(t, "sess_prslr002_drop_positive")
+	poll := eventByIDForTest(t, sessionDir, metadata, "evt_hand_raise_requested_cmd_sess_prslr002_drop_positive_poll_1")
+	result, dedup, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{
+		Action:    "drop",
+		Actor:     "agent-1",
+		CommandID: "cmd_prslr002_drop_agent_1",
+		Payload: map[string]any{
+			"turn":                   1,
+			"reason":                 "no relevant contribution",
+			"request_event_id":       poll.EventID,
+			"observed_cursor":        "cur_000000000001_" + poll.EventID,
+			"stance_continuity":      "preserved",
+			"current_stance_summary": "no new claim",
+			"accepted_claims":        []any{"baseline"},
+		},
+		Now: fixedRuntime().Now().Add(3 * time.Second),
+	})
+	if err != nil {
+		t.Fatalf("council.drop should record canonical hand_raise_dropped: %v", err)
+	}
+	if dedup {
+		t.Fatalf("first drop must not deduplicate")
+	}
+	event := eventByIDForTest(t, sessionDir, metadata, result.EventID)
+	if event.Type != "hand_raise_dropped" || event.Phase != "discussion" || event.From != "agent-1" {
+		t.Fatalf("drop event shape = type=%s phase=%s from=%s payload=%#v", event.Type, event.Phase, event.From, event.Payload)
+	}
+	if anyBool(event.Payload, "wants_to_speak") {
+		t.Fatalf("drop must project wants_to_speak=false payload=%#v", event.Payload)
+	}
+	status, err := CouncilStatusFromLog(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("CouncilStatusFromLog: %v", err)
+	}
+	raises := status["hand_raises"].([]map[string]any)
+	if len(raises) != 1 || raises[0]["member"] != "agent-1" || raises[0]["status"] != "dropped" || raises[0]["drop_event_id"] != result.EventID {
+		t.Fatalf("hand raise status should expose dropped row: %#v", raises)
+	}
+	dataHome := filepath.Dir(filepath.Dir(sessionDir))
+	before := eventCountForTest(t, sessionDir, metadata)
+	report, err := RebuildProjection(dataHome, ProjectionOptions{Runtime: fixedRuntime()})
+	if err != nil {
+		t.Fatalf("RebuildProjection: %v", err)
+	}
+	if after := eventCountForTest(t, sessionDir, metadata); after != before {
+		t.Fatalf("projection rebuild appended events: before=%d after=%d", before, after)
+	}
+	db := openProjectionDB(t, report.DBPath)
+	defer func() { _ = db.Close() }()
+	if got := scalarText(t, db, `SELECT drop_status FROM council_hand_raises WHERE session_id = 'sess_prslr002_drop_positive' AND turn = 1 AND member = 'agent-1'`); got != "dropped" {
+		t.Fatalf("projected drop_status = %q", got)
+	}
+	if got := scalarText(t, db, `SELECT request_event_id FROM council_hand_raises WHERE session_id = 'sess_prslr002_drop_positive' AND turn = 1 AND member = 'agent-1'`); got != poll.EventID {
+		t.Fatalf("projected request_event_id = %q, want %q", got, poll.EventID)
+	}
+}
+
+func TestUnitPRSLR002CouncilDropRejectsLegacyAndConflicts(t *testing.T) {
+	t.Run("wants_to_speak_false_is_not_canonical_drop", func(t *testing.T) {
+		sessionDir, metadata := grantStanceCouncilForTest(t, "sess_prslr002_drop_legacy_false")
+		before := eventCountForTest(t, sessionDir, metadata)
+		_, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-1", CommandID: "cmd_prslr002_legacy_false", Payload: map[string]any{"turn": 1, "wants_to_speak": false, "reason": "drop via legacy flag"}, Now: fixedRuntime().Now().Add(3 * time.Second)})
+		if err == nil {
+			t.Fatalf("wants_to_speak=false must be rejected instead of translated into drop")
+		}
+		assertStorageIssue(t, err, CategoryInvalidEnvelope)
+		if after := eventCountForTest(t, sessionDir, metadata); after != before {
+			t.Fatalf("legacy rejection appended event: before=%d after=%d", before, after)
+		}
+	})
+	t.Run("idempotent_retry_and_command_conflict", func(t *testing.T) {
+		sessionDir, metadata := grantStanceCouncilForTest(t, "sess_prslr002_drop_idempotency")
+		poll := eventByIDForTest(t, sessionDir, metadata, "evt_hand_raise_requested_cmd_sess_prslr002_drop_idempotency_poll_1")
+		payload := map[string]any{"turn": 1, "reason": "no contribution", "request_event_id": poll.EventID}
+		first, dedup, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "drop", Actor: "agent-1", CommandID: "cmd_prslr002_drop_retry", Payload: payload, Now: fixedRuntime().Now().Add(3 * time.Second)})
+		if err != nil || dedup {
+			t.Fatalf("first drop err=%v dedup=%v", err, dedup)
+		}
+		second, dedup, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "drop", Actor: "agent-1", CommandID: "cmd_prslr002_drop_retry", Payload: payload, Now: fixedRuntime().Now().Add(4 * time.Second)})
+		if err != nil || !dedup || second.EventID != first.EventID {
+			t.Fatalf("same command_id+payload should dedupe to first result: first=%#v second=%#v dedup=%v err=%v", first, second, dedup, err)
+		}
+		_, _, err = RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "drop", Actor: "agent-1", CommandID: "cmd_prslr002_drop_retry", Payload: map[string]any{"turn": 1, "reason": "different reason", "request_event_id": poll.EventID}, Now: fixedRuntime().Now().Add(5 * time.Second)})
+		if err == nil || !strings.Contains(err.Error(), "command_id already used with different payload") {
+			t.Fatalf("same command_id different payload must conflict, got %v", err)
+		}
+	})
+	t.Run("manual_auto_drop_is_rejected", func(t *testing.T) {
+		sessionDir, metadata := grantStanceCouncilForTest(t, "sess_prslr002_drop_auto_reject")
+		poll := eventByIDForTest(t, sessionDir, metadata, "evt_hand_raise_requested_cmd_sess_prslr002_drop_auto_reject_poll_1")
+		before := eventCountForTest(t, sessionDir, metadata)
+		_, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "drop", Actor: "agent-1", CommandID: "cmd_prslr002_drop_auto_reject", Payload: map[string]any{"turn": 1, "reason": "timeout-style forged drop", "request_event_id": poll.EventID, "auto": true}, Now: fixedRuntime().Now().Add(3 * time.Second)})
+		if err == nil || !strings.Contains(err.Error(), "auto") {
+			t.Fatalf("manual auto=true drop must fail closed, got %v", err)
+		}
+		assertStorageIssue(t, err, CategoryInvalidEnvelope)
+		if after := eventCountForTest(t, sessionDir, metadata); after != before {
+			t.Fatalf("auto rejection appended event: before=%d after=%d", before, after)
+		}
+	})
+
+	t.Run("forged_request_event_id_is_rejected", func(t *testing.T) {
+		sessionDir, metadata := grantStanceCouncilForTest(t, "sess_prslr002_drop_forged_request")
+		before := eventCountForTest(t, sessionDir, metadata)
+		_, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "drop", Actor: "agent-1", CommandID: "cmd_prslr002_drop_forged_request", Payload: map[string]any{"turn": 1, "reason": "forged linkage", "request_event_id": "evt_prslr002_missing_hand_raise_requested"}, Now: fixedRuntime().Now().Add(3 * time.Second)})
+		if err == nil || !strings.Contains(err.Error(), "request_event_id") {
+			t.Fatalf("forged request_event_id must fail closed, got %v", err)
+		}
+		assertStorageIssue(t, err, CategoryInvalidEnvelope)
+		if after := eventCountForTest(t, sessionDir, metadata); after != before {
+			t.Fatalf("forged request_event_id rejection appended event: before=%d after=%d", before, after)
+		}
+	})
+
+	t.Run("stale_turn_request_event_id_is_rejected", func(t *testing.T) {
+		sessionDir, metadata := grantStanceCouncilForTest(t, "sess_prslr002_drop_stale_request")
+		poll := eventByIDForTest(t, sessionDir, metadata, "evt_hand_raise_requested_cmd_sess_prslr002_drop_stale_request_poll_1")
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "poll", Actor: "agent-mod", CommandID: "cmd_prslr002_drop_stale_request_poll_2", Payload: map[string]any{"turn": 2}, Now: fixedRuntime().Now().Add(3 * time.Second)})
+		before := eventCountForTest(t, sessionDir, metadata)
+		_, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "drop", Actor: "agent-1", CommandID: "cmd_prslr002_drop_stale_request", Payload: map[string]any{"turn": 2, "reason": "stale linkage", "request_event_id": poll.EventID}, Now: fixedRuntime().Now().Add(4 * time.Second)})
+		if err == nil || !strings.Contains(err.Error(), "request_event_id must match turn") {
+			t.Fatalf("stale request_event_id turn mismatch must fail closed, got %v", err)
+		}
+		assertStorageIssue(t, err, CategoryInvalidEnvelope)
+		if after := eventCountForTest(t, sessionDir, metadata); after != before {
+			t.Fatalf("stale request_event_id rejection appended event: before=%d after=%d", before, after)
+		}
+	})
+
+	t.Run("raise_then_drop_conflicts", func(t *testing.T) {
+		sessionDir, metadata := grantStanceCouncilForTest(t, "sess_prslr002_drop_raise_conflict")
+		poll := eventByIDForTest(t, sessionDir, metadata, "evt_hand_raise_requested_cmd_sess_prslr002_drop_raise_conflict_poll_1")
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-1", CommandID: "cmd_prslr002_raise_before_drop", Payload: map[string]any{"turn": 1, "intent": "support"}, Now: fixedRuntime().Now().Add(3 * time.Second)})
+		_, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "drop", Actor: "agent-1", CommandID: "cmd_prslr002_drop_after_raise", Payload: map[string]any{"turn": 1, "reason": "changed", "request_event_id": poll.EventID}, Now: fixedRuntime().Now().Add(4 * time.Second)})
+		if err == nil || !strings.Contains(err.Error(), "duplicate_conflicting_response") {
+			t.Fatalf("drop after hand_raise must conflict, got %v", err)
+		}
+	})
 }
 
 func TestUnitCOUNCILSTAB001GrantRequiresPriorHandRaiseStanceSource(t *testing.T) {
