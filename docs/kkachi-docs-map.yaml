@@ -105,3 +105,20 @@ council_stab:
   cross_repo_sequence:
     - "cross-repo/COUNCIL-STAB-001"
   boundary: "COUNCIL-STAB-001 repairs the 2026-06-30 selected-runner council blocker by requiring stance-bearing hand_raise input before selected-runner grants, deriving grant stance from control log evidence, proving linked runner speech and terminal closeout/status coherence, and preserving plugin ingress guardrails. Historical failed sessions are diagnostic evidence only. No live Discord rerun, default activation, production readiness, profile/provider/gateway/auth/token mutation, package publication, push, or broad rollout is authorized by this docs-map row."
+
+prslr:
+  epic: "PRSLR"
+  title: "Persistent runtime session latency repair"
+  vault_sot: "17thHermes:40_outputs/team/macho/atn/2026-07-04-atn-persistent-participant-runtime-design-sot.md"
+  control_sot: "docs/spec/live-transport-control-sot.md"
+  plugin_sot: "../agent-turn-network-plugin/docs/spec/live-transport-sot.md"
+  evidence_handoff: "persistent_participant_runtime_evidence"
+  cross_repo_sequence:
+    - "cross-repo/PRSLR-001"
+    - "control/PRSLR-002"
+    - "control/PRSLR-003"
+    - "control/PRSLR-004"
+    - "control/PRSLR-005"
+    - "plugin/PRSLR-006"
+    - "cross-repo/PRSLR-007"
+  boundary: "PRSLR is a planned, default-off/local-only implementation lane for council-scoped persistent participant sessions, all-member cursor coverage, first-class drop, bounded hand-raise/drop windows, delta-only hot prompts, and rehydrate-only fail-closed recovery. Participant sessions are council-scoped only; cross-council participant session reuse is prohibited. Rehydrate/observe/ack failures default to whole participant runtime/council blocked, and affected-member degraded continuation requires later explicit approval. Control owns event log, lifecycle, session registry, cursor/window/recovery authority, idempotency/dedupe, and evidence production. Plugin consumes daemon evidence and typed command schemas only; it must not invent lifecycle/cursor/dedupe/fallback state or synthesize daemon-owned auto-drop/recovery state. Plugin-local fake/injected PRSLR-006 fixtures are not final acceptance evidence; PRSLR-007 final acceptance requires control-produced persistent_participant_runtime_evidence. No live Discord rollout, production activation, profile/provider/gateway/auth/token mutation, push, or broad readiness is authorized."
