@@ -33,6 +33,9 @@ func TestRUNRTDispatcherAppendsStartedBeforeAdapterAndTerminalCost(t *testing.T)
 	if adapter.calls != 1 || len(result.InvocationIDs) != 1 {
 		t.Fatalf("expected one adapter call/invocation: calls=%d result=%#v", adapter.calls, result)
 	}
+	if len(adapter.reqs) != 1 || adapter.reqs[0].SessionHandle == nil || string(*adapter.reqs[0].SessionHandle) == "" {
+		t.Fatalf("PRSLR-004 dispatch must resume through a persistent participant session handle: %#v", adapter.reqs)
+	}
 	index, err := storage.ReadLogIndex(sessionDir, metadata)
 	if err != nil {
 		t.Fatalf("ReadLogIndex: %v", err)
@@ -45,6 +48,9 @@ func TestRUNRTDispatcherAppendsStartedBeforeAdapterAndTerminalCost(t *testing.T)
 	terminal := index.Events[3]
 	if started.Type != "runner_invocation_started" || len(started.Cost) != 0 {
 		t.Fatalf("bad started envelope: %#v cost=%s", started, started.Cost)
+	}
+	if strings.TrimSpace(started.Payload["participant_session_handle"].(string)) == "" || started.Payload["participant_session_generation"] != float64(1) {
+		t.Fatalf("runner started must expose participant session handle/generation evidence: %#v", started.Payload)
 	}
 	if started.From != "atn-controld" || len(started.To) != 1 || started.To[0] != "agent-mod" || started.CommandID != "cmd_runrt_dispatch" {
 		t.Fatalf("runner operational event should reuse original command id and address moderator: %#v", started)

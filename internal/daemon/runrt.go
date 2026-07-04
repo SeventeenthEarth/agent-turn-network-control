@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"atn-control/internal/memberruntime"
 	"atn-control/internal/protocol"
 	"atn-control/internal/registry"
 	"atn-control/internal/runner"
@@ -101,11 +102,13 @@ func (s *RunnerDispatchService) Dispatch(ctx context.Context, req RunnerDispatch
 		if err := s.appendStarted(req, invocationID, sourceCommandID, attempt); err != nil {
 			return out, err
 		}
+		handle := memberruntime.DeterministicParticipantSessionHandle(s.Metadata.ID, s.Member.ID)
 		result, err := s.Adapter.Send(ctx, runner.Request{
 			SessionID:       s.Metadata.ID,
 			Member:          s.Member,
 			ResolvedWrapper: resolvedWrapper(s.Member),
 			Prompt:          req.Prompt,
+			SessionHandle:   &handle,
 			Timeout:         req.Timeout,
 			InvocationID:    invocationID,
 			SourceCommandID: sourceCommandID,
@@ -241,11 +244,14 @@ func (s *RunnerDispatchService) preflight() error {
 
 func (s *RunnerDispatchService) appendStarted(req RunnerDispatchRequest, invocationID, sourceCommandID string, attempt int) error {
 	payload := map[string]any{
-		"prompt_sha256":       sha256Text(req.Prompt),
-		"member_id":           s.Member.ID,
-		"adapter_kind":        runner.HermesAgentKind,
-		"wrapper_path_sha256": sha256Text(resolvedWrapper(s.Member)),
-		"evidence_kind":       "redacted_wrapper_binding",
+		"prompt_sha256":                     sha256Text(req.Prompt),
+		"member_id":                         s.Member.ID,
+		"adapter_kind":                      runner.HermesAgentKind,
+		"wrapper_path_sha256":               sha256Text(resolvedWrapper(s.Member)),
+		"evidence_kind":                     "redacted_wrapper_binding",
+		"participant_session_handle":        string(memberruntime.DeterministicParticipantSessionHandle(s.Metadata.ID, s.Member.ID)),
+		"participant_session_generation":    1,
+		"participant_session_evidence_kind": "control_local_prslr004",
 	}
 	_, err := storage.AppendEvent(s.SessionDir, s.Metadata, s.baseEvent(req, "runner_invocation_started", invocationID, sourceCommandID, attempt, nil, payload))
 	return err

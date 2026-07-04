@@ -71,6 +71,8 @@ The event envelope deliberately does **not** include `status`. `status` is a der
 
 `to` is **semantic addressing**, not stream access control. A valid session participant may observe events not addressed to it; the runtime decides whether to act by inspecting `type`, `from`, `to`, role, phase, and policy. Stream read permissions are governed by `12-operations.md`.
 
+PRSLR-004 local-control participant runtime evidence is exported on council `speech.payload.persistent_participant_runtime_evidence` and council status as `persistent_participant_runtime_evidence`. The object is derived from the durable event log and includes `status`, `session_id`, `speech_event_id`, `coverage_cursor`, `coverage_scope`, `speaker`, `required_members`, `session_registry`, and per-member rows. Speaker rows use `coverage_kind: "self_ack"`; non-speaker rows use `coverage_kind: "observe_delta"`. Every row carries `member`, `participant_session_handle`, `generation`, `last_cursor`, `observed_event_id`, `speech_event_id`, and `source: "control_local_event_log"`. Handles are scoped to `session_id + member`; cross-council handle reuse is invalid. This is local control evidence only and does not authorize plugin lifecycle/cursor ownership, live Discord delivery, or PRSLR-005 delta prompt/rehydrate behavior.
+
 This initial Release v1 schema uses `to` as `array<string>` from the start. Changing `to` between string and array form is a breaking envelope change and requires a `schema_version` migration per `operations.md`.
 
 ## Daemon compatibility read commands

@@ -87,6 +87,8 @@ then each ready member records `member_ready` through `atn-control council ready
 When member runtimes observe `hand_raise_requested`, the daemon opens a 120-second response window. Members respond through `atn-control council hand-raise` or canonical `atn-control council drop`; the window closes early when all required members respond. If the deadline elapses first, the daemon records timeout `hand_raise_dropped` events for non-responders and restart replay must not duplicate those auto-drops. Late `council hand-raise` and manual `council drop` commands fail closed without appending an event; daemon-owned timeout auto-drop is the only supported post-deadline drop path. When the moderator selects speakers through `atn-control council grant`,
 then no speaker speaks twice in a row.
 
+When a selected member records canonical `speech`, the speech event includes local control `persistent_participant_runtime_evidence` with all council members covered: the speaker row is `self_ack`, each non-speaker row is `observe_delta`, each row advances to the speech cursor, and participant session handles are reused only within the same council/member scope.
+
 When the moderator proposes a conclusion through `atn-control council propose` and requests a consensus vote through `atn-control council request-vote`,
 then the daemon records `consensus_vote_requested`, and member runtimes vote (`atn-control council vote`) only after observing it.
 

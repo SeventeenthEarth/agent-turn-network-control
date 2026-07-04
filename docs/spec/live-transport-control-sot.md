@@ -20,6 +20,7 @@ In scope:
 - CLI as the canonical main-agent/operator control plane;
 - daemon protocol compatibility reads used by the plugin live transport;
 - stream replay/follow/ack behavior and cursor failure handling;
+- local-control persistent participant session handles and all-member speech observe coverage evidence (`persistent_participant_runtime_evidence`) for PRSLR-004, without plugin-owned cursor/lifecycle state;
 - member runtime real profile/wrapper invocation evidence;
 - event-to-visible-surface rendering contract and delivery-evidence pointer semantics;
 - later local disposable live-local pilots that prove CLI/plugin/daemon equivalence without production activation.

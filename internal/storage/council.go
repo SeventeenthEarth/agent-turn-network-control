@@ -221,6 +221,7 @@ func buildCouncilEvent(sessionDir string, metadata *SessionMetadata, spec Counci
 			return EventEnvelope{}, nil, NewValidationError(CategoryInvalidEnvelope, "causation_event_id", "causation event must reference this session")
 		}
 	}
+	attachPersistentParticipantRuntimeEvidence(metadata, index, &event)
 	return event, index, nil
 }
 
@@ -265,6 +266,9 @@ func CouncilStatusFromLogAt(sessionDir string, metadata *SessionMetadata, now ti
 		status["selected_runner_timeout_evidence"] = *evidence
 	}
 	status["participant_runtime_readiness"] = ParticipantRuntimeReadinessFromIndex(metadata, index, readinessOptionsForStatus(metadata, index, now, selectedRunnerAccounting))
+	if evidence := latestPersistentParticipantRuntimeEvidenceFromIndex(index); evidence != nil {
+		status["persistent_participant_runtime_evidence"] = evidence
+	}
 	if diagnostics := closeoutDiagnosticsForStatus(metadata, index); len(diagnostics) > 0 {
 		status["closeout_diagnostics"] = diagnostics
 	}
