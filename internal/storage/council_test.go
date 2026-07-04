@@ -190,6 +190,152 @@ func TestUnitPRSLR002CouncilDropRecordsAndProjectsCanonicalDrop(t *testing.T) {
 	}
 }
 
+func TestUnitPRSLR003ResponseWindowAccountingEarlyCloseAndTimeout(t *testing.T) {
+	t.Run("poll_opens_120s_window_and_all_members_close_early", func(t *testing.T) {
+		sessionDir, metadata := responseWindowCouncilForTest(t, "sess_prslr003_window_early", []string{"agent-1", "agent-2"})
+		poll := eventByIDForTest(t, sessionDir, metadata, "evt_hand_raise_requested_cmd_sess_prslr003_window_early_poll_1")
+		status, err := CouncilStatusFromLogAt(sessionDir, metadata, fixedRuntime().Now().Add(3*time.Second))
+		if err != nil {
+			t.Fatalf("CouncilStatusFromLogAt: %v", err)
+		}
+		window := status["response_window_accounting"].(map[string]any)
+		if window["state"] != "open" || window["response_window_id"] == "" || anyInt(window, "duration_sec") != 120 {
+			t.Fatalf("window should be open with 120s default: %#v", window)
+		}
+		if got := payloadStringDefault(window, "request_event_id", ""); got != poll.EventID {
+			t.Fatalf("window request_event_id=%q want %q", got, poll.EventID)
+		}
+		if got := anyInt(window, "required_count"); got != 2 {
+			t.Fatalf("required_count=%d window=%#v", got, window)
+		}
+
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-1", CommandID: "cmd_prslr003_early_raise_1", Payload: map[string]any{"turn": 1, "intent": "support", "reason": "ready"}, Now: fixedRuntime().Now().Add(4 * time.Second)})
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "drop", Actor: "agent-2", CommandID: "cmd_prslr003_early_drop_2", Payload: map[string]any{"turn": 1, "reason": "no new contribution", "request_event_id": poll.EventID}, Now: fixedRuntime().Now().Add(5 * time.Second)})
+
+		status, err = CouncilStatusFromLogAt(sessionDir, metadata, fixedRuntime().Now().Add(6*time.Second))
+		if err != nil {
+			t.Fatalf("CouncilStatusFromLogAt after responses: %v", err)
+		}
+		window = status["response_window_accounting"].(map[string]any)
+		if window["state"] != "closed" || window["closed_reason"] != "all_members_responded" || anyInt(window, "responded_count") != 2 {
+			t.Fatalf("all members should close early: %#v", window)
+		}
+	})
+
+	t.Run("timeout_auto_drops_non_responders_once_and_replay_is_idempotent", func(t *testing.T) {
+		sessionDir, metadata := responseWindowCouncilForTest(t, "sess_prslr003_window_timeout", []string{"agent-1", "agent-2"})
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-1", CommandID: "cmd_prslr003_timeout_raise_1", Payload: map[string]any{"turn": 1, "intent": "risk", "reason": "need to speak"}, Now: fixedRuntime().Now().Add(4 * time.Second)})
+		before := eventCountForTest(t, sessionDir, metadata)
+		results, dedup, err := RecordCouncilResponseWindowTimeout(sessionDir, metadata, 1, fixedRuntime().Now().Add(123*time.Second))
+		if err != nil {
+			t.Fatalf("RecordCouncilResponseWindowTimeout: %v", err)
+		}
+		if dedup || len(results) != 1 {
+			t.Fatalf("first timeout should append one auto-drop: results=%#v dedup=%v", results, dedup)
+		}
+		drop := eventByIDForTest(t, sessionDir, metadata, results[0].EventID)
+		if drop.Type != "hand_raise_dropped" || drop.From != daemonPrincipal || payloadStringDefault(drop.Payload, "member", "") != "agent-2" || !anyBool(drop.Payload, "auto") {
+			t.Fatalf("timeout auto-drop shape mismatch: %#v", drop)
+		}
+		status, err := CouncilStatusFromLogAt(sessionDir, metadata, fixedRuntime().Now().Add(124*time.Second))
+		if err != nil {
+			t.Fatalf("CouncilStatusFromLogAt after timeout: %v", err)
+		}
+		window := status["response_window_accounting"].(map[string]any)
+		if window["state"] != "closed" || window["closed_reason"] != "timeout" || anyInt(window, "auto_drop_count") != 1 {
+			t.Fatalf("timeout status mismatch: %#v", window)
+		}
+		_, dedup, err = RecordCouncilResponseWindowTimeout(sessionDir, metadata, 1, fixedRuntime().Now().Add(130*time.Second))
+		if err != nil || !dedup {
+			t.Fatalf("second timeout replay should dedupe: dedup=%v err=%v", dedup, err)
+		}
+		if after := eventCountForTest(t, sessionDir, metadata); after != before+1 {
+			t.Fatalf("timeout replay appended duplicates: before=%d after=%d", before, after)
+		}
+	})
+
+	t.Run("late_response_after_deadline_is_rejected_without_append", func(t *testing.T) {
+		sessionDir, metadata := responseWindowCouncilForTest(t, "sess_prslr003_window_late", []string{"agent-1", "agent-2"})
+		before := eventCountForTest(t, sessionDir, metadata)
+		_, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-1", CommandID: "cmd_prslr003_late_raise", Payload: map[string]any{"turn": 1, "intent": "late", "reason": "after deadline"}, Now: fixedRuntime().Now().Add(123 * time.Second)})
+		if err == nil || !strings.Contains(err.Error(), "response window closed") {
+			t.Fatalf("late response should fail closed, got %v", err)
+		}
+		if after := eventCountForTest(t, sessionDir, metadata); after != before {
+			t.Fatalf("late rejection appended event: before=%d after=%d", before, after)
+		}
+	})
+
+	t.Run("late_manual_drop_after_deadline_is_rejected_without_append", func(t *testing.T) {
+		sessionDir, metadata := responseWindowCouncilForTest(t, "sess_prslr003_window_late_drop", []string{"agent-1", "agent-2"})
+		poll := eventByIDForTest(t, sessionDir, metadata, "evt_hand_raise_requested_cmd_sess_prslr003_window_late_drop_poll_1")
+		before := eventCountForTest(t, sessionDir, metadata)
+		_, _, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "drop", Actor: "agent-1", CommandID: "cmd_prslr003_late_manual_drop", Payload: map[string]any{"turn": 1, "reason": "late no contribution", "request_event_id": poll.EventID}, Now: fixedRuntime().Now().Add(123 * time.Second)})
+		if err == nil || !strings.Contains(err.Error(), "response window closed") {
+			t.Fatalf("late manual drop should fail closed, got %v", err)
+		}
+		if after := eventCountForTest(t, sessionDir, metadata); after != before {
+			t.Fatalf("late manual drop rejection appended event: before=%d after=%d", before, after)
+		}
+	})
+
+	t.Run("hand_raise_retry_after_early_close_dedupes_without_append", func(t *testing.T) {
+		sessionDir, metadata := responseWindowCouncilForTest(t, "sess_prslr003_window_raise_retry_after_close", []string{"agent-1", "agent-2"})
+		poll := eventByIDForTest(t, sessionDir, metadata, "evt_hand_raise_requested_cmd_sess_prslr003_window_raise_retry_after_close_poll_1")
+		payload := map[string]any{"turn": 1, "intent": "support", "reason": "ready"}
+		first, dedup, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-1", CommandID: "cmd_prslr003_raise_retry_after_close", Payload: payload, Now: fixedRuntime().Now().Add(4 * time.Second)})
+		if err != nil || dedup {
+			t.Fatalf("first hand_raise err=%v dedup=%v", err, dedup)
+		}
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "drop", Actor: "agent-2", CommandID: "cmd_prslr003_raise_retry_after_close_drop", Payload: map[string]any{"turn": 1, "reason": "no new contribution", "request_event_id": poll.EventID}, Now: fixedRuntime().Now().Add(5 * time.Second)})
+		before := eventCountForTest(t, sessionDir, metadata)
+		second, dedup, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-1", CommandID: "cmd_prslr003_raise_retry_after_close", Payload: payload, Now: fixedRuntime().Now().Add(6 * time.Second)})
+		if err != nil || !dedup || second.EventID != first.EventID {
+			t.Fatalf("hand_raise retry after early close should dedupe to first result: first=%#v second=%#v dedup=%v err=%v", first, second, dedup, err)
+		}
+		if after := eventCountForTest(t, sessionDir, metadata); after != before {
+			t.Fatalf("hand_raise retry appended event after early close: before=%d after=%d", before, after)
+		}
+	})
+
+	t.Run("manual_drop_retry_after_deadline_dedupes_and_conflicting_payload_rejects", func(t *testing.T) {
+		sessionDir, metadata := responseWindowCouncilForTest(t, "sess_prslr003_window_drop_retry_after_deadline", []string{"agent-1", "agent-2"})
+		poll := eventByIDForTest(t, sessionDir, metadata, "evt_hand_raise_requested_cmd_sess_prslr003_window_drop_retry_after_deadline_poll_1")
+		payload := map[string]any{"turn": 1, "reason": "no contribution", "request_event_id": poll.EventID}
+		first, dedup, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "drop", Actor: "agent-1", CommandID: "cmd_prslr003_drop_retry_after_deadline", Payload: payload, Now: fixedRuntime().Now().Add(4 * time.Second)})
+		if err != nil || dedup {
+			t.Fatalf("first drop err=%v dedup=%v", err, dedup)
+		}
+		before := eventCountForTest(t, sessionDir, metadata)
+		second, dedup, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "drop", Actor: "agent-1", CommandID: "cmd_prslr003_drop_retry_after_deadline", Payload: payload, Now: fixedRuntime().Now().Add(123 * time.Second)})
+		if err != nil || !dedup || second.EventID != first.EventID {
+			t.Fatalf("drop retry after deadline should dedupe to first result: first=%#v second=%#v dedup=%v err=%v", first, second, dedup, err)
+		}
+		if after := eventCountForTest(t, sessionDir, metadata); after != before {
+			t.Fatalf("drop retry appended event after deadline: before=%d after=%d", before, after)
+		}
+		_, _, err = RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{Action: "drop", Actor: "agent-1", CommandID: "cmd_prslr003_drop_retry_after_deadline", Payload: map[string]any{"turn": 1, "reason": "changed reason", "request_event_id": poll.EventID}, Now: fixedRuntime().Now().Add(124 * time.Second)})
+		if err == nil || !strings.Contains(err.Error(), "command_id already used with different payload") {
+			t.Fatalf("drop retry after deadline with conflicting payload should reject by command_id equivalence, got %v", err)
+		}
+	})
+
+	t.Run("timeout_sweeper_skips_early_closed_window", func(t *testing.T) {
+		sessionDir, metadata := responseWindowCouncilForTest(t, "sess_prslr003_window_timeout_skip_closed", []string{"agent-1", "agent-2"})
+		poll := eventByIDForTest(t, sessionDir, metadata, "evt_hand_raise_requested_cmd_sess_prslr003_window_timeout_skip_closed_poll_1")
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "hand-raise", Actor: "agent-1", CommandID: "cmd_prslr003_timeout_skip_closed_raise", Payload: map[string]any{"turn": 1, "intent": "support", "reason": "ready"}, Now: fixedRuntime().Now().Add(4 * time.Second)})
+		appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "drop", Actor: "agent-2", CommandID: "cmd_prslr003_timeout_skip_closed_drop", Payload: map[string]any{"turn": 1, "reason": "no new contribution", "request_event_id": poll.EventID}, Now: fixedRuntime().Now().Add(5 * time.Second)})
+		before := eventCountForTest(t, sessionDir, metadata)
+		results, dedup, err := RecordCouncilResponseWindowTimeout(sessionDir, metadata, 1, fixedRuntime().Now().Add(123*time.Second))
+		if err != nil || !dedup || len(results) != 0 {
+			t.Fatalf("timeout on early-closed window should no-op as dedup: results=%#v dedup=%v err=%v", results, dedup, err)
+		}
+		if after := eventCountForTest(t, sessionDir, metadata); after != before {
+			t.Fatalf("timeout on early-closed window appended events: before=%d after=%d", before, after)
+		}
+	})
+}
+
 func TestUnitPRSLR002CouncilDropRejectsLegacyAndConflicts(t *testing.T) {
 	t.Run("wants_to_speak_false_is_not_canonical_drop", func(t *testing.T) {
 		sessionDir, metadata := grantStanceCouncilForTest(t, "sess_prslr002_drop_legacy_false")
@@ -1236,6 +1382,29 @@ func appendCouncilForTest(t *testing.T, sessionDir string, metadata *SessionMeta
 		t.Fatalf("RecordCouncilEvent(%s): %v", spec.Action, err)
 	}
 	return result
+}
+
+func responseWindowCouncilForTest(t *testing.T, sessionID string, members []string) (string, *SessionMetadata) {
+	t.Helper()
+	dataHome, loaded := loadedCouncilRegistry(t)
+	metadata, _, _, err := CreateCouncil(dataHome, loaded, CouncilStartSpec{
+		Session: SessionSpec{
+			ID:        sessionID,
+			Title:     "response window",
+			Moderator: "agent-mod",
+			EventID:   "evt_" + sessionID + "_created",
+			CommandID: "cmd_" + sessionID + "_new",
+		},
+		Members: members,
+		Now:     fixedRuntime().Now(),
+	}, fixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateCouncil: %v", err)
+	}
+	sessionDir, _ := SessionDir(dataHome, metadata.ID)
+	appendRawEventForTest(t, sessionDir, metadata, "evt_"+sessionID+"_prep", "cmd_"+sessionID+"_prep", "preparation_requested", "preparation", "agent-mod", members, map[string]any{"timeout_sec": 1}, time.Second)
+	appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "poll", Actor: "agent-mod", CommandID: "cmd_" + sessionID + "_poll_1", Payload: map[string]any{"turn": 1}, Now: fixedRuntime().Now().Add(2 * time.Second)})
+	return sessionDir, metadata
 }
 
 func grantStanceCouncilForTest(t *testing.T, sessionID string) (string, *SessionMetadata) {

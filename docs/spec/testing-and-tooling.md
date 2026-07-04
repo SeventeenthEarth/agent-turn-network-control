@@ -84,7 +84,7 @@ then the daemon records `preparation_requested` and the council enters `preparat
 When all member runtimes observe `preparation_requested` through the stream,
 then each ready member records `member_ready` through `atn-control council ready`, and the council enters discussion.
 
-When member runtimes observe `hand_raise_requested`, raise hands through `atn-control council hand-raise`, and the moderator selects speakers through `atn-control council grant`,
+When member runtimes observe `hand_raise_requested`, the daemon opens a 120-second response window. Members respond through `atn-control council hand-raise` or canonical `atn-control council drop`; the window closes early when all required members respond. If the deadline elapses first, the daemon records timeout `hand_raise_dropped` events for non-responders and restart replay must not duplicate those auto-drops. Late `council hand-raise` and manual `council drop` commands fail closed without appending an event; daemon-owned timeout auto-drop is the only supported post-deadline drop path. When the moderator selects speakers through `atn-control council grant`,
 then no speaker speaks twice in a row.
 
 When the moderator proposes a conclusion through `atn-control council propose` and requests a consensus vote through `atn-control council request-vote`,

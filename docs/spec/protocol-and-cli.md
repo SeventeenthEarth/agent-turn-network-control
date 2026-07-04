@@ -1412,10 +1412,17 @@ Created by: `atn-control council poll`.
   "payload": {
     "turn": 5,
     "research_timeout_sec": 600,
-    "question": "Who has a material objection or additional evidence?"
+    "question": "Who has a material objection or additional evidence?",
+    "response_window_id": "rw_sess_example_5_evt_hand_raise_requested_cmd_poll_5",
+    "response_window_duration_sec": 120,
+    "response_window_opened_at": "2026-07-04T13:30:02Z",
+    "response_window_deadline_at": "2026-07-04T13:32:02Z",
+    "required_members": ["agent-1", "agent-2", "agent-3"]
   }
 }
 ```
+
+PRSLR-003 makes each `hand_raise_requested` event open a daemon-owned 120-second response window for the turn. `status.session` exposes `response_window_accounting` with `state`, `closed_reason`, required/responded/missing members, and timeout auto-drop counts. The window closes early when every required member records either `hand_raise` or canonical `hand_raise_dropped`. `hand_raise` and manual `council.drop` after the deadline fail closed without appending an event; daemon-owned timeout auto-drop is the only supported post-deadline drop path. On timeout, the daemon sweeper records `hand_raise_dropped` from `atn-controld` for missing members with `payload.auto: true`, `payload.auto_reason: "timeout"`, and a deterministic command id so daemon restart/replay does not append duplicate auto-drops. This is local control behavior only and does not claim participant runtime readiness; `response_window_accounting.participant_runtime_readiness` remains `not_claimed_prslr004_pending` until PRSLR-004.
 
 ### hand_raise
 

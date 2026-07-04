@@ -24,11 +24,13 @@ type Server struct {
 	// StreamFollowAfterReplay is a local test seam used to append durable
 	// channel.jsonl events after replay has been snapshotted and before the
 	// bounded follow poll starts. Production servers leave it nil.
-	StreamFollowAfterReplay   func() error
-	RunnerAdapter             runner.Adapter
-	DispatchLocks             *DispatchLocks
-	SelectedSpeakerTimeout    time.Duration
-	SelectedSpeakerMaxRetries int
+	StreamFollowAfterReplay      func() error
+	RunnerAdapter                runner.Adapter
+	DispatchLocks                *DispatchLocks
+	SelectedSpeakerTimeout       time.Duration
+	SelectedSpeakerMaxRetries    int
+	ResponseWindowSweepInterval  time.Duration
+	DisableResponseWindowSweeper bool
 
 	mu        sync.RWMutex
 	ready     bool
@@ -61,6 +63,9 @@ func (s *Server) Run(ctx context.Context) error {
 	s.mu.Unlock()
 
 	done := make(chan struct{})
+	if !s.DisableResponseWindowSweeper {
+		go s.runResponseWindowSweeper(ctx, done)
+	}
 	go func() {
 		select {
 		case <-ctx.Done():

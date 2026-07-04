@@ -13,6 +13,8 @@ import (
 
 const daemonPrincipal = "atn-controld"
 
+const defaultCouncilResponseWindowSec = 120
+
 type CouncilStartSpec struct {
 	Session SessionSpec
 	Members []string
@@ -90,6 +92,67 @@ func RecordCouncilEvent(sessionDir string, metadata *SessionMetadata, spec Counc
 		return AppendResult{}, false, err
 	}
 	return appendIdempotentEvent(sessionDir, metadata, index, event)
+}
+
+func RecordCouncilResponseWindowTimeout(sessionDir string, metadata *SessionMetadata, turn int, now time.Time) ([]AppendResult, bool, error) {
+	if metadata == nil {
+		return nil, false, NewValidationError(CategoryMetadataInvalid, "session", "metadata is required")
+	}
+	if metadata.SessionType != SessionTypeCouncil {
+		return nil, false, NewValidationError(CategoryMetadataInvalid, "session_type", "council timeout requires council session")
+	}
+	if turn <= 0 {
+		return nil, false, NewValidationError(CategoryInvalidEnvelope, "turn", "positive turn is required")
+	}
+	if now.IsZero() {
+		now = time.Now().UTC()
+	} else {
+		now = now.UTC()
+	}
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		return nil, false, err
+	}
+	window, ok := latestResponseWindowForTurn(index, turn)
+	if !ok {
+		return nil, false, NewValidationError(CategoryCommandConflict, "response_window", "response window is not open for turn")
+	}
+	if !window.deadline.IsZero() && now.Before(window.deadline) {
+		return nil, false, NewValidationError(CategoryCommandConflict, "response_window", "response window deadline has not elapsed")
+	}
+	accounting := responseWindowAccountingFromIndex(metadata, index, now, turn)
+	missing, _ := accounting["missing_members"].([]string)
+	if len(missing) == 0 {
+		return nil, true, nil
+	}
+	results := make([]AppendResult, 0, len(missing))
+	allDedup := true
+	for _, member := range missing {
+		commandID := fmt.Sprintf("cmd_response_window_timeout_%s_%d_%s", metadata.ID, turn, member)
+		result, dedup, err := RecordCouncilEvent(sessionDir, metadata, CouncilEventSpec{
+			Action:    "drop",
+			Actor:     daemonPrincipal,
+			CommandID: commandID,
+			Payload: map[string]any{
+				"turn":               turn,
+				"member":             member,
+				"reason":             "response window timeout",
+				"request_event_id":   window.eventID,
+				"response_window_id": window.id,
+				"auto":               true,
+				"auto_reason":        "timeout",
+			},
+			Now: now,
+		})
+		if err != nil {
+			return results, false, err
+		}
+		results = append(results, result)
+		if !dedup {
+			allDedup = false
+		}
+	}
+	return results, allDedup, nil
 }
 
 func buildCouncilEvent(sessionDir string, metadata *SessionMetadata, spec CouncilEventSpec) (EventEnvelope, *LogIndex, error) {
@@ -192,6 +255,7 @@ func CouncilStatusFromLogAt(sessionDir string, metadata *SessionMetadata, now ti
 	}
 	status["discussion_quality"] = councilDiscussionQualityStatus(metadata, index, phase)
 	status["discussion_lifecycle"] = councilDiscussionLifecycle(metadata, index)
+	status["response_window_accounting"] = responseWindowAccountingFromIndex(metadata, index, now.UTC(), currentCouncilTurn(index))
 	selectedRunnerAccounting := SelectedRunnerAccountingFromIndex(metadata, index)
 	status["selected_runner_accounting"] = selectedRunnerAccounting
 	if evidence := LatestSelectedRunnerPromptEvidenceFromIndex(index); evidence != nil {
@@ -442,6 +506,16 @@ func councilTransition(metadata *SessionMetadata, index *LogIndex, current Phase
 			turn = nextCouncilTurn(index)
 		}
 		payload["turn"] = turn
+		openedAt := spec.Now.UTC()
+		if openedAt.IsZero() {
+			openedAt = time.Now().UTC()
+		}
+		deadlineAt := openedAt.Add(defaultCouncilResponseWindowSec * time.Second)
+		payload["response_window_id"] = responseWindowID(metadata.ID, turn, eventIDFromCommand("evt_hand_raise_requested", spec.CommandID))
+		payload["response_window_duration_sec"] = defaultCouncilResponseWindowSec
+		payload["response_window_opened_at"] = openedAt.Format(time.RFC3339Nano)
+		payload["response_window_deadline_at"] = deadlineAt.Format(time.RFC3339Nano)
+		payload["required_members"] = councilMembers(metadata)
 		turnPtr = intPtr(turn)
 		return "hand_raise_requested", "discussion", actor, councilMembers(metadata), turnPtr, requirePayloadOptionalTimeout(payload)
 	case "hand-raise":
@@ -456,6 +530,15 @@ func councilTransition(metadata *SessionMetadata, index *LogIndex, current Phase
 			return "", "", "", nil, nil, err
 		}
 		payload["turn"] = turn
+		responseAt := spec.Now.UTC()
+		if responseAt.IsZero() {
+			responseAt = time.Now().UTC()
+		}
+		if !sameCommandEventType(index, spec.CommandID, "hand_raise") {
+			if err := validateResponseWindowAccepts(index, actor, turn, responseAt); err != nil {
+				return "", "", "", nil, nil, err
+			}
+		}
 		if value, ok := payload["wants_to_speak"]; ok && value == false {
 			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "wants_to_speak", "wants_to_speak=false is not a council drop; use council.drop")
 		}
@@ -474,8 +557,20 @@ func councilTransition(metadata *SessionMetadata, index *LogIndex, current Phase
 		if err := requirePhase("discussion"); err != nil {
 			return "", "", "", nil, nil, err
 		}
-		if err := requireMember(); err != nil {
-			return "", "", "", nil, nil, err
+		member := actor
+		autoDrop := anyBool(payload, "auto")
+		if actor == daemonPrincipal && autoDrop {
+			member = strings.TrimSpace(payloadStringDefault(payload, "member", ""))
+			if !councilMember(metadata, member) {
+				return "", "", "", nil, nil, NewValidationError(CategoryPrincipalInvalid, "member", "timeout drop member must be a council member")
+			}
+		} else {
+			if err := requireMember(); err != nil {
+				return "", "", "", nil, nil, err
+			}
+			if autoDrop {
+				return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "auto", "auto=true council.drop is reserved for PRSLR-003 daemon timeout handling")
+			}
 		}
 		turn, err := requireTurn(payload, currentCouncilTurn(index))
 		if err != nil {
@@ -484,9 +579,6 @@ func councilTransition(metadata *SessionMetadata, index *LogIndex, current Phase
 		payload["turn"] = turn
 		if strings.TrimSpace(payloadStringDefault(payload, "reason", "")) == "" {
 			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "reason", "drop reason is required")
-		}
-		if anyBool(payload, "auto") {
-			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "auto", "auto=true council.drop is reserved for PRSLR-003 daemon timeout handling")
 		}
 		requestEventID := strings.TrimSpace(payloadStringDefault(payload, "request_event_id", ""))
 		if requestEventID == "" {
@@ -499,9 +591,19 @@ func councilTransition(metadata *SessionMetadata, index *LogIndex, current Phase
 		if anyInt(requestEvent.Payload, "turn") != turn {
 			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "request_event_id", "drop request_event_id must match turn")
 		}
-		if err := validateCouncilRaiseOrDropUnique(index, spec.CommandID, actor, turn, "hand_raise_dropped"); err != nil {
+		if !autoDrop && !sameCommandEventType(index, spec.CommandID, "hand_raise_dropped") {
+			responseAt := spec.Now.UTC()
+			if responseAt.IsZero() {
+				responseAt = time.Now().UTC()
+			}
+			if err := validateResponseWindowAccepts(index, member, turn, responseAt); err != nil {
+				return "", "", "", nil, nil, err
+			}
+		}
+		if err := validateCouncilRaiseOrDropUnique(index, spec.CommandID, member, turn, "hand_raise_dropped"); err != nil {
 			return "", "", "", nil, nil, err
 		}
+		payload["member"] = member
 		payload["wants_to_speak"] = false
 		turnPtr = intPtr(turn)
 		return "hand_raise_dropped", "discussion", actor, []string{metadata.Moderator}, turnPtr, nil
@@ -847,6 +949,174 @@ func currentCouncilTurn(index *LogIndex) int {
 	return max
 }
 func nextCouncilTurn(index *LogIndex) int { return currentCouncilTurn(index) + 1 }
+
+type responseWindowProjection struct {
+	eventID         string
+	id              string
+	turn            int
+	openedAt        time.Time
+	deadline        time.Time
+	durationSec     int
+	requiredMembers []string
+}
+
+func responseWindowID(sessionID string, turn int, requestEventID string) string {
+	return fmt.Sprintf("rw_%s_%d_%s", sessionID, turn, requestEventID)
+}
+
+func latestResponseWindowForTurn(index *LogIndex, turn int) (responseWindowProjection, bool) {
+	if index == nil || turn <= 0 {
+		return responseWindowProjection{}, false
+	}
+	for i := len(index.Events) - 1; i >= 0; i-- {
+		event := index.Events[i]
+		if event.Type != "hand_raise_requested" || anyInt(event.Payload, "turn") != turn {
+			continue
+		}
+		openedAt := event.CreatedAt.UTC()
+		if text := payloadStringDefault(event.Payload, "response_window_opened_at", ""); text != "" {
+			if parsed, err := time.Parse(time.RFC3339Nano, text); err == nil {
+				openedAt = parsed.UTC()
+			}
+		}
+		duration := anyInt(event.Payload, "response_window_duration_sec")
+		if duration <= 0 {
+			duration = defaultCouncilResponseWindowSec
+		}
+		deadline := openedAt.Add(time.Duration(duration) * time.Second)
+		if text := payloadStringDefault(event.Payload, "response_window_deadline_at", ""); text != "" {
+			if parsed, err := time.Parse(time.RFC3339Nano, text); err == nil {
+				deadline = parsed.UTC()
+			}
+		}
+		required, ok := payloadStringSlice(event.Payload, "required_members")
+		if !ok || len(required) == 0 {
+			required = append([]string(nil), event.To...)
+		}
+		id := payloadStringDefault(event.Payload, "response_window_id", "")
+		if id == "" {
+			id = responseWindowID(event.SessionID, turn, event.EventID)
+		}
+		return responseWindowProjection{eventID: event.EventID, id: id, turn: turn, openedAt: openedAt, deadline: deadline, durationSec: duration, requiredMembers: required}, true
+	}
+	return responseWindowProjection{}, false
+}
+
+func validateResponseWindowAccepts(index *LogIndex, member string, turn int, responseAt time.Time) error {
+	window, ok := latestResponseWindowForTurn(index, turn)
+	if !ok || window.deadline.IsZero() {
+		return nil
+	}
+	if !responseAt.Before(window.deadline) && !responseAt.Equal(window.deadline) {
+		return NewValidationError(CategoryCommandConflict, "response_window", "response window closed; late response is not eligible")
+	}
+	accounting := responseWindowAccountingFromIndex(nil, index, responseAt, turn)
+	if accounting["state"] == "closed" {
+		return NewValidationError(CategoryCommandConflict, "response_window", "response window closed; late response is not eligible")
+	}
+	return nil
+}
+
+func responseWindowAccountingFromIndex(metadata *SessionMetadata, index *LogIndex, now time.Time, turn int) map[string]any {
+	if now.IsZero() {
+		now = time.Now().UTC()
+	} else {
+		now = now.UTC()
+	}
+	window, ok := latestResponseWindowForTurn(index, turn)
+	if !ok {
+		return map[string]any{"configured": false}
+	}
+	required := append([]string(nil), window.requiredMembers...)
+	if metadata != nil && len(required) == 0 {
+		required = councilMembers(metadata)
+	}
+	responded := map[string]map[string]any{}
+	autoDropCount := 0
+	for _, event := range index.Events {
+		if (event.Type != "hand_raise" && event.Type != "hand_raise_dropped") || anyInt(event.Payload, "turn") != turn {
+			continue
+		}
+		member := responseWindowResponseMember(event)
+		if member == "" {
+			continue
+		}
+		row := map[string]any{"member": member, "event_id": event.EventID, "type": event.Type, "created_at": event.CreatedAt.UTC().Format(time.RFC3339Nano)}
+		if event.Type == "hand_raise_dropped" && anyBool(event.Payload, "auto") {
+			row["auto"] = true
+			row["auto_reason"] = payloadStringDefault(event.Payload, "auto_reason", "")
+			autoDropCount++
+		}
+		responded[member] = row
+	}
+	missing := []string{}
+	for _, member := range required {
+		if _, ok := responded[member]; !ok {
+			missing = append(missing, member)
+		}
+	}
+	respondedRows := make([]map[string]any, 0, len(responded))
+	for _, row := range responded {
+		respondedRows = append(respondedRows, row)
+	}
+	sort.Slice(respondedRows, func(i, j int) bool { return respondedRows[i]["member"].(string) < respondedRows[j]["member"].(string) })
+	state := "open"
+	closedReason := ""
+	if len(required) > 0 && len(missing) == 0 {
+		state = "closed"
+		if autoDropCount > 0 {
+			closedReason = "timeout"
+		} else {
+			closedReason = "all_members_responded"
+		}
+	} else if !window.deadline.IsZero() && now.After(window.deadline) {
+		state = "closed"
+		closedReason = "timeout"
+	}
+	out := map[string]any{
+		"configured":                    true,
+		"turn":                          turn,
+		"request_event_id":              window.eventID,
+		"response_window_id":            window.id,
+		"duration_sec":                  window.durationSec,
+		"opened_at":                     window.openedAt.Format(time.RFC3339Nano),
+		"deadline_at":                   window.deadline.Format(time.RFC3339Nano),
+		"state":                         state,
+		"closed_reason":                 closedReason,
+		"required_members":              required,
+		"required_count":                len(required),
+		"responded_members":             respondedRows,
+		"responded_count":               len(respondedRows),
+		"missing_members":               missing,
+		"missing_count":                 len(missing),
+		"auto_drop_count":               autoDropCount,
+		"participant_runtime_readiness": "not_claimed_prslr004_pending",
+	}
+	return out
+}
+
+func responseWindowResponseMember(event EventEnvelope) string {
+	if event.Type == "hand_raise_dropped" {
+		if member := strings.TrimSpace(payloadStringDefault(event.Payload, "member", "")); member != "" {
+			return member
+		}
+	}
+	return strings.TrimSpace(event.From)
+}
+
+func sameCommandEventType(index *LogIndex, commandID string, eventType string) bool {
+	commandID = strings.TrimSpace(commandID)
+	if index == nil || commandID == "" || strings.TrimSpace(eventType) == "" {
+		return false
+	}
+	for _, event := range index.Events {
+		if event.CommandID == commandID && event.Type == eventType {
+			return true
+		}
+	}
+	return false
+}
+
 func speakerGranted(index *LogIndex, member string, turn int) bool {
 	for _, e := range index.Events {
 		if e.Type == "speaker_selected" && anyInt(e.Payload, "turn") == turn && (payloadStringDefault(e.Payload, "member", "") == member || (len(e.To) == 1 && e.To[0] == member)) {
@@ -1136,10 +1406,11 @@ func councilHandRaiseStatus(index *LogIndex) []map[string]any {
 		if event.Type == "hand_raise_dropped" {
 			status = "dropped"
 		}
+		member := responseWindowResponseMember(event)
 		row := map[string]any{
 			"event_id":       event.EventID,
 			"turn":           turn,
-			"member":         event.From,
+			"member":         member,
 			"status":         status,
 			"wants_to_speak": anyBool(event.Payload, "wants_to_speak"),
 			"intent":         payloadStringDefault(event.Payload, "intent", ""),

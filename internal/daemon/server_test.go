@@ -92,6 +92,93 @@ func TestIntegrationDaemonLifecycleStatusHealthAndShutdown(t *testing.T) {
 	}
 }
 
+func TestIntegrationPRSLR003DaemonResponseWindowSweepReplaysTimeoutsWithoutDuplicates(t *testing.T) {
+	dataHome := enabledCouncilDataHome(t)
+	loaded, err := registry.Load(dataHome, registry.DefaultRuntime())
+	if err != nil {
+		t.Fatalf("load registry: %v", err)
+	}
+	baseNow := time.Date(2026, 7, 4, 13, 30, 0, 0, time.UTC)
+	metadata, _, _, err := storage.CreateCouncil(dataHome, loaded, storage.CouncilStartSpec{
+		Session: storage.SessionSpec{ID: "sess_prslr003_daemon_replay", SessionType: storage.SessionTypeCouncil, Title: "PRSLR-003 daemon replay", Moderator: "agent-mod", EventID: "evt_prslr003_daemon_created", CommandID: "cmd_prslr003_daemon_new"},
+		Members: []string{"agent-1"},
+		Now:     baseNow,
+	}, registry.DefaultRuntime())
+	if err != nil {
+		t.Fatalf("CreateCouncil: %v", err)
+	}
+	sessionDir, err := storage.SessionDir(dataHome, metadata.ID)
+	if err != nil {
+		t.Fatalf("SessionDir: %v", err)
+	}
+	if _, _, err := storage.RecordCouncilEvent(sessionDir, metadata, storage.CouncilEventSpec{Action: "prepare", Actor: "agent-mod", CommandID: "cmd_prslr003_daemon_prepare", Payload: map[string]any{"timeout_sec": 60}, Now: baseNow.Add(time.Second)}); err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+	if _, _, err := storage.RecordCouncilEvent(sessionDir, metadata, storage.CouncilEventSpec{Action: "poll", Actor: "agent-mod", CommandID: "cmd_prslr003_daemon_poll_1", Payload: map[string]any{"turn": 1}, Now: baseNow.Add(2 * time.Second)}); err != nil {
+		t.Fatalf("poll: %v", err)
+	}
+
+	runtime := registry.DefaultRuntime()
+	runtime.Now = func() time.Time { return baseNow.Add(123 * time.Second) }
+	runSweeperDaemon := func() {
+		t.Helper()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		server := daemon.NewServer(dataHome, runtime)
+		server.ResponseWindowSweepInterval = 10 * time.Millisecond
+		errCh := make(chan error, 1)
+		go func() { errCh <- server.Run(ctx) }()
+		waitForDaemon(t, dataHome)
+		defer func() {
+			cancel()
+			select {
+			case err := <-errCh:
+				if err != nil {
+					t.Fatalf("daemon run returned error: %v", err)
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatalf("daemon did not stop")
+			}
+		}()
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			index, err := storage.ReadLogIndex(sessionDir, metadata)
+			if err != nil {
+				t.Fatalf("read log: %v", err)
+			}
+			if len(index.Events) >= 4 {
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		t.Fatalf("timeout waiting for response-window sweeper append")
+	}
+
+	runSweeperDaemon()
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("read log after first sweep: %v", err)
+	}
+	countAfterFirst := len(index.Events)
+	var autoDrops int
+	for _, event := range index.Events {
+		if event.Type == "hand_raise_dropped" && event.From == "atn-controld" && event.Payload["member"] == "agent-1" && event.Payload["auto"] == true {
+			autoDrops++
+		}
+	}
+	if autoDrops != 1 {
+		t.Fatalf("expected one timeout auto-drop after first sweep, got %d", autoDrops)
+	}
+	runSweeperDaemon()
+	index, err = storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("read log after replay sweep: %v", err)
+	}
+	if len(index.Events) != countAfterFirst {
+		t.Fatalf("restart replay appended duplicate auto-drop: before=%d after=%d", countAfterFirst, len(index.Events))
+	}
+}
+
 func TestUnitDaemonUnsupportedTransportCommandFailsClosedWithoutWrites(t *testing.T) {
 	dataHome := daemonDataHome(t)
 	before := treeFingerprint(t, dataHome)
