@@ -475,6 +475,7 @@ func latestPhase(metadata *SessionMetadata, index *LogIndex) Phase {
 }
 
 func appendIdempotentEvent(sessionDir string, metadata *SessionMetadata, index *LogIndex, event EventEnvelope) (AppendResult, bool, error) {
+	prepareEventForAppend(metadata, index, &event)
 	if event.CommandID != "" {
 		for offset, existing := range index.Events {
 			if existing.CommandID != event.CommandID {

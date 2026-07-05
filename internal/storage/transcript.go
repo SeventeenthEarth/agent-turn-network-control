@@ -347,6 +347,40 @@ func renderSelectedRunnerPromptEvidenceSummary(b *strings.Builder, evidence *Sel
 	if len(evidence.OwnClaimIndexSourceEventIDs) > 0 {
 		fmt.Fprintf(b, "- own_claim_index_source_event_ids: `%s`\n", mustCompactJSON(evidence.OwnClaimIndexSourceEventIDs))
 	}
+	if evidence.ParticipantRuntimeMode != "" {
+		fmt.Fprintf(b, "- participant_runtime_mode: `%s`\n", evidence.ParticipantRuntimeMode)
+	}
+	if evidence.HotPromptStrategy != "" {
+		fmt.Fprintf(b, "- hot_prompt_strategy: `%s`\n", evidence.HotPromptStrategy)
+	}
+	if len(evidence.DeltaSourceEventIDs) > 0 {
+		fmt.Fprintf(b, "- delta_source_event_ids: `%s`\n", mustCompactJSON(evidence.DeltaSourceEventIDs))
+	}
+	if len(evidence.RehydrateSourceEventIDs) > 0 {
+		fmt.Fprintf(b, "- rehydrate_source_event_ids: `%s`\n", mustCompactJSON(evidence.RehydrateSourceEventIDs))
+	}
+	if evidence.RehydrateValidationStatus != "" {
+		fmt.Fprintf(b, "- rehydrate_validation_status: `%s`\n", evidence.RehydrateValidationStatus)
+	}
+	if len(evidence.RehydrateValidationFailures) > 0 {
+		fmt.Fprintf(b, "- rehydrate_validation_failures: `%s`\n", mustCompactJSON(evidence.RehydrateValidationFailures))
+	}
+	fmt.Fprintf(b, "- stateless_fallback: `%t`\n", evidence.StatelessFallback)
+	if evidence.StatelessFallbackStatus != "" {
+		fmt.Fprintf(b, "- stateless_fallback_status: `%s`\n", evidence.StatelessFallbackStatus)
+	}
+	if evidence.FullHistoryHotPromptStatus != "" {
+		fmt.Fprintf(b, "- full_history_hot_prompt_status: `%s`\n", evidence.FullHistoryHotPromptStatus)
+	}
+	if evidence.OwnHistoryHotPromptStatus != "" {
+		fmt.Fprintf(b, "- own_history_hot_prompt_status: `%s`\n", evidence.OwnHistoryHotPromptStatus)
+	}
+	if evidence.RuntimeBlockStatus != "" {
+		fmt.Fprintf(b, "- runtime_block_status: `%s`\n", evidence.RuntimeBlockStatus)
+	}
+	if evidence.RuntimeBlockReason != "" {
+		fmt.Fprintf(b, "- runtime_block_reason: `%s`\n", evidence.RuntimeBlockReason)
+	}
 	if strings.TrimSpace(evidence.RedactedPromptExcerpt) != "" {
 		fmt.Fprintf(b, "- redacted_prompt_excerpt: `%s`\n", escapeMarkdownTableCell(evidence.RedactedPromptExcerpt))
 	}

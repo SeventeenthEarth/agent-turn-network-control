@@ -877,15 +877,27 @@ func selectedRunnerPromptEvidenceRecorded(events []storage.EventEnvelope, speake
 
 func selectedRunnerPromptEvidencePayload(evidence storage.SelectedRunnerPromptEvidence) map[string]any {
 	payload := map[string]any{
-		"session_id":                evidence.SessionID,
-		"speaker_selected_event_id": evidence.SpeakerSelectedEventID,
-		"selected_member":           evidence.SelectedMember,
-		"turn":                      evidence.Turn,
-		"causation_event_id":        evidence.CausationEventID,
-		"result":                    evidence.Result,
-		"included_context":          append([]string(nil), evidence.IncludedContext...),
-		"missing_required_context":  append([]string(nil), evidence.MissingRequiredContext...),
-		"prompt_context_sha256":     evidence.PromptContextSHA256,
+		"session_id":                     evidence.SessionID,
+		"speaker_selected_event_id":      evidence.SpeakerSelectedEventID,
+		"selected_member":                evidence.SelectedMember,
+		"turn":                           evidence.Turn,
+		"causation_event_id":             evidence.CausationEventID,
+		"result":                         evidence.Result,
+		"included_context":               append([]string(nil), evidence.IncludedContext...),
+		"missing_required_context":       append([]string(nil), evidence.MissingRequiredContext...),
+		"participant_runtime_mode":       evidence.ParticipantRuntimeMode,
+		"hot_prompt_strategy":            evidence.HotPromptStrategy,
+		"delta_source_event_ids":         append([]string(nil), evidence.DeltaSourceEventIDs...),
+		"rehydrate_source_event_ids":     append([]string(nil), evidence.RehydrateSourceEventIDs...),
+		"rehydrate_validation_status":    evidence.RehydrateValidationStatus,
+		"rehydrate_validation_failures":  append([]string(nil), evidence.RehydrateValidationFailures...),
+		"stateless_fallback":             evidence.StatelessFallback,
+		"stateless_fallback_status":      evidence.StatelessFallbackStatus,
+		"full_history_hot_prompt_status": evidence.FullHistoryHotPromptStatus,
+		"own_history_hot_prompt_status":  evidence.OwnHistoryHotPromptStatus,
+		"runtime_block_status":           evidence.RuntimeBlockStatus,
+		"runtime_block_reason":           evidence.RuntimeBlockReason,
+		"prompt_context_sha256":          evidence.PromptContextSHA256,
 	}
 	if len(evidence.AgendaSourceEventIDs) > 0 {
 		payload["agenda_source_event_ids"] = append([]string(nil), evidence.AgendaSourceEventIDs...)

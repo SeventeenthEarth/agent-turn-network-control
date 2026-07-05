@@ -76,6 +76,12 @@ func TestNEWFIX001CouncilGrantBuildsProjectionBackedPromptEvidenceWithPriorClaim
 	if evidenceEvent.Payload["result"] != "pass" {
 		t.Fatalf("prompt evidence should pass: %#v", evidenceEvent.Payload)
 	}
+	if evidenceEvent.Payload["participant_runtime_mode"] != "persistent_delta" || evidenceEvent.Payload["hot_prompt_strategy"] != "delta_only" || evidenceEvent.Payload["stateless_fallback"] != false {
+		t.Fatalf("PRSLR-005 prompt evidence should expose persistent delta/no-fallback hot path: %#v", evidenceEvent.Payload)
+	}
+	if evidenceEvent.Payload["full_history_hot_prompt_status"] != "rejected" || evidenceEvent.Payload["own_history_hot_prompt_status"] != "rejected" {
+		t.Fatalf("PRSLR-005 prompt evidence should reject full-history hot lanes: %#v", evidenceEvent.Payload)
+	}
 	included := anyStringSliceTest(evidenceEvent.Payload["included_context"])
 	for _, want := range []string{"decision_question", "success_criteria", "out_of_scope_policy"} {
 		if !containsString(included, want) {
@@ -120,12 +126,15 @@ func TestNEWFIX001CouncilGrantBuildsProjectionBackedPromptEvidenceWithPriorClaim
 	if len(statusEvidence.OwnHistorySourceEventIDs) == 0 || len(statusEvidence.OwnLatestClaimSourceEventIDs) == 0 || len(statusEvidence.OwnClaimIndexSourceEventIDs) == 0 {
 		t.Fatalf("status prompt evidence should expose own-history provenance: %#v", statusEvidence)
 	}
+	if statusEvidence.ParticipantRuntimeMode != "persistent_delta" || statusEvidence.HotPromptStrategy != "delta_only" || statusEvidence.StatelessFallback || statusEvidence.FullHistoryHotPromptStatus != "rejected" {
+		t.Fatalf("status prompt evidence should expose PRSLR-005 persistent delta policy: %#v", statusEvidence)
+	}
 
 	transcript, err := storage.RenderTranscript(sessionDir, metadata, storage.TranscriptMarkdownFormat)
 	if err != nil {
 		t.Fatalf("RenderTranscript: %v", err)
 	}
-	for _, want := range []string{"Selected Runner Prompt Evidence", "prompt_context_sha256", "prior_context_source_event_ids", "own_history_source_event_ids", "own_claim_index_source_event_ids"} {
+	for _, want := range []string{"Selected Runner Prompt Evidence", "prompt_context_sha256", "prior_context_source_event_ids", "own_history_source_event_ids", "own_claim_index_source_event_ids", "participant_runtime_mode", "stateless_fallback"} {
 		if !strings.Contains(string(transcript), want) {
 			t.Fatalf("transcript missing %q:\n%s", want, string(transcript))
 		}
@@ -149,6 +158,9 @@ func TestNEWFIX001CouncilGrantBuildsProjectionBackedPromptEvidenceWithPriorClaim
 	}
 	if !containsString(anyStringSliceTest(manifestEvidence["own_history_source_event_ids"]), "evt_speech_cmd_prior_speak_turn_1") {
 		t.Fatalf("manifest prompt evidence should expose own-history provenance: %#v", manifestEvidence)
+	}
+	if manifestEvidence["participant_runtime_mode"] != "persistent_delta" || manifestEvidence["hot_prompt_strategy"] != "delta_only" || manifestEvidence["stateless_fallback"] != false || manifestEvidence["full_history_hot_prompt_status"] != "rejected" {
+		t.Fatalf("manifest prompt evidence should expose PRSLR-005 persistent delta policy: %#v", manifestEvidence)
 	}
 }
 

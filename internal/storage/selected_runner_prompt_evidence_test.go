@@ -302,6 +302,454 @@ func TestUnitNEWFIX004BuildSelectedRunnerPromptEnvelopeBlocksStaleLatestClaimsWh
 	}
 }
 
+func TestUnitPRSLR005BuildSelectedRunnerPromptEnvelopeMarksPersistentDeltaAndRejectsHotFallbackLanes(t *testing.T) {
+	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "prslr005_persistent_delta")
+	appendSelectedRunnerPromptAgendaEvent(t, sessionDir, metadata, "evt_agenda_prslr005_delta", fixedTranscriptTime())
+	appendSelectedRunnerPromptSpeechEvent(t, sessionDir, metadata, "evt_prior_prslr005_delta", "agent-1", map[string]any{
+		"turn":   1,
+		"speech": "Prior selected-member speech retained only as rehydrate/audit provenance.",
+		"claims": []any{map[string]any{"claim_id": "T1.C1", "summary": "Prior claim is ARGUE provenance, not a full-history hot lane."}},
+	}, time.Second)
+	speaker := selectedRunnerAccountingSpeakerSelected(metadata, "evt_selected_prslr005_delta", "agent-1", 2, 2*time.Second)
+	speaker.Payload["stance_assignment"] = "answer"
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, speaker)
+
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	envelope, err := BuildSelectedRunnerPromptEnvelope(metadata, index, speaker, registry.Member{ID: "agent-1", Role: "assignee"})
+	if err != nil {
+		t.Fatalf("BuildSelectedRunnerPromptEnvelope: %v", err)
+	}
+	if envelope.Evidence.Result != "pass" {
+		t.Fatalf("persistent_delta hot prompt should pass when delta authority is valid: %#v", envelope.Evidence)
+	}
+	if envelope.Evidence.ParticipantRuntimeMode != "persistent_delta" || envelope.Evidence.HotPromptStrategy != "delta_only" {
+		t.Fatalf("prompt evidence should mark persistent delta hot path: %#v", envelope.Evidence)
+	}
+	if envelope.Evidence.StatelessFallback || envelope.Evidence.StatelessFallbackStatus != "disabled" {
+		t.Fatalf("stateless fallback must be explicitly disabled: %#v", envelope.Evidence)
+	}
+	if envelope.Evidence.FullHistoryHotPromptStatus != "rejected" || envelope.Evidence.OwnHistoryHotPromptStatus != "rejected" {
+		t.Fatalf("full-history/own-history hot lanes must be rejected: %#v", envelope.Evidence)
+	}
+	if envelope.Evidence.RehydrateValidationStatus != "not_required_hot_delta" || envelope.Evidence.RuntimeBlockStatus != "not_blocked" {
+		t.Fatalf("hot delta should not require rehydrate or block runtime: %#v", envelope.Evidence)
+	}
+	for _, want := range []string{"evt_agenda_prslr005_delta", "evt_prior_prslr005_delta", "evt_selected_prslr005_delta"} {
+		if !containsPromptKey(envelope.Evidence.DeltaSourceEventIDs, want) {
+			t.Fatalf("delta source refs should include %q: %#v", want, envelope.Evidence)
+		}
+	}
+	if !containsPromptKey(envelope.Evidence.RehydrateSourceEventIDs, "evt_prior_prslr005_delta") {
+		t.Fatalf("prior own-history should remain rehydrate/audit provenance, not hot fallback: %#v", envelope.Evidence)
+	}
+	for _, want := range []string{
+		"participant_runtime_mode: persistent_delta",
+		"hot_prompt_strategy: delta_only",
+		"stateless_fallback: false",
+		"full_history_hot_prompt_status: rejected",
+		"own_history_hot_prompt_status: rejected",
+	} {
+		if !strings.Contains(envelope.Prompt, want) {
+			t.Fatalf("prompt missing PRSLR-005 marker %q:\n%s", want, envelope.Prompt)
+		}
+	}
+}
+
+func TestUnitPRSLR005BuildSelectedRunnerPromptEnvelopeValidatesMatchingRehydrateIdentity(t *testing.T) {
+	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "prslr005_rehydrate_valid")
+	appendSelectedRunnerPromptAgendaEvent(t, sessionDir, metadata, "evt_agenda_prslr005_rehydrate_valid", fixedTranscriptTime())
+	speaker := selectedRunnerAccountingSpeakerSelected(metadata, "evt_selected_prslr005_rehydrate_valid", "agent-1", 1, time.Second)
+	speaker.Payload["stance_assignment"] = "answer"
+	speaker.Payload["participant_runtime_rehydrate_required"] = true
+	speaker.Payload["participant_runtime_rehydrate"] = map[string]any{
+		"session_id":             metadata.ID,
+		"member":                 "agent-1",
+		"cursor":                 CursorFor(0, "evt_agenda_prslr005_rehydrate_valid"),
+		"ack_cursor":             CursorFor(0, "evt_agenda_prslr005_rehydrate_valid"),
+		"participant_handle":     "handle-valid",
+		"expected_handle":        "handle-valid",
+		"generation":             3,
+		"expected_generation":    3,
+		"source_event_ids":       []any{"evt_agenda_prslr005_rehydrate_valid"},
+		"argue_source_event_ids": []any{},
+	}
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, speaker)
+
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	envelope, err := BuildSelectedRunnerPromptEnvelope(metadata, index, speaker, registry.Member{ID: "agent-1", Role: "assignee"})
+	if err != nil {
+		t.Fatalf("BuildSelectedRunnerPromptEnvelope: %v", err)
+	}
+	if envelope.Evidence.Result != "pass" {
+		t.Fatalf("matching rehydrate identity should pass: %#v", envelope.Evidence)
+	}
+	if envelope.Evidence.RehydrateValidationStatus != "validated" || envelope.Evidence.RuntimeBlockStatus != "not_blocked" || len(envelope.Evidence.RehydrateValidationFailures) != 0 {
+		t.Fatalf("matching rehydrate identity should validate without failures: %#v", envelope.Evidence)
+	}
+	if !containsPromptKey(envelope.Evidence.RehydrateSourceEventIDs, "evt_agenda_prslr005_rehydrate_valid") {
+		t.Fatalf("validated rehydrate should preserve source refs: %#v", envelope.Evidence)
+	}
+}
+
+func TestUnitPRSLR005BuildSelectedRunnerPromptEnvelopeBlocksRehydrateIdentityMismatch(t *testing.T) {
+	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "prslr005_rehydrate_mismatch")
+	appendSelectedRunnerPromptAgendaEvent(t, sessionDir, metadata, "evt_agenda_prslr005_rehydrate", fixedTranscriptTime())
+	speaker := selectedRunnerAccountingSpeakerSelected(metadata, "evt_selected_prslr005_rehydrate", "agent-1", 1, time.Second)
+	speaker.Payload["stance_assignment"] = "answer"
+	speaker.Payload["participant_runtime_rehydrate_required"] = true
+	speaker.Payload["participant_runtime_rehydrate"] = map[string]any{
+		"session_id":             "wrong-session",
+		"member":                 "agent-other",
+		"cursor":                 "cur_000001_evt_prior",
+		"ack_cursor":             "cur_000999_evt_other",
+		"participant_handle":     "handle-a",
+		"expected_handle":        "handle-b",
+		"generation":             2,
+		"expected_generation":    3,
+		"source_event_ids":       []any{"evt_agenda_prslr005_rehydrate"},
+		"argue_source_event_ids": []any{"evt_missing_argue"},
+	}
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, speaker)
+
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	envelope, err := BuildSelectedRunnerPromptEnvelope(metadata, index, speaker, registry.Member{ID: "agent-1", Role: "assignee"})
+	if err != nil {
+		t.Fatalf("BuildSelectedRunnerPromptEnvelope: %v", err)
+	}
+	if envelope.Evidence.Result != "blocked" {
+		t.Fatalf("rehydrate identity mismatch must block prompt evidence: %#v", envelope.Evidence)
+	}
+	if envelope.Evidence.RehydrateValidationStatus != "failed" || envelope.Evidence.RuntimeBlockStatus != "blocked_rehydrate_failed" {
+		t.Fatalf("rehydrate failure should block whole runtime/council: %#v", envelope.Evidence)
+	}
+	if !containsPromptKey(envelope.Evidence.MissingRequiredContext, "rehydrate_identity_validation") {
+		t.Fatalf("missing context should record rehydrate identity failure: %#v", envelope.Evidence)
+	}
+	for _, want := range []string{"session_id_mismatch", "member_mismatch", "cursor_malformed", "ack_cursor_mismatch", "participant_handle_mismatch", "generation_mismatch", "argue_source_event_id_unresolved"} {
+		if !containsPromptKey(envelope.Evidence.RehydrateValidationFailures, want) {
+			t.Fatalf("rehydrate failure missing %q: %#v", want, envelope.Evidence)
+		}
+	}
+	if !strings.Contains(envelope.Prompt, "runtime_block_status: blocked_rehydrate_failed") {
+		t.Fatalf("blocked prompt should disclose runtime block status:\n%s", envelope.Prompt)
+	}
+}
+
+func TestUnitPRSLR005BuildSelectedRunnerPromptEnvelopeBlocksStaleEqualAckCursorAndMissingRefs(t *testing.T) {
+	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "prslr005_rehydrate_stale_cursor")
+	appendSelectedRunnerPromptAgendaEvent(t, sessionDir, metadata, "evt_agenda_prslr005_stale_cursor", fixedTranscriptTime())
+	speaker := selectedRunnerAccountingSpeakerSelected(metadata, "evt_selected_prslr005_stale_cursor", "agent-1", 1, time.Second)
+	speaker.Payload["stance_assignment"] = "answer"
+	speaker.Payload["participant_runtime_rehydrate_required"] = true
+	speaker.Payload["participant_runtime_rehydrate"] = map[string]any{
+		"session_id":             metadata.ID,
+		"member":                 "agent-1",
+		"cursor":                 CursorFor(99, "evt_missing_cursor"),
+		"ack_cursor":             CursorFor(99, "evt_missing_cursor"),
+		"participant_handle":     "handle-stale",
+		"expected_handle":        "handle-stale",
+		"generation":             1,
+		"expected_generation":    1,
+		"source_event_ids":       []any{},
+		"argue_source_event_ids": []any{},
+	}
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, speaker)
+
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	envelope, err := BuildSelectedRunnerPromptEnvelope(metadata, index, speaker, registry.Member{ID: "agent-1", Role: "assignee"})
+	if err != nil {
+		t.Fatalf("BuildSelectedRunnerPromptEnvelope: %v", err)
+	}
+	if envelope.Evidence.Result != "blocked" || envelope.Evidence.RuntimeBlockStatus != "blocked_rehydrate_failed" {
+		t.Fatalf("stale matching cursor and missing refs must block: %#v", envelope.Evidence)
+	}
+	for _, want := range []string{"cursor_authority_mismatch", "source_event_ids_missing", "cursor_source_ref_mismatch"} {
+		if !containsPromptKey(envelope.Evidence.RehydrateValidationFailures, want) {
+			t.Fatalf("rehydrate stale cursor failure missing %q: %#v", want, envelope.Evidence)
+		}
+	}
+}
+
+func TestUnitPRSLR005BuildSelectedRunnerPromptEnvelopeBlocksCurrentAuthorityMismatch(t *testing.T) {
+	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "prslr005_rehydrate_source_mismatch")
+	appendSelectedRunnerPromptAgendaEvent(t, sessionDir, metadata, "evt_agenda_prslr005_source_mismatch", fixedTranscriptTime())
+	appendSelectedRunnerPromptSpeechEvent(t, sessionDir, metadata, "evt_other_prslr005_source_mismatch", "agent-1", map[string]any{"speech": "other source"}, 500*time.Millisecond)
+	speaker := selectedRunnerAccountingSpeakerSelected(metadata, "evt_selected_prslr005_source_mismatch", "agent-1", 1, time.Second)
+	speaker.Payload["stance_assignment"] = "answer"
+	speaker.Payload["participant_runtime_rehydrate_required"] = true
+	speaker.Payload["participant_runtime_rehydrate"] = map[string]any{
+		"session_id":             metadata.ID,
+		"member":                 "agent-1",
+		"cursor":                 CursorFor(0, "evt_agenda_prslr005_source_mismatch"),
+		"ack_cursor":             CursorFor(0, "evt_agenda_prslr005_source_mismatch"),
+		"participant_handle":     "handle-valid",
+		"expected_handle":        "handle-valid",
+		"generation":             1,
+		"expected_generation":    1,
+		"source_event_ids":       []any{"evt_other_prslr005_source_mismatch"},
+		"argue_source_event_ids": []any{},
+	}
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, speaker)
+
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	envelope, err := BuildSelectedRunnerPromptEnvelope(metadata, index, speaker, registry.Member{ID: "agent-1", Role: "assignee"})
+	if err != nil {
+		t.Fatalf("BuildSelectedRunnerPromptEnvelope: %v", err)
+	}
+	if envelope.Evidence.Result != "blocked" || !containsPromptKey(envelope.Evidence.RehydrateValidationFailures, "cursor_source_ref_mismatch") {
+		t.Fatalf("cursor authority source mismatch must block: %#v", envelope.Evidence)
+	}
+}
+
+func TestUnitPRSLR005BuildSelectedRunnerPromptEnvelopeBlocksMissingPersistentRuntimeMemberRow(t *testing.T) {
+	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "prslr005_rehydrate_producer")
+	appendSelectedRunnerPromptAgendaEvent(t, sessionDir, metadata, "evt_agenda_prslr005_producer", fixedTranscriptTime())
+	producerTurn := 1
+	producerRuntimeEvent := EventEnvelope{
+		SchemaVersion: protocol.SchemaVersion,
+		EventID:       "evt_speech_prslr005_producer",
+		CommandID:     "cmd_evt_speech_prslr005_producer",
+		CorrelationID: metadata.ID,
+		SessionID:     metadata.ID,
+		SessionType:   metadata.SessionType,
+		Turn:          &producerTurn,
+		Phase:         "discussion",
+		Type:          "speech",
+		From:          "agent-1",
+		To:            []string{metadata.Moderator},
+		CreatedAt:     fixedTranscriptTime().Add(500 * time.Millisecond),
+		Payload: map[string]any{
+			"speech": "prior speech with runtime coverage",
+			"persistent_participant_runtime_evidence": map[string]any{
+				"status":          "coverage_complete",
+				"speech_event_id": "evt_speech_prslr005_producer",
+				"coverage_cursor": CursorFor(1, "evt_speech_prslr005_producer"),
+				"members": []any{map[string]any{
+					"member":                     "agent-other",
+					"participant_session_handle": "handle-derived",
+					"generation":                 1,
+					"last_cursor":                CursorFor(1, "evt_speech_prslr005_producer"),
+					"last_event_id":              "evt_speech_prslr005_producer",
+				}},
+			},
+		},
+	}
+	content, err := json.Marshal(producerRuntimeEvent)
+	if err != nil {
+		t.Fatalf("marshal producer runtime event: %v", err)
+	}
+	channel, err := os.OpenFile(filepath.Join(sessionDir, ChannelJSONLName), os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatalf("open channel for producer runtime event: %v", err)
+	}
+	if _, err := channel.Write(append(content, '\n')); err != nil {
+		_ = channel.Close()
+		t.Fatalf("write producer runtime event: %v", err)
+	}
+	if err := channel.Close(); err != nil {
+		t.Fatalf("close producer runtime event channel: %v", err)
+	}
+	speaker := selectedRunnerAccountingSpeakerSelected(metadata, "evt_selected_prslr005_producer", "agent-1", 2, time.Second)
+	speaker.Payload["stance_assignment"] = "answer"
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, speaker)
+
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	envelope, err := BuildSelectedRunnerPromptEnvelope(metadata, index, speaker, registry.Member{ID: "agent-1", Role: "assignee"})
+	if err != nil {
+		t.Fatalf("BuildSelectedRunnerPromptEnvelope: %v", err)
+	}
+	if envelope.Evidence.Result != "blocked" || envelope.Evidence.RehydrateValidationStatus != "failed" || envelope.Evidence.RuntimeBlockStatus != "blocked_rehydrate_failed" {
+		t.Fatalf("missing persistent runtime member row should produce rehydrate block before runner: %#v", envelope.Evidence)
+	}
+	for _, want := range []string{"cursor_missing", "source_event_ids_missing"} {
+		if !containsPromptKey(envelope.Evidence.RehydrateValidationFailures, want) {
+			t.Fatalf("derived rehydrate block missing %q: %#v", want, envelope.Evidence)
+		}
+	}
+}
+
+func TestUnitPRSLR005BuildSelectedRunnerPromptEnvelopeBlocksStalePersistentRuntimeMemberCursor(t *testing.T) {
+	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "prslr005_rehydrate_stale_runtime_member_cursor")
+	appendSelectedRunnerPromptAgendaEvent(t, sessionDir, metadata, "evt_agenda_prslr005_runtime_stale", fixedTranscriptTime())
+	staleTurn := 1
+	staleRuntimeEvent := EventEnvelope{
+		SchemaVersion: protocol.SchemaVersion,
+		EventID:       "evt_speech_prslr005_runtime_stale",
+		CommandID:     "cmd_evt_speech_prslr005_runtime_stale",
+		CorrelationID: metadata.ID,
+		SessionID:     metadata.ID,
+		SessionType:   metadata.SessionType,
+		Turn:          &staleTurn,
+		Phase:         "discussion",
+		Type:          "speech",
+		From:          "agent-1",
+		To:            []string{metadata.Moderator},
+		CreatedAt:     fixedTranscriptTime().Add(500 * time.Millisecond),
+		Payload: map[string]any{
+			"speech": "prior speech with stale persistent runtime coverage",
+			"persistent_participant_runtime_evidence": map[string]any{
+				"status":          "coverage_complete",
+				"speech_event_id": "evt_speech_prslr005_runtime_stale",
+				"coverage_cursor": CursorFor(1, "evt_speech_prslr005_runtime_stale"),
+				"members": []any{map[string]any{
+					"member":                     "agent-1",
+					"participant_session_handle": "handle-derived",
+					"generation":                 1,
+					"last_cursor":                CursorFor(99, "evt_missing_runtime_cursor"),
+					"last_event_id":              "evt_missing_runtime_cursor",
+				}},
+			},
+		},
+	}
+	content, err := json.Marshal(staleRuntimeEvent)
+	if err != nil {
+		t.Fatalf("marshal stale runtime event: %v", err)
+	}
+	channel, err := os.OpenFile(filepath.Join(sessionDir, ChannelJSONLName), os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatalf("open channel for stale runtime event: %v", err)
+	}
+	if _, err := channel.Write(append(content, '\n')); err != nil {
+		_ = channel.Close()
+		t.Fatalf("write stale runtime event: %v", err)
+	}
+	if err := channel.Close(); err != nil {
+		t.Fatalf("close stale runtime event channel: %v", err)
+	}
+	speaker := selectedRunnerAccountingSpeakerSelected(metadata, "evt_selected_prslr005_runtime_stale", "agent-1", 2, time.Second)
+	speaker.Payload["stance_assignment"] = "answer"
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, speaker)
+
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	envelope, err := BuildSelectedRunnerPromptEnvelope(metadata, index, speaker, registry.Member{ID: "agent-1", Role: "assignee"})
+	if err != nil {
+		t.Fatalf("BuildSelectedRunnerPromptEnvelope: %v", err)
+	}
+	if envelope.Evidence.Result != "blocked" || envelope.Evidence.RehydrateValidationStatus != "failed" || envelope.Evidence.RuntimeBlockStatus != "blocked_rehydrate_failed" {
+		t.Fatalf("stale selected-member persistent runtime cursor should produce rehydrate block before runner: %#v", envelope.Evidence)
+	}
+	for _, want := range []string{"cursor_authority_mismatch", "source_event_id_unresolved"} {
+		if !containsPromptKey(envelope.Evidence.RehydrateValidationFailures, want) {
+			t.Fatalf("derived stale-runtime rehydrate block missing %q: %#v", want, envelope.Evidence)
+		}
+	}
+}
+
+func TestUnitPRSLR005BuildSelectedRunnerPromptEnvelopeBlocksMismatchedPersistentRuntimeCursorSource(t *testing.T) {
+	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "prslr005_rehydrate_mismatch_runtime_member_cursor_source")
+	appendSelectedRunnerPromptAgendaEvent(t, sessionDir, metadata, "evt_agenda_prslr005_runtime_mismatch", fixedTranscriptTime())
+	mismatchTurn := 1
+	mismatchRuntimeEvent := EventEnvelope{
+		SchemaVersion: protocol.SchemaVersion,
+		EventID:       "evt_speech_prslr005_runtime_mismatch",
+		CommandID:     "cmd_evt_speech_prslr005_runtime_mismatch",
+		CorrelationID: metadata.ID,
+		SessionID:     metadata.ID,
+		SessionType:   metadata.SessionType,
+		Turn:          &mismatchTurn,
+		Phase:         "discussion",
+		Type:          "speech",
+		From:          "agent-1",
+		To:            []string{metadata.Moderator},
+		CreatedAt:     fixedTranscriptTime().Add(500 * time.Millisecond),
+		Payload: map[string]any{
+			"speech": "prior speech with mismatched persistent runtime cursor/source",
+			"persistent_participant_runtime_evidence": map[string]any{
+				"status":          "coverage_complete",
+				"speech_event_id": "evt_speech_prslr005_runtime_mismatch",
+				"coverage_cursor": CursorFor(1, "evt_speech_prslr005_runtime_mismatch"),
+				"members": []any{map[string]any{
+					"member":                     "agent-1",
+					"participant_session_handle": "handle-derived",
+					"generation":                 1,
+					"last_cursor":                CursorFor(1, "evt_speech_prslr005_runtime_mismatch"),
+					"last_event_id":              "evt_agenda_prslr005_runtime_mismatch",
+				}},
+			},
+		},
+	}
+	content, err := json.Marshal(mismatchRuntimeEvent)
+	if err != nil {
+		t.Fatalf("marshal mismatch runtime event: %v", err)
+	}
+	channel, err := os.OpenFile(filepath.Join(sessionDir, ChannelJSONLName), os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatalf("open channel for mismatch runtime event: %v", err)
+	}
+	if _, err := channel.Write(append(content, '\n')); err != nil {
+		_ = channel.Close()
+		t.Fatalf("write mismatch runtime event: %v", err)
+	}
+	if err := channel.Close(); err != nil {
+		t.Fatalf("close mismatch runtime event channel: %v", err)
+	}
+	speaker := selectedRunnerAccountingSpeakerSelected(metadata, "evt_selected_prslr005_runtime_mismatch", "agent-1", 2, time.Second)
+	speaker.Payload["stance_assignment"] = "answer"
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, speaker)
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	envelope, err := BuildSelectedRunnerPromptEnvelope(metadata, index, speaker, registry.Member{ID: "agent-1", Role: "participant"})
+	if err != nil {
+		t.Fatalf("BuildSelectedRunnerPromptEnvelope: %v", err)
+	}
+	if envelope.Evidence.Result != "blocked" || envelope.Evidence.RehydrateValidationStatus != "failed" || envelope.Evidence.RuntimeBlockStatus != "blocked_rehydrate_failed" || !containsString(envelope.Evidence.RehydrateValidationFailures, "cursor_source_ref_mismatch") {
+		t.Fatalf("mismatched selected-member persistent runtime cursor/source should block before runner: %#v", envelope.Evidence)
+	}
+}
+
+func TestUnitPRSLR005SelectedRunnerPromptEvidenceSummaryRendersRehydrateFields(t *testing.T) {
+	evidence := &SelectedRunnerPromptEvidence{
+		SessionID:                   "sess_transcript_prslr005",
+		SpeakerSelectedEventID:      "evt_selected_transcript_prslr005",
+		SelectedMember:              "agent-1",
+		Turn:                        3,
+		Result:                      "blocked",
+		ParticipantRuntimeMode:      "persistent_delta",
+		HotPromptStrategy:           "delta_only",
+		DeltaSourceEventIDs:         []string{"evt_delta"},
+		RehydrateSourceEventIDs:     []string{"evt_rehydrate"},
+		RehydrateValidationStatus:   "failed",
+		RehydrateValidationFailures: []string{"cursor_authority_mismatch", "source_event_ids_missing"},
+		StatelessFallback:           false,
+		StatelessFallbackStatus:     "disabled",
+		FullHistoryHotPromptStatus:  "rejected",
+		OwnHistoryHotPromptStatus:   "rejected",
+		RuntimeBlockStatus:          "blocked_rehydrate_failed",
+		RuntimeBlockReason:          "rehydrate_identity_validation_failed",
+	}
+	var b strings.Builder
+	renderSelectedRunnerPromptEvidenceSummary(&b, evidence)
+	transcript := b.String()
+	for _, want := range []string{"participant_runtime_mode", "hot_prompt_strategy", "delta_source_event_ids", "rehydrate_source_event_ids", "rehydrate_validation_status", "rehydrate_validation_failures", "stateless_fallback", "stateless_fallback_status", "full_history_hot_prompt_status", "own_history_hot_prompt_status", "runtime_block_status", "runtime_block_reason"} {
+		if !strings.Contains(transcript, want) {
+			t.Fatalf("transcript prompt evidence summary missing %q:\n%s", want, transcript)
+		}
+	}
+}
+
 func TestUnitNEWFIX005CouncilStatusAndExportBundleProjectSelectedRunnerTimeoutEvidence(t *testing.T) {
 	sessionDir := createBareSessionDir(t)
 	metadata := testMetadata()

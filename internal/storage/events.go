@@ -50,6 +50,7 @@ func AppendEvent(sessionDir string, metadata *SessionMetadata, event EventEnvelo
 	if err != nil {
 		return AppendResult{}, err
 	}
+	prepareEventForAppend(metadata, index, &event)
 	if _, ok := index.EventIDs[event.EventID]; ok {
 		return AppendResult{}, NewValidationError(CategoryDuplicateEventID, "event_id", "event id already exists in channel.jsonl")
 	}

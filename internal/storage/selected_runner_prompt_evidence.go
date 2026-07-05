@@ -34,6 +34,18 @@ type SelectedRunnerPromptEvidence struct {
 	OwnHistorySourceEventIDs     []string `json:"own_history_source_event_ids,omitempty"`
 	OwnLatestClaimSourceEventIDs []string `json:"own_latest_claim_source_event_ids,omitempty"`
 	OwnClaimIndexSourceEventIDs  []string `json:"own_claim_index_source_event_ids,omitempty"`
+	ParticipantRuntimeMode       string   `json:"participant_runtime_mode,omitempty"`
+	HotPromptStrategy            string   `json:"hot_prompt_strategy,omitempty"`
+	DeltaSourceEventIDs          []string `json:"delta_source_event_ids,omitempty"`
+	RehydrateSourceEventIDs      []string `json:"rehydrate_source_event_ids,omitempty"`
+	RehydrateValidationStatus    string   `json:"rehydrate_validation_status,omitempty"`
+	RehydrateValidationFailures  []string `json:"rehydrate_validation_failures,omitempty"`
+	StatelessFallback            bool     `json:"stateless_fallback"`
+	StatelessFallbackStatus      string   `json:"stateless_fallback_status,omitempty"`
+	FullHistoryHotPromptStatus   string   `json:"full_history_hot_prompt_status,omitempty"`
+	OwnHistoryHotPromptStatus    string   `json:"own_history_hot_prompt_status,omitempty"`
+	RuntimeBlockStatus           string   `json:"runtime_block_status,omitempty"`
+	RuntimeBlockReason           string   `json:"runtime_block_reason,omitempty"`
 	PromptContextSHA256          string   `json:"prompt_context_sha256,omitempty"`
 	RedactedPromptExcerpt        string   `json:"redacted_prompt_excerpt,omitempty"`
 }
@@ -90,12 +102,20 @@ func BuildSelectedRunnerPromptEnvelope(metadata *SessionMetadata, index *LogInde
 	}
 
 	evidence := SelectedRunnerPromptEvidence{
-		SessionID:              metadata.ID,
-		SpeakerSelectedEventID: strings.TrimSpace(speaker.EventID),
-		SelectedMember:         strings.TrimSpace(member.ID),
-		Turn:                   turn,
-		CausationEventID:       strings.TrimSpace(speaker.EventID),
-		Result:                 "pass",
+		SessionID:                  metadata.ID,
+		SpeakerSelectedEventID:     strings.TrimSpace(speaker.EventID),
+		SelectedMember:             strings.TrimSpace(member.ID),
+		Turn:                       turn,
+		CausationEventID:           strings.TrimSpace(speaker.EventID),
+		Result:                     "pass",
+		ParticipantRuntimeMode:     "persistent_delta",
+		HotPromptStrategy:          "delta_only",
+		RehydrateValidationStatus:  "not_required_hot_delta",
+		StatelessFallback:          false,
+		StatelessFallbackStatus:    "disabled",
+		FullHistoryHotPromptStatus: "rejected",
+		OwnHistoryHotPromptStatus:  "rejected",
+		RuntimeBlockStatus:         "not_blocked",
 	}
 
 	contextPayload := map[string]any{}
@@ -117,6 +137,14 @@ func BuildSelectedRunnerPromptEnvelope(metadata *SessionMetadata, index *LogInde
 		evidence.MissingRequiredContext = appendUniqueString(evidence.MissingRequiredContext, "turn")
 	}
 	addIncluded("causation_event_id", strings.TrimSpace(speaker.EventID))
+	addIncluded("participant_runtime_mode", evidence.ParticipantRuntimeMode)
+	addIncluded("hot_prompt_strategy", evidence.HotPromptStrategy)
+	contextPayload["stateless_fallback"] = evidence.StatelessFallback
+	contextPayload["stateless_fallback_status"] = evidence.StatelessFallbackStatus
+	contextPayload["full_history_hot_prompt_status"] = evidence.FullHistoryHotPromptStatus
+	contextPayload["own_history_hot_prompt_status"] = evidence.OwnHistoryHotPromptStatus
+	contextPayload["rehydrate_validation_status"] = evidence.RehydrateValidationStatus
+	contextPayload["runtime_block_status"] = evidence.RuntimeBlockStatus
 	addIncluded("role_assignment", strings.TrimSpace(member.Role))
 	addIncluded("stance_assignment", selectedRunnerStanceAssignment(index.Events, speaker, member.ID))
 	addIncluded("required_response_schema", selectedRunnerRequiredResponseSchema)
@@ -189,6 +217,27 @@ func BuildSelectedRunnerPromptEnvelope(metadata *SessionMetadata, index *LogInde
 		evidence.OwnClaimIndexSourceEventIDs = appendUniqueString(evidence.OwnClaimIndexSourceEventIDs, eventID)
 	}
 
+	evidence.DeltaSourceEventIDs = selectedRunnerDeltaSourceEventIDs(evidence)
+	rehydrate, rehydrateRequired := selectedRunnerRehydratePayload(metadata, index, speaker, member)
+	evidence.RehydrateSourceEventIDs = selectedRunnerRehydrateSourceEventIDs(evidence, rehydrate)
+	if rehydrateRequired {
+		evidence.RehydrateValidationStatus = "validated"
+		failures := selectedRunnerRehydrateValidationFailures(metadata, index, rehydrate, member)
+		if len(failures) > 0 {
+			evidence.RehydrateValidationStatus = "failed"
+			evidence.RehydrateValidationFailures = failures
+			evidence.RuntimeBlockStatus = "blocked_rehydrate_failed"
+			evidence.RuntimeBlockReason = "rehydrate_identity_validation_failed"
+			evidence.MissingRequiredContext = appendUniqueString(evidence.MissingRequiredContext, "rehydrate_identity_validation")
+		}
+	}
+	contextPayload["delta_source_event_ids"] = append([]string(nil), evidence.DeltaSourceEventIDs...)
+	contextPayload["rehydrate_source_event_ids"] = append([]string(nil), evidence.RehydrateSourceEventIDs...)
+	contextPayload["rehydrate_validation_status"] = evidence.RehydrateValidationStatus
+	contextPayload["rehydrate_validation_failures"] = append([]string(nil), evidence.RehydrateValidationFailures...)
+	contextPayload["runtime_block_status"] = evidence.RuntimeBlockStatus
+	contextPayload["runtime_block_reason"] = evidence.RuntimeBlockReason
+
 	if len(evidence.MissingRequiredContext) > 0 {
 		evidence.Result = "blocked"
 	} else {
@@ -201,6 +250,12 @@ func BuildSelectedRunnerPromptEnvelope(metadata *SessionMetadata, index *LogInde
 	contextPayload["own_history_source_event_ids"] = append([]string(nil), evidence.OwnHistorySourceEventIDs...)
 	contextPayload["own_latest_claim_source_event_ids"] = append([]string(nil), evidence.OwnLatestClaimSourceEventIDs...)
 	contextPayload["own_claim_index_source_event_ids"] = append([]string(nil), evidence.OwnClaimIndexSourceEventIDs...)
+	contextPayload["delta_source_event_ids"] = append([]string(nil), evidence.DeltaSourceEventIDs...)
+	contextPayload["rehydrate_source_event_ids"] = append([]string(nil), evidence.RehydrateSourceEventIDs...)
+	contextPayload["rehydrate_validation_status"] = evidence.RehydrateValidationStatus
+	contextPayload["rehydrate_validation_failures"] = append([]string(nil), evidence.RehydrateValidationFailures...)
+	contextPayload["runtime_block_status"] = evidence.RuntimeBlockStatus
+	contextPayload["runtime_block_reason"] = evidence.RuntimeBlockReason
 	contextPayload["selected_member"] = evidence.SelectedMember
 	contextPayload["speaker_selected_event_id"] = evidence.SpeakerSelectedEventID
 	contextPayload["result"] = evidence.Result
@@ -256,6 +311,18 @@ func selectedRunnerPromptEvidenceFromPayload(payload map[string]any) *SelectedRu
 		OwnHistorySourceEventIDs:     selectedRunnerStringSlice(payload["own_history_source_event_ids"]),
 		OwnLatestClaimSourceEventIDs: selectedRunnerStringSlice(payload["own_latest_claim_source_event_ids"]),
 		OwnClaimIndexSourceEventIDs:  selectedRunnerStringSlice(payload["own_claim_index_source_event_ids"]),
+		ParticipantRuntimeMode:       anyString(payload, "participant_runtime_mode"),
+		HotPromptStrategy:            anyString(payload, "hot_prompt_strategy"),
+		DeltaSourceEventIDs:          selectedRunnerStringSlice(payload["delta_source_event_ids"]),
+		RehydrateSourceEventIDs:      selectedRunnerStringSlice(payload["rehydrate_source_event_ids"]),
+		RehydrateValidationStatus:    anyString(payload, "rehydrate_validation_status"),
+		RehydrateValidationFailures:  selectedRunnerStringSlice(payload["rehydrate_validation_failures"]),
+		StatelessFallback:            anyBool(payload, "stateless_fallback"),
+		StatelessFallbackStatus:      anyString(payload, "stateless_fallback_status"),
+		FullHistoryHotPromptStatus:   anyString(payload, "full_history_hot_prompt_status"),
+		OwnHistoryHotPromptStatus:    anyString(payload, "own_history_hot_prompt_status"),
+		RuntimeBlockStatus:           anyString(payload, "runtime_block_status"),
+		RuntimeBlockReason:           anyString(payload, "runtime_block_reason"),
 		PromptContextSHA256:          anyString(payload, "prompt_context_sha256"),
 		RedactedPromptExcerpt:        anyString(payload, "redacted_prompt_excerpt"),
 	}
@@ -462,6 +529,228 @@ func selectedRunnerClaimsForSource(source selectedRunnerPromptSource) ([]selecte
 	return claims, malformed
 }
 
+func selectedRunnerDeltaSourceEventIDs(evidence SelectedRunnerPromptEvidence) []string {
+	ids := make([]string, 0)
+	ids = appendUniqueString(ids, evidence.SpeakerSelectedEventID)
+	for _, eventID := range evidence.AgendaSourceEventIDs {
+		ids = appendUniqueString(ids, eventID)
+	}
+	for _, eventID := range evidence.PriorContextSourceEventIDs {
+		ids = appendUniqueString(ids, eventID)
+	}
+	return ids
+}
+
+func selectedRunnerRehydrateSourceEventIDs(evidence SelectedRunnerPromptEvidence, rehydrate map[string]any) []string {
+	ids := make([]string, 0)
+	for _, group := range [][]string{
+		evidence.PriorContextSourceEventIDs,
+		evidence.OwnHistorySourceEventIDs,
+		evidence.OwnLatestClaimSourceEventIDs,
+		evidence.OwnClaimIndexSourceEventIDs,
+	} {
+		for _, eventID := range group {
+			ids = appendUniqueString(ids, eventID)
+		}
+	}
+	for _, key := range []string{"source_event_ids", "argue_source_event_ids"} {
+		for _, eventID := range selectedRunnerStringSlice(rehydrate[key]) {
+			ids = appendUniqueString(ids, eventID)
+		}
+	}
+	return ids
+}
+
+func selectedRunnerRehydratePayload(metadata *SessionMetadata, index *LogIndex, speaker EventEnvelope, member registry.Member) (map[string]any, bool) {
+	if anyBool(speaker.Payload, "participant_runtime_rehydrate_required", "rehydrate_required") {
+		return anyMap(speaker.Payload, "participant_runtime_rehydrate"), true
+	}
+	if metadata == nil || index == nil {
+		return nil, false
+	}
+	payload, ok := selectedRunnerPersistentRuntimeRehydratePayload(metadata.ID, index, speaker.EventID, member.ID)
+	return payload, ok
+}
+
+func selectedRunnerPersistentRuntimeRehydratePayload(sessionID string, index *LogIndex, speakerEventID, memberID string) (map[string]any, bool) {
+	memberID = strings.TrimSpace(memberID)
+	if memberID == "" || index == nil {
+		return nil, false
+	}
+	seenRuntimeEvidence := false
+	for i := len(index.Events) - 1; i >= 0; i-- {
+		event := index.Events[i]
+		if strings.TrimSpace(event.EventID) == strings.TrimSpace(speakerEventID) {
+			continue
+		}
+		evidence := anyMap(event.Payload, "persistent_participant_runtime_evidence")
+		if evidence == nil {
+			continue
+		}
+		seenRuntimeEvidence = true
+		rows := selectedRunnerRuntimeEvidenceRows(evidence["members"])
+		for _, row := range rows {
+			if strings.TrimSpace(anyString(row, "member")) != memberID {
+				continue
+			}
+			cursor := strings.TrimSpace(anyString(row, "last_cursor", "coverage_cursor"))
+			eventID := strings.TrimSpace(anyString(row, "last_event_id"))
+			if eventID == "" {
+				eventID = strings.TrimSpace(anyString(evidence, "speech_event_id"))
+			}
+			if eventID == "" {
+				eventID = event.EventID
+			}
+			handle := strings.TrimSpace(anyString(row, "participant_session_handle", "handle"))
+			generation := anyInt(row, "participant_session_generation", "generation")
+			payload := map[string]any{
+				"session_id":          strings.TrimSpace(sessionID),
+				"member":              memberID,
+				"cursor":              cursor,
+				"ack_cursor":          cursor,
+				"participant_handle":  handle,
+				"expected_handle":     handle,
+				"generation":          generation,
+				"expected_generation": generation,
+				"source_event_ids":    []any{eventID},
+				"rehydrate_source":    "persistent_participant_runtime_evidence",
+				"producer_event_id":   event.EventID,
+			}
+			if cursor == "" || handle == "" || generation <= 0 {
+				return payload, true
+			}
+			_, cursorEventID, err := ParseCursor(cursor)
+			if err != nil || !selectedRunnerCursorResolves(index, cursor) || !selectedRunnerEventIDResolves(index, eventID) || strings.TrimSpace(eventID) != strings.TrimSpace(cursorEventID) {
+				return payload, true
+			}
+			return nil, false
+		}
+	}
+	if !seenRuntimeEvidence {
+		return nil, false
+	}
+	return map[string]any{
+		"session_id":       strings.TrimSpace(sessionID),
+		"member":           memberID,
+		"rehydrate_source": "persistent_participant_runtime_evidence_missing_member_row",
+		"source_event_ids": []any{},
+	}, true
+}
+
+func selectedRunnerRuntimeEvidenceRows(value any) []map[string]any {
+	rows := make([]map[string]any, 0)
+	switch typed := value.(type) {
+	case []map[string]any:
+		for _, row := range typed {
+			if row != nil {
+				rows = append(rows, row)
+			}
+		}
+	case []any:
+		for _, item := range typed {
+			if row, ok := item.(map[string]any); ok && row != nil {
+				rows = append(rows, row)
+			}
+		}
+	}
+	return rows
+}
+
+func selectedRunnerRehydrateValidationFailures(metadata *SessionMetadata, index *LogIndex, rehydrate map[string]any, member registry.Member) []string {
+	if rehydrate == nil {
+		return []string{"rehydrate_ref_missing"}
+	}
+	failures := make([]string, 0)
+	if got := strings.TrimSpace(anyString(rehydrate, "session_id")); got == "" || got != strings.TrimSpace(metadata.ID) {
+		failures = appendUniqueString(failures, "session_id_mismatch")
+	}
+	if got := strings.TrimSpace(anyString(rehydrate, "member")); got == "" || got != strings.TrimSpace(member.ID) {
+		failures = appendUniqueString(failures, "member_mismatch")
+	}
+	cursor := strings.TrimSpace(anyString(rehydrate, "cursor"))
+	ackCursor := strings.TrimSpace(anyString(rehydrate, "ack_cursor"))
+	cursorEventID := ""
+	if cursor == "" {
+		failures = appendUniqueString(failures, "cursor_missing")
+	} else {
+		_, parsedEventID, err := ParseCursor(cursor)
+		if err != nil {
+			failures = appendUniqueString(failures, "cursor_malformed")
+		} else {
+			cursorEventID = parsedEventID
+			if !selectedRunnerCursorResolves(index, cursor) {
+				failures = appendUniqueString(failures, "cursor_authority_mismatch")
+			}
+		}
+	}
+	if ackCursor == "" || cursor == "" || ackCursor != cursor {
+		failures = appendUniqueString(failures, "ack_cursor_mismatch")
+	}
+	handle := strings.TrimSpace(anyString(rehydrate, "participant_handle"))
+	expectedHandle := strings.TrimSpace(anyString(rehydrate, "expected_handle"))
+	if handle == "" || expectedHandle == "" || handle != expectedHandle {
+		failures = appendUniqueString(failures, "participant_handle_mismatch")
+	}
+	generation := anyInt(rehydrate, "generation")
+	expectedGeneration := anyInt(rehydrate, "expected_generation")
+	if generation <= 0 || expectedGeneration <= 0 || generation != expectedGeneration {
+		failures = appendUniqueString(failures, "generation_mismatch")
+	}
+	knownEvents := map[string]struct{}{}
+	if index != nil {
+		for _, event := range index.Events {
+			knownEvents[strings.TrimSpace(event.EventID)] = struct{}{}
+		}
+	}
+	sourceIDs := selectedRunnerStringSlice(rehydrate["source_event_ids"])
+	argueSourceIDs := selectedRunnerStringSlice(rehydrate["argue_source_event_ids"])
+	if len(sourceIDs) == 0 {
+		failures = appendUniqueString(failures, "source_event_ids_missing")
+	}
+	sourceRefsCursor := false
+	for _, eventID := range sourceIDs {
+		if strings.TrimSpace(eventID) == cursorEventID && cursorEventID != "" {
+			sourceRefsCursor = true
+		}
+		if _, ok := knownEvents[eventID]; !ok {
+			failures = appendUniqueString(failures, "source_event_id_unresolved")
+		}
+	}
+	for _, eventID := range argueSourceIDs {
+		if strings.TrimSpace(eventID) == cursorEventID && cursorEventID != "" {
+			sourceRefsCursor = true
+		}
+		if _, ok := knownEvents[eventID]; !ok {
+			failures = appendUniqueString(failures, "argue_source_event_id_unresolved")
+		}
+	}
+	if cursorEventID != "" && !sourceRefsCursor {
+		failures = appendUniqueString(failures, "cursor_source_ref_mismatch")
+	}
+	return failures
+}
+
+func selectedRunnerCursorResolves(index *LogIndex, cursor string) bool {
+	offset, eventID, err := ParseCursor(cursor)
+	if err != nil || index == nil || offset < 0 || int(offset) >= len(index.Events) {
+		return false
+	}
+	return strings.TrimSpace(index.Events[offset].EventID) == strings.TrimSpace(eventID)
+}
+
+func selectedRunnerEventIDResolves(index *LogIndex, eventID string) bool {
+	eventID = strings.TrimSpace(eventID)
+	if eventID == "" || index == nil {
+		return false
+	}
+	for _, event := range index.Events {
+		if strings.TrimSpace(event.EventID) == eventID {
+			return true
+		}
+	}
+	return false
+}
+
 func selectedMemberOwnHistoryContext(events []EventEnvelope, speakerEventID, memberID string) selectedRunnerOwnHistoryContext {
 	context := selectedRunnerOwnHistoryContext{}
 	sources := selectedRunnerPromptSourcesBeforeSelected(events, speakerEventID, 0, memberID)
@@ -539,6 +828,13 @@ func selectedRunnerRedactedPromptExcerpt(evidence SelectedRunnerPromptEvidence) 
 	fmt.Fprintf(&b, "selected_member=%s\n", evidence.SelectedMember)
 	fmt.Fprintf(&b, "turn=%d\n", evidence.Turn)
 	fmt.Fprintf(&b, "result=%s\n", evidence.Result)
+	fmt.Fprintf(&b, "participant_runtime_mode=%s\n", evidence.ParticipantRuntimeMode)
+	fmt.Fprintf(&b, "hot_prompt_strategy=%s\n", evidence.HotPromptStrategy)
+	fmt.Fprintf(&b, "stateless_fallback=%t\n", evidence.StatelessFallback)
+	fmt.Fprintf(&b, "full_history_hot_prompt_status=%s\n", evidence.FullHistoryHotPromptStatus)
+	fmt.Fprintf(&b, "own_history_hot_prompt_status=%s\n", evidence.OwnHistoryHotPromptStatus)
+	fmt.Fprintf(&b, "rehydrate_validation_status=%s\n", evidence.RehydrateValidationStatus)
+	fmt.Fprintf(&b, "runtime_block_status=%s\n", evidence.RuntimeBlockStatus)
 	fmt.Fprintf(&b, "included_context=%s\n", mustCompactJSON(evidence.IncludedContext))
 	fmt.Fprintf(&b, "missing_required_context=%s\n", mustCompactJSON(evidence.MissingRequiredContext))
 	if len(evidence.AgendaSourceEventIDs) > 0 {
@@ -570,6 +866,18 @@ func selectedRunnerPromptFromContext(contextPayload map[string]any) string {
 		"stance_assignment",
 		"turn",
 		"causation_event_id",
+		"participant_runtime_mode",
+		"hot_prompt_strategy",
+		"stateless_fallback",
+		"stateless_fallback_status",
+		"full_history_hot_prompt_status",
+		"own_history_hot_prompt_status",
+		"delta_source_event_ids",
+		"rehydrate_source_event_ids",
+		"rehydrate_validation_status",
+		"rehydrate_validation_failures",
+		"runtime_block_status",
+		"runtime_block_reason",
 		"decision_question",
 		"success_criteria",
 		"out_of_scope_policy",

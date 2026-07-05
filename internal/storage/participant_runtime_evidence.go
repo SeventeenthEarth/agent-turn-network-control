@@ -15,6 +15,10 @@ func attachPersistentParticipantRuntimeEvidence(metadata *SessionMetadata, index
 	event.Payload["persistent_participant_runtime_evidence"] = persistentParticipantRuntimeEvidenceForSpeech(metadata, index, *event, cursor)
 }
 
+func prepareEventForAppend(metadata *SessionMetadata, index *LogIndex, event *EventEnvelope) {
+	attachPersistentParticipantRuntimeEvidence(metadata, index, event)
+}
+
 func persistentParticipantRuntimeEvidenceForSpeech(metadata *SessionMetadata, index *LogIndex, event EventEnvelope, cursor string) map[string]any {
 	members := councilMembers(metadata)
 	rows := make([]map[string]any, 0, len(members))
@@ -35,6 +39,7 @@ func persistentParticipantRuntimeEvidenceForSpeech(metadata *SessionMetadata, in
 			"status":                     "ready",
 			"speech_event_id":            event.EventID,
 			"observed_event_id":          event.EventID,
+			"last_event_id":              event.EventID,
 			"last_cursor":                cursor,
 			"source":                     "control_local_event_log",
 			"prslr_scope":                "PRSLR-004",
