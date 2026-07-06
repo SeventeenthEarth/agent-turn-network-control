@@ -195,7 +195,7 @@ func argumentGraphEvidenceElement(value any) bool {
 
 func argumentGraphRelationAudit(payload map[string]any) (map[string]any, bool) {
 	out := map[string]any{}
-	for _, key := range []string{"relation_audit", "argument_graph_audit"} {
+	for _, key := range []string{"relation_audit", "argument_graph_audit", "prior_speaker_argue_quality_evidence"} {
 		if value, ok := payload[key]; ok {
 			out[key] = value
 		}

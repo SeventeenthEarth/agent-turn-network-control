@@ -157,7 +157,7 @@ func validateArgumentGraphSpeech(metadata *SessionMetadata, index *LogIndex, act
 	}
 
 	if policy.mode == discussionQualityRequired {
-		afterOpening := turn > policy.openingUnlinkedTurns
+		afterOpening := argumentGraphAfterOpening(index, policy)
 		if afterOpening && policy.requireClaims && (!claimsPresent || len(claims) == 0) {
 			return NewValidationError(CategoryInvalidEnvelope, "claims", "quality_required requires claims after opening window")
 		}
@@ -177,6 +177,7 @@ func validateArgumentGraphSpeech(metadata *SessionMetadata, index *LogIndex, act
 		if missing := missingSelectedGraphNeedTargets(index, turn, actor, links); len(missing) > 0 {
 			return NewValidationError(CategoryInvalidEnvelope, "stance_links", "speech omits moderator-selected graph_need targets: "+strings.Join(missing, ","))
 		}
+		payload["prior_speaker_argue_quality_evidence"] = priorSpeakerQualityEvidenceForSpeech(index, policy, actor, turn, payload, links, nil)
 	}
 
 	if policy.mode == discussionQualityWarn {
@@ -184,8 +185,68 @@ func validateArgumentGraphSpeech(metadata *SessionMetadata, index *LogIndex, act
 		if len(diagnostics) > 0 {
 			payload["quality_diagnostics"] = diagnostics
 		}
+		payload["prior_speaker_argue_quality_evidence"] = priorSpeakerQualityEvidenceForSpeech(index, policy, actor, turn, payload, links, diagnostics)
 	}
 	return nil
+}
+
+func argumentGraphAfterOpening(index *LogIndex, policy discussionQualityPolicy) bool {
+	if policy.openingUnlinkedTurns <= 0 {
+		return true
+	}
+	return priorSpeechCount(index) >= policy.openingUnlinkedTurns
+}
+
+func priorSpeechCount(index *LogIndex) int {
+	if index == nil {
+		return 0
+	}
+	count := 0
+	for _, event := range index.Events {
+		if event.Type == "speech" {
+			count++
+		}
+	}
+	return count
+}
+
+func priorSpeakerQualityEvidenceForSpeech(index *LogIndex, policy discussionQualityPolicy, actor string, turn int, payload map[string]any, links []argumentTargetLink, diagnostics []map[string]any) map[string]any {
+	afterOpening := argumentGraphAfterOpening(index, policy)
+	contribution := strings.TrimSpace(payloadStringDefault(payload, "contribution_type", ""))
+	newAxisReason := strings.TrimSpace(payloadStringDefault(payload, "new_axis_reason", ""))
+	newAxisAllowed := contribution == "new_axis" && newAxisReason != "" && (policy.allowNewAxisWithReason || policy.mode != discussionQualityRequired)
+	orphan := afterOpening && len(links) == 0 && !newAxisAllowed
+	validTargets := make([]map[string]any, 0, len(links))
+	for _, link := range links {
+		validTargets = append(validTargets, map[string]any{
+			"target_event_id": link.targetEventID,
+			"target_claim_id": link.targetClaimID,
+			"stance":          link.stance,
+		})
+	}
+	evidence := map[string]any{
+		"pass":                        !orphan && len(diagnostics) == 0,
+		"mode":                        policy.mode,
+		"opening_unlinked_turns":      policy.openingUnlinkedTurns,
+		"prior_speech_count":          priorSpeechCount(index),
+		"opening_exempt":              !afterOpening,
+		"display_hint_authority":      "rejected",
+		"responds_to_event_id_status": "display_only",
+		"valid_prior_target_count":    len(validTargets),
+		"valid_prior_targets":         validTargets,
+		"new_axis_exception":          newAxisAllowed,
+	}
+	if orphan {
+		evidence["orphan"] = true
+		evidence["diagnostic_code"] = "orphan_speech"
+	}
+	if newAxisAllowed {
+		evidence["new_axis_reason"] = newAxisReason
+	}
+	if len(diagnostics) > 0 {
+		evidence["diagnostics"] = diagnostics
+	}
+	return evidence
 }
 
 func parseArgumentClaims(payload map[string]any) (map[string]struct{}, bool, error) {
@@ -430,7 +491,8 @@ func selectedSpeakerEvent(index *LogIndex, turn int, actor string) *EventEnvelop
 func argumentGraphDiagnostics(index *LogIndex, turn int, actor string, payload map[string]any, contribution string, contributionPresent bool, links []argumentTargetLink) []map[string]any {
 	diagnostics := []map[string]any{}
 	newAxisReason := strings.TrimSpace(payloadStringDefault(payload, "new_axis_reason", ""))
-	if turn > 1 && len(links) == 0 && (contribution != "new_axis" || newAxisReason == "") {
+	policy := discussionQualityPolicy{openingUnlinkedTurns: 1, allowNewAxisWithReason: true}
+	if argumentGraphAfterOpening(index, policy) && len(links) == 0 && (contribution != "new_axis" || newAxisReason == "") {
 		diagnostics = append(diagnostics, qualityDiagnostic("orphan_speech", "speech has no stance_links and is not a justified new_axis"))
 	}
 	if contribution == "new_axis" && consecutiveNewAxisCount(index) > 0 {
@@ -476,6 +538,12 @@ func councilDiscussionQualityStatus(metadata *SessionMetadata, index *LogIndex, 
 	handRaiseTargetLinkCount := 0
 	omittedGraphNeedTargetCount := 0
 	priorSpeechWasNewAxis := false
+	validPriorTargetRows := []map[string]any{}
+	orphanRows := []map[string]any{}
+	newAxisRows := []map[string]any{}
+	invalidRelationRows := []map[string]any{}
+	firstOrphanEventID := ""
+	priorIndex := &LogIndex{Events: []EventEnvelope{}}
 
 	addHardWarning := func(code string) {
 		if code == "" {
@@ -497,10 +565,11 @@ func councilDiscussionQualityStatus(metadata *SessionMetadata, index *LogIndex, 
 	for _, event := range index.Events {
 		switch event.Type {
 		case "hand_raise":
-			links, err := parseArgumentTargetLinks(index, event.Payload, "target_links", false)
+			links, err := parseArgumentTargetLinks(priorIndex, event.Payload, "target_links", false)
 			if err != nil {
 				addDiagnostic("missing_required_argue_linkage")
-				continue
+				invalidRelationRows = append(invalidRelationRows, map[string]any{"event_id": event.EventID, "field": "target_links", "reason": err.Error()})
+				break
 			}
 			for _, link := range links {
 				handRaiseTargetLinkCount++
@@ -513,18 +582,19 @@ func councilDiscussionQualityStatus(metadata *SessionMetadata, index *LogIndex, 
 					speechHardWarnings[code] = true
 				}
 			}
-			speechCount++
 			turn := anyInt(event.Payload, "turn")
 			if turn == 0 && event.Turn != nil {
 				turn = *event.Turn
 			}
-			afterOpening := turn > policy.openingUnlinkedTurns
+			afterOpening := speechCount >= policy.openingUnlinkedTurns
+			speechCount++
 			if !afterOpening {
 				openingSpeechCount++
 			}
-			links, err := parseArgumentTargetLinks(index, event.Payload, "stance_links", false)
+			links, err := parseArgumentTargetLinks(priorIndex, event.Payload, "stance_links", false)
 			if err != nil {
 				addDiagnostic("missing_required_argue_linkage")
+				invalidRelationRows = append(invalidRelationRows, map[string]any{"event_id": event.EventID, "field": "stance_links", "reason": err.Error()})
 				links = nil
 			}
 			if len(links) > 0 {
@@ -533,12 +603,16 @@ func councilDiscussionQualityStatus(metadata *SessionMetadata, index *LogIndex, 
 			for _, link := range links {
 				targetLinkCount++
 				relationCounts[link.stance]++
+				validPriorTargetRows = append(validPriorTargetRows, map[string]any{"event_id": event.EventID, "target_event_id": link.targetEventID, "target_claim_id": link.targetClaimID, "stance": link.stance})
 			}
 			contribution := payloadStringDefault(event.Payload, "contribution_type", "")
 			newAxisReason := strings.TrimSpace(payloadStringDefault(event.Payload, "new_axis_reason", ""))
 			justifiedNewAxis := contribution == "new_axis" && newAxisReason != ""
 			if justifiedNewAxis {
 				justifiedNewAxisCount++
+				if afterOpening {
+					newAxisRows = append(newAxisRows, map[string]any{"event_id": event.EventID, "reason": newAxisReason})
+				}
 				if priorSpeechWasNewAxis {
 					repeatedNewAxisCount++
 					addSpeechHardWarning("repeated_new_axis")
@@ -546,6 +620,10 @@ func councilDiscussionQualityStatus(metadata *SessionMetadata, index *LogIndex, 
 			}
 			if afterOpening && len(links) == 0 && !justifiedNewAxis {
 				orphanSpeechCount++
+				if firstOrphanEventID == "" {
+					firstOrphanEventID = event.EventID
+				}
+				orphanRows = append(orphanRows, map[string]any{"event_id": event.EventID, "turn": turn, "speaker": event.From, "responds_to_event_id_status": "display_only"})
 				addSpeechHardWarning("orphan_speech")
 			}
 			if deterministicRuntimeNoise(payloadStringDefault(event.Payload, "speech", "")) {
@@ -567,6 +645,7 @@ func councilDiscussionQualityStatus(metadata *SessionMetadata, index *LogIndex, 
 			}
 			priorSpeechWasNewAxis = contribution == "new_axis"
 		}
+		priorIndex.Events = append(priorIndex.Events, event)
 	}
 
 	hardWarningCodes := sortedMapKeys(hardWarningCounts)
@@ -574,25 +653,42 @@ func councilDiscussionQualityStatus(metadata *SessionMetadata, index *LogIndex, 
 	if policy.mode == discussionQualityCompatibility && linkedSpeechCount == 0 && justifiedNewAxisCount == 0 {
 		discussionPass = false
 	}
-	return map[string]any{
+	priorSpeakerEvidence := map[string]any{
+		"pass":                         len(orphanRows) == 0 && len(invalidRelationRows) == 0,
 		"mode":                         policy.mode,
-		"mode_reason":                  policy.modeReason,
-		"lifecycle_pass":               phase == "finalized",
-		"discussion_quality_pass":      discussionPass,
-		"speech_count":                 speechCount,
-		"opening_speech_count":         openingSpeechCount,
-		"linked_speech_count":          linkedSpeechCount,
-		"orphan_speech_count":          orphanSpeechCount,
-		"justified_new_axis_count":     justifiedNewAxisCount,
-		"repeated_new_axis_count":      repeatedNewAxisCount,
-		"target_link_count":            targetLinkCount,
-		"relation_counts":              relationCounts,
-		"quality_diagnostic_counts":    diagnosticCounts,
-		"hard_warning_counts":          hardWarningCounts,
-		"hard_warning_codes":           hardWarningCodes,
-		"omitted_graph_need_targets":   omittedGraphNeedTargetCount,
-		"hand_raise_target_link_count": handRaiseTargetLinkCount,
-		"hand_raise_relation_counts":   handRaiseRelationCounts,
+		"opening_unlinked_turns":       policy.openingUnlinkedTurns,
+		"display_hint_authority":       "rejected",
+		"responds_to_event_id_status":  "display_only",
+		"first_orphan_event_id":        firstOrphanEventID,
+		"orphan_count":                 len(orphanRows),
+		"orphan_events":                orphanRows,
+		"valid_prior_target_count":     len(validPriorTargetRows),
+		"valid_prior_targets":          validPriorTargetRows,
+		"invalid_relation_count":       len(invalidRelationRows),
+		"invalid_relation_diagnostics": invalidRelationRows,
+		"new_axis_exception_count":     len(newAxisRows),
+		"new_axis_exceptions":          newAxisRows,
+	}
+	return map[string]any{
+		"mode":                                 policy.mode,
+		"mode_reason":                          policy.modeReason,
+		"lifecycle_pass":                       phase == "finalized",
+		"discussion_quality_pass":              discussionPass,
+		"speech_count":                         speechCount,
+		"opening_speech_count":                 openingSpeechCount,
+		"linked_speech_count":                  linkedSpeechCount,
+		"orphan_speech_count":                  orphanSpeechCount,
+		"justified_new_axis_count":             justifiedNewAxisCount,
+		"repeated_new_axis_count":              repeatedNewAxisCount,
+		"target_link_count":                    targetLinkCount,
+		"relation_counts":                      relationCounts,
+		"quality_diagnostic_counts":            diagnosticCounts,
+		"hard_warning_counts":                  hardWarningCounts,
+		"hard_warning_codes":                   hardWarningCodes,
+		"omitted_graph_need_targets":           omittedGraphNeedTargetCount,
+		"hand_raise_target_link_count":         handRaiseTargetLinkCount,
+		"hand_raise_relation_counts":           handRaiseRelationCounts,
+		"prior_speaker_argue_quality_evidence": priorSpeakerEvidence,
 	}
 }
 
