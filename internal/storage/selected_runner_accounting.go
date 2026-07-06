@@ -72,8 +72,15 @@ func SelectedRunnerAccountingFromIndex(metadata *SessionMetadata, index *LogInde
 				FollowupRequired: true,
 				Status:           "pending",
 			}
-			if turn, ok := payloadInt(event.Payload, "turn"); ok {
+			if turn, ok := payloadInt(event.Payload, "turn"); ok && turn > 0 {
 				grant.Turn = turn
+			} else {
+				accounting.Diagnostics = append(accounting.Diagnostics, SelectedRunnerDiagnostic{
+					Code:            "missing_selected_turn_evidence",
+					SelectedEventID: event.EventID,
+					Member:          member,
+					Message:         "selected speaker has no positive selected-turn evidence",
+				})
 			}
 			accounting.SelectedRunners = append(accounting.SelectedRunners, grant)
 			grantIndex[event.EventID] = len(accounting.SelectedRunners) - 1
@@ -195,7 +202,7 @@ func SelectedRunnerAccountingFromIndex(metadata *SessionMetadata, index *LogInde
 					SelectedEventID:    grant.SelectedEventID,
 					Member:             event.Runner.Member,
 					RunnerInvocationID: event.Runner.InvocationID,
-					Message:            "runner speech did not match selected member, invocation, and selected-event causation",
+					Message:            "runner speech did not match selected member, turn, invocation, and selected-event causation",
 				})
 			}
 		case "runner_invocation_failed":
@@ -225,6 +232,20 @@ func SelectedRunnerAccountingFromIndex(metadata *SessionMetadata, index *LogInde
 				grant.SpeechLinkStatus = "missing_linked_runner_speech"
 			}
 			grant.FollowupRequired = true
+		case grant.Turn <= 0:
+			grant.Pass = false
+			grant.Status = "missing_selected_turn_evidence"
+			grant.RunnerStatus = firstNonEmptyString(grant.RunnerStatus, "pending")
+			if len(grant.LinkedRunnerSpeechEventIDs) == 0 {
+				grant.SpeechLinkStatus = "missing_linked_runner_speech"
+			}
+			grant.FollowupRequired = true
+			accounting.Diagnostics = append(accounting.Diagnostics, SelectedRunnerDiagnostic{
+				Code:            "missing_selected_turn_evidence",
+				SelectedEventID: grant.SelectedEventID,
+				Member:          grant.Member,
+				Message:         "selected-runner pass requires positive selected-turn evidence",
+			})
 		case !grant.RunnerStarted:
 			grant.Pass = false
 			grant.Status = "missing_runner_invocation_started"
@@ -441,10 +462,23 @@ func linkedRunnerSpeechMatchesGrant(event EventEnvelope, grant SelectedRunnerGra
 	if grant.Member == "" || event.From != grant.Member || event.Runner.Member != grant.Member {
 		return false
 	}
+	if grant.Turn <= 0 || selectedRunnerSpeechTurn(event) != grant.Turn {
+		return false
+	}
 	if event.Runner.InvocationID == "" || !stringInSlice(event.Runner.InvocationID, grant.RunnerInvocationIDs) {
 		return false
 	}
 	return selectedGrantForSpeech(event, map[string]int{grant.SelectedEventID: 0}) == grant.SelectedEventID
+}
+
+func selectedRunnerSpeechTurn(event EventEnvelope) int {
+	if turn, ok := payloadInt(event.Payload, "turn"); ok {
+		return turn
+	}
+	if event.Turn != nil {
+		return *event.Turn
+	}
+	return 0
 }
 
 func runnerMember(event EventEnvelope) string {

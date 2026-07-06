@@ -151,6 +151,16 @@ func TestUnitRUNFIX014LinkedRunnerSpeechPassesSelectedRunner(t *testing.T) {
 	if member.SelectedRunnerPrerequisite == nil || !member.SelectedRunnerPrerequisite.Ready || member.SelectedRunnerPrerequisite.Status != "selected_runner_pass" {
 		t.Fatalf("selected runner readiness should pass with linked runner speech: %#v", member.SelectedRunnerPrerequisite)
 	}
+
+	transcript, err := RenderTranscript(sessionDir, metadata, TranscriptMarkdownFormat)
+	if err != nil {
+		t.Fatalf("RenderTranscript: %v", err)
+	}
+	for _, want := range []string{"Selected Runner Evidence Table", "evt_selected_success", "evt_runner_succeeded_success", "evt_runner_speech_success", "selected_runner_pass"} {
+		if !strings.Contains(string(transcript), want) {
+			t.Fatalf("PRSLR-008 transcript evidence table missing %q:\n%s", want, string(transcript))
+		}
+	}
 }
 func TestUnitRUNFIX3004LinkedRunnerSpeechWithoutVisibleDeliveryFailsSelectedRunner(t *testing.T) {
 	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "missing_delivery")
@@ -281,6 +291,68 @@ func TestUnitRUNFIX014LinkedRunnerSpeechWithoutRunnerSuccessDoesNotInflateSucces
 	member := stream.ParticipantRuntimeReadiness.Members[0]
 	if member.SelectedRunnerPrerequisite == nil || member.SelectedRunnerPrerequisite.Ready || member.SelectedRunnerPrerequisite.Status != "missing_runner_invocation_succeeded" {
 		t.Fatalf("selected runner readiness should fail closed without runner_invocation_succeeded: %#v", member.SelectedRunnerPrerequisite)
+	}
+}
+
+func TestUnitPRSLR008LinkedRunnerSpeechMustMatchSelectedTurn(t *testing.T) {
+	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "linked_wrong_turn")
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeakerSelected(metadata, "evt_selected_wrong_turn", "agent-1", 1, 0))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_runner_started_wrong_turn", "runner_invocation_started", "evt_selected_wrong_turn", "run_wrong_turn", "agent-1", "started", 1*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_runner_succeeded_wrong_turn", "runner_invocation_succeeded", "evt_selected_wrong_turn", "run_wrong_turn", "agent-1", "succeeded", 2*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeech(metadata, "evt_runner_speech_wrong_turn", "evt_selected_wrong_turn", "agent-1", 2, &RunnerInfo{
+		InvocationID:    "run_wrong_turn",
+		AdapterKind:     "hermes-agent",
+		Member:          "agent-1",
+		Attempt:         1,
+		SourceCommandID: "cmd_runner_wrong_turn",
+		Status:          "succeeded",
+	}, map[string]any{"speech": "Runner-linked speech on the wrong turn.", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "platform": "discord", "channel_id": metadata.Surface.ChannelID, "thread_id": metadata.Surface.ThreadID, "message_id": "msg-runner-wrong-turn", "posting_path": "selected_member_profile_send", "sender_member": "agent-1", "references_event_id": "evt_runner_speech_wrong_turn"}}, 3*time.Second))
+
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	accounting := SelectedRunnerAccountingFromIndex(metadata, index)
+	if accounting.SelectedRunnerPass || accounting.LinkedRunnerSpeechCount != 0 || accounting.RunnerSucceededCount != 1 {
+		t.Fatalf("wrong-turn canonical speech must not repair selected_runner_pass: %#v", accounting)
+	}
+	if !selectedRunnerDiagnosticsContain(accounting.Diagnostics, "linked_runner_speech_mismatch") {
+		t.Fatalf("wrong-turn linked runner speech diagnostic missing: %#v", accounting.Diagnostics)
+	}
+	if len(accounting.SelectedRunners) != 1 || accounting.SelectedRunners[0].Status != "missing_linked_runner_speech" {
+		t.Fatalf("grant should require same-turn canonical speech: %#v", accounting.SelectedRunners)
+	}
+}
+
+func TestUnitPRSLR008MissingSelectedTurnEvidenceBlocksSelectedRunnerPass(t *testing.T) {
+	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "missing_selected_turn")
+	selected := selectedRunnerAccountingSpeakerSelected(metadata, "evt_selected_missing_turn", "agent-1", 1, 0)
+	delete(selected.Payload, "turn")
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selected)
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_runner_started_missing_turn", "runner_invocation_started", "evt_selected_missing_turn", "run_missing_turn", "agent-1", "started", 1*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_runner_succeeded_missing_turn", "runner_invocation_succeeded", "evt_selected_missing_turn", "run_missing_turn", "agent-1", "succeeded", 2*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeech(metadata, "evt_runner_speech_missing_turn", "evt_selected_missing_turn", "agent-1", 1, &RunnerInfo{
+		InvocationID:    "run_missing_turn",
+		AdapterKind:     "hermes-agent",
+		Member:          "agent-1",
+		Attempt:         1,
+		SourceCommandID: "cmd_runner_missing_turn",
+		Status:          "succeeded",
+	}, map[string]any{"speech": "Runner-linked speech without selected-turn proof.", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "platform": "discord", "channel_id": metadata.Surface.ChannelID, "thread_id": metadata.Surface.ThreadID, "message_id": "msg-runner-missing-turn", "posting_path": "selected_member_profile_send", "sender_member": "agent-1", "references_event_id": "evt_runner_speech_missing_turn"}}, 3*time.Second))
+
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	accounting := SelectedRunnerAccountingFromIndex(metadata, index)
+	if accounting.SelectedRunnerPass || accounting.LinkedRunnerSpeechCount != 0 || accounting.RunnerSucceededCount != 1 {
+		t.Fatalf("missing selected-turn evidence must not repair selected_runner_pass: %#v", accounting)
+	}
+	if !selectedRunnerDiagnosticsContain(accounting.Diagnostics, "missing_selected_turn_evidence") {
+		t.Fatalf("missing selected-turn diagnostic missing: %#v", accounting.Diagnostics)
+	}
+	if len(accounting.SelectedRunners) != 1 || accounting.SelectedRunners[0].Status != "missing_selected_turn_evidence" {
+		t.Fatalf("grant should require positive selected-turn evidence: %#v", accounting.SelectedRunners)
 	}
 }
 

@@ -291,6 +291,29 @@ func renderSelectedRunnerAccountingSummary(b *strings.Builder, accounting Select
 	fmt.Fprintf(b, "- linked_runner_speech_count: `%d`\n", accounting.LinkedRunnerSpeechCount)
 	fmt.Fprintf(b, "- runnerless_speech_count: `%d`\n", accounting.RunnerlessSpeechCount)
 	fmt.Fprintf(b, "- manual_or_fallback_speech_count: `%d`\n", accounting.ManualOrFallbackSpeechCount)
+	if len(accounting.SelectedRunners) > 0 {
+		fmt.Fprintln(b)
+		fmt.Fprintln(b, "### Selected Runner Evidence Table")
+		fmt.Fprintln(b)
+		fmt.Fprintln(b, "| selected_event_id | member | turn | status | runner_status | speech_link_status | runner_succeeded_event_ids | linked_runner_speech_event_ids | terminal_event_ids | dispatch_failure_event_ids |")
+		fmt.Fprintln(b, "| --- | --- | ---: | --- | --- | --- | --- | --- | --- | --- |")
+		for _, grant := range accounting.SelectedRunners {
+			terminalIDs := append([]string{}, grant.TerminalFailureEventIDs...)
+			terminalIDs = append(terminalIDs, grant.TerminalDiscardEventIDs...)
+			fmt.Fprintf(b, "| `%s` | `%s` | `%d` | `%s` | `%s` | `%s` | `%s` | `%s` | `%s` | `%s` |\n",
+				grant.SelectedEventID,
+				grant.Member,
+				grant.Turn,
+				grant.Status,
+				grant.RunnerStatus,
+				grant.SpeechLinkStatus,
+				strings.Join(grant.RunnerSucceededEventIDs, "`, `"),
+				strings.Join(grant.LinkedRunnerSpeechEventIDs, "`, `"),
+				strings.Join(terminalIDs, "`, `"),
+				strings.Join(grant.DispatchFailureEventIDs, "`, `"),
+			)
+		}
+	}
 	if len(accounting.Diagnostics) > 0 {
 		fmt.Fprintln(b, "- diagnostics:")
 		for _, diagnostic := range accounting.Diagnostics {
