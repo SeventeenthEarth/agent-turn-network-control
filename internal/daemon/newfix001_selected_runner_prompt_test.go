@@ -55,6 +55,7 @@ func TestNEWFIX001CouncilGrantBuildsProjectionBackedPromptEvidenceWithPriorClaim
 		"role_assignment: assignee",
 		"stance_assignment: answer",
 		"required_response_schema:",
+		"claim_kind_allowed_values=[observation, requirement, risk, decision_frame, evidence, open_question, proposal]",
 		"missing_context_instruction:",
 		"prior_claim_context:",
 		"selected_member_prior_speeches:",

@@ -12,7 +12,7 @@ import (
 
 const selectedRunnerPromptEvidenceEventType = "selected_runner_prompt_evidence"
 
-const selectedRunnerRequiredResponseSchema = `{"type":"speech","payload":{"speech":"string","claims":"optional[]","stance_links":"optional[]","contribution_type":"optional string","new_axis_reason":"optional string|null","evidence":"optional[]"}}`
+const selectedRunnerRequiredResponseSchema = `{"type":"speech","payload":{"speech":"string","claims":"optional[]","stance_links":"optional[]","contribution_type":"optional string","new_axis_reason":"optional string|null","evidence":"optional[]"}}; claim_kind_allowed_values=[observation, requirement, risk, decision_frame, evidence, open_question, proposal]`
 
 const selectedRunnerMissingContextInstruction = "If any required agenda or context field is missing, do not generate a substantive council turn. Treat the turn as blocked by missing control-owned prompt context."
 
