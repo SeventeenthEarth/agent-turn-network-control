@@ -265,7 +265,7 @@ func AcknowledgeCursor(sessionDir string, metadata *SessionMetadata, member, cur
 	}
 	event := EventEnvelope{
 		SchemaVersion: protocol.SchemaVersion,
-		EventID:       eventIDFromCommand("evt_stream_ack", commandID),
+		EventID:       eventIDFromCommand("evt_stream_ack_"+metadata.ID, commandID),
 		CommandID:     commandID,
 		CorrelationID: metadata.ID,
 		SessionID:     metadata.ID,

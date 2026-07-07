@@ -57,6 +57,9 @@ func AppendEvent(sessionDir string, metadata *SessionMetadata, event EventEnvelo
 	if err := ValidateEnvelope(metadata, &event); err != nil {
 		return AppendResult{}, err
 	}
+	if err := validateCommandIDNotUsedInOtherSession(sessionDir, metadata, event.CommandID); err != nil {
+		return AppendResult{}, err
+	}
 	sort.Strings(event.To)
 	if event.CorrelationID == "" {
 		event.CorrelationID = event.SessionID
@@ -113,6 +116,42 @@ func AppendEvent(sessionDir string, metadata *SessionMetadata, event EventEnvelo
 		Offset:  offset,
 		EventID: event.EventID,
 	}, nil
+}
+
+func validateCommandIDNotUsedInOtherSession(sessionDir string, metadata *SessionMetadata, commandID string) error {
+	commandID = strings.TrimSpace(commandID)
+	if commandID == "" || metadata == nil {
+		return nil
+	}
+	cleanSessionDir := filepath.Clean(sessionDir)
+	sessionsRoot := filepath.Dir(cleanSessionDir)
+	if filepath.Base(sessionsRoot) != SessionsDirName {
+		return NewValidationError(CategorySessionUnsafe, cleanSessionDir, "session directory must be under sessions root")
+	}
+	entries, err := safeSessionEntries(sessionsRoot)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		otherDir := filepath.Join(sessionsRoot, entry)
+		if entry == metadata.ID || filepath.Clean(otherDir) == cleanSessionDir {
+			continue
+		}
+		otherMetadata, err := LoadSessionYAML(otherDir)
+		if err != nil {
+			return err
+		}
+		index, err := ReadLogIndex(otherDir, otherMetadata)
+		if err != nil {
+			return err
+		}
+		for _, existing := range index.Events {
+			if existing.CommandID == commandID {
+				return NewValidationError(CategoryCommandConflict, "command_id", fmt.Sprintf("command_id already used by session %s", entry))
+			}
+		}
+	}
+	return nil
 }
 
 func projectedMetadataPhaseStatus(currentPhase Phase, currentStatus Status, eventPhase Phase) (Phase, Status) {

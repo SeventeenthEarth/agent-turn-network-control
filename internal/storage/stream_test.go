@@ -50,6 +50,56 @@ func TestIntegrationStreamReplaySinceAndBoundedFollow(t *testing.T) {
 	}
 }
 
+func TestIntegrationStreamAckRejectsCrossSessionCommandIDReuseBeforeProjectionCorruption(t *testing.T) {
+	dataHome, loaded := loadedTestRegistry(t)
+	first, _, err := CreateSession(dataHome, loaded, testSessionSpec(), fixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateSession first failed: %v", err)
+	}
+	firstDir, err := SessionDir(dataHome, first.ID)
+	if err != nil {
+		t.Fatalf("SessionDir first: %v", err)
+	}
+	terminal := testEvent(first, "evt_first_terminal")
+	terminal.Type = "work_accepted"
+	terminal.Phase = "accepted"
+	terminal.From = "agent-mod"
+	terminal.To = []string{"agent-1"}
+	terminal.Payload = map[string]any{"accepted_artifacts": []any{}}
+	if _, err := AppendEvent(firstDir, first, terminal); err != nil {
+		t.Fatalf("append terminal: %v", err)
+	}
+	secondSpec := testSessionSpec()
+	secondSpec.ID = "sess_second_ack_scope"
+	secondSpec.EventID = "evt_second_created"
+	secondSpec.CommandID = "cmd_second_created"
+	second, _, err := CreateSession(dataHome, loaded, secondSpec, fixedRuntime())
+	if err != nil {
+		t.Fatalf("CreateSession second failed: %v", err)
+	}
+	secondDir, err := SessionDir(dataHome, second.ID)
+	if err != nil {
+		t.Fatalf("SessionDir second: %v", err)
+	}
+
+	firstAck, dedup, err := AcknowledgeCursor(firstDir, first, "agent-1", "cur_000000000000_evt_created_001", "ack_t01_agent_1", time.Date(2026, 6, 4, 12, 2, 0, 0, time.UTC))
+	if err != nil || dedup {
+		t.Fatalf("first ack got result=%#v dedup=%v err=%v", firstAck, dedup, err)
+	}
+	_, _, err = AcknowledgeCursor(secondDir, second, "agent-1", "cur_000000000000_evt_second_created", "ack_t01_agent_1", time.Date(2026, 6, 4, 12, 3, 0, 0, time.UTC))
+	assertStorageIssue(t, err, CategoryCommandConflict)
+	index, err := ReadLogIndex(secondDir, second)
+	if err != nil {
+		t.Fatalf("ReadLogIndex second: %v", err)
+	}
+	if len(index.Events) != 1 {
+		t.Fatalf("rejected cross-session ack must not append to second session, got %d events", len(index.Events))
+	}
+	if _, err := RebuildProjection(dataHome, ProjectionOptions{Runtime: fixedRuntime()}); err != nil {
+		t.Fatalf("projection replay must remain valid after rejected cross-session command id: %v", err)
+	}
+}
+
 func TestIntegrationStreamAckDeduplicatesAndStatusIsReadOnly(t *testing.T) {
 	dataHome, loaded := loadedTestRegistry(t)
 	metadata, _, err := CreateSession(dataHome, loaded, testSessionSpec(), fixedRuntime())
