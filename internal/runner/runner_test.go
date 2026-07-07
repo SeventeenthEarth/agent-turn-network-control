@@ -97,6 +97,33 @@ func TestIntegrationHermesAdapterUsesResolvedWrapperArgvAndParsesCost(t *testing
 	}
 }
 
+func TestIntegrationHermesAdapterDoesNotPassControlParticipantHandleAsChatSessionArg(t *testing.T) {
+	dir := t.TempDir()
+	wrapper := filepath.Join(dir, "fake-hermes")
+	log := filepath.Join(dir, "argv.log")
+	handle := SessionHandle("psh_control_owned_participant_handle")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$0|$1|$2|$3|$4|$5|$6\" > " + shellQuote(log) + "\nprintf '%s\\n' '{\"type\":\"speech\",\"payload\":{\"turn\":1,\"speech\":\"hello from runner\"}}'\n"
+	if err := os.WriteFile(wrapper, []byte(script), 0o700); err != nil {
+		t.Fatalf("write wrapper: %v", err)
+	}
+	result, err := NewHermesAgentAdapter().Send(context.Background(), Request{
+		ResolvedWrapper: wrapper,
+		Member:          registry.Member{Workspace: dir},
+		Prompt:          "hello from runner",
+		SessionHandle:   &handle,
+	})
+	if err != nil || !result.OK {
+		t.Fatalf("Send failed: result=%#v err=%v", result, err)
+	}
+	argv, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatalf("read argv log: %v", err)
+	}
+	if got := strings.TrimSpace(string(argv)); got != wrapper+"|chat|-Q|-q|hello from runner||" {
+		t.Fatalf("control participant handle must not be forwarded as Hermes chat --session arg: %q", got)
+	}
+}
+
 func TestIntegrationHermesAdapterSendVisibleUsesProfileSendAndParsesMessageID(t *testing.T) {
 	dir := t.TempDir()
 	wrapper := filepath.Join(dir, "fake-hermes")

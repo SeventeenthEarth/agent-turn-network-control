@@ -144,9 +144,12 @@ func (a *HermesAgentAdapter) invoke(ctx context.Context, mode string, req Reques
 		switch mode {
 		case "chat":
 			args = []string{"chat", "-Q"}
-			if req.SessionHandle != nil {
-				args = append(args, "--session", string(*req.SessionHandle))
-			}
+			// req.SessionHandle is the ATN control-owned participant session handle
+			// (for example psh_...). It is not a Hermes CLI session id and must not
+			// be forwarded as a chat subcommand argument. Current Hermes exposes
+			// resume as a top-level --resume flag, while selected-runner dispatch is
+			// a fresh bounded response with continuity carried in the ATN prompt and
+			// daemon evidence.
 			if req.Prompt != "" {
 				args = append(args, "-q", req.Prompt)
 			}
