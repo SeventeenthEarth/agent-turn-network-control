@@ -980,6 +980,114 @@ func TestUnitCouncilArgumentGraphStatusPassesLinkedQualityBeforeLifecycleComplet
 	}
 }
 
+func TestUnitPRSLR012CouncilQualityIgnoresVisibleDeliveryEchoSpeech(t *testing.T) {
+	limits := Limits{Council: CouncilLimits{DiscussionQuality: &DiscussionQualityLimits{
+		Mode:                           "quality_required",
+		OpeningUnlinkedTurns:           1,
+		RequireClaims:                  true,
+		RequireStanceLinksAfterOpening: true,
+		AllowNewAxisWithReason:         true,
+		MaxConsecutiveNewAxis:          1,
+	}}}
+	sessionDir, metadata := argumentGraphCouncilForTest(t, "sess_prslr012_visible_echo_quality", limits)
+	appendArgumentGraphTargetForTest(t, sessionDir, metadata)
+	grant := appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_prslr012_quality_grant", Payload: map[string]any{"turn": 2, "member": "agent-2", "selection_mode": "moderator_direct"}, Now: fixedRuntime().Now().Add(21 * time.Second)})
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_prslr012_runner_started_quality", "runner_invocation_started", grant.EventID, "run_prslr012_quality", "agent-2", "started", 21500*time.Millisecond))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_prslr012_runner_succeeded_quality", "runner_invocation_succeeded", grant.EventID, "run_prslr012_quality", "agent-2", "succeeded", 21800*time.Millisecond))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeech(metadata, "evt_prslr012_runner_speech_quality", grant.EventID, "agent-2", 2, &RunnerInfo{
+		InvocationID:    "run_prslr012_quality",
+		AdapterKind:     "hermes-agent",
+		Member:          "agent-2",
+		Attempt:         1,
+		SourceCommandID: "cmd_runner_prslr012_quality",
+		Status:          "succeeded",
+	}, map[string]any{
+		"speech": "linked response",
+		"claims": []any{map[string]any{"claim_id": "T2.C1", "summary": "linked claim"}},
+		"stance_links": []any{map[string]any{
+			"target_event_id": "evt_speech_cmd_argue_target_speech",
+			"target_claim_id": "T1.C1",
+			"stance":          "support",
+			"rationale":       "connects to the opening claim",
+		}},
+		"contribution_type": "support",
+		"surface_evidence":  map[string]any{"status": "posted", "kind": "discord_thread", "platform": "discord", "channel_id": "chan-quality", "thread_id": "thread-quality", "message_id": "msg-quality", "posting_path": "selected_member_profile_send", "sender_member": "agent-2", "references_event_id": "evt_prslr012_runner_speech_quality"},
+	}, 22*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeech(metadata, "evt_prslr012_visible_echo_quality", "", "agent-2", 2, nil, map[string]any{
+		"speech":            "Visible Discord echo of the selected-runner speech.",
+		"claims":            []any{map[string]any{"claim_id": "T2.ECHO", "summary": "echo claim"}},
+		"contribution_type": "new_axis",
+		"new_axis_reason":   "visible echo must not be treated as a second ARGUE speech",
+		"evidence":          []any{map[string]any{"kind": "visible_discord_message", "status": "posted", "platform": "discord", "channel_id": "chan-quality", "thread_id": "thread-quality", "message_id": "msg-quality"}},
+	}, 23*time.Second))
+
+	status, err := CouncilStatusFromLog(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("CouncilStatusFromLog: %v", err)
+	}
+	quality := status["discussion_quality"].(map[string]any)
+	if quality["discussion_quality_pass"] != true {
+		t.Fatalf("visible echo should not create repeated_new_axis or other hard warnings: %#v", quality)
+	}
+	if quality["speech_count"] != 2 || quality["visible_delivery_echo_count"] != 1 || quality["linked_speech_count"] != 1 {
+		t.Fatalf("visible echo must be excluded from canonical quality speech counts: %#v", quality)
+	}
+	if hardWarnings := quality["hard_warning_counts"].(map[string]int); len(hardWarnings) != 0 {
+		t.Fatalf("visible echo should not create hard warnings: %#v", quality)
+	}
+}
+
+func TestUnitPRSLR012CouncilQualityKeepsUnlinkedVisibleSpeechInQualityCounts(t *testing.T) {
+	limits := Limits{Council: CouncilLimits{DiscussionQuality: &DiscussionQualityLimits{
+		Mode:                           "quality_required",
+		OpeningUnlinkedTurns:           1,
+		RequireClaims:                  true,
+		RequireStanceLinksAfterOpening: true,
+		AllowNewAxisWithReason:         true,
+		MaxConsecutiveNewAxis:          1,
+	}}}
+	sessionDir, metadata := argumentGraphCouncilForTest(t, "sess_prslr012_unlinked_visible_quality", limits)
+	appendArgumentGraphTargetForTest(t, sessionDir, metadata)
+	grant := appendCouncilForTest(t, sessionDir, metadata, CouncilEventSpec{Action: "grant", Actor: "agent-mod", CommandID: "cmd_prslr012_unlinked_quality_grant", Payload: map[string]any{"turn": 2, "member": "agent-2", "selection_mode": "moderator_direct"}, Now: fixedRuntime().Now().Add(21 * time.Second)})
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_prslr012_unlinked_runner_started_quality", "runner_invocation_started", grant.EventID, "run_prslr012_unlinked_quality", "agent-2", "started", 21500*time.Millisecond))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_prslr012_unlinked_runner_succeeded_quality", "runner_invocation_succeeded", grant.EventID, "run_prslr012_unlinked_quality", "agent-2", "succeeded", 21800*time.Millisecond))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeech(metadata, "evt_prslr012_unlinked_runner_quality", grant.EventID, "agent-2", 2, &RunnerInfo{
+		InvocationID:    "run_prslr012_unlinked_quality",
+		AdapterKind:     "hermes-agent",
+		Member:          "agent-2",
+		Attempt:         1,
+		SourceCommandID: "cmd_runner_prslr012_unlinked_quality",
+		Status:          "succeeded",
+	}, map[string]any{
+		"speech": "linked response",
+		"claims": []any{map[string]any{"claim_id": "T2.C1", "summary": "linked claim"}},
+		"stance_links": []any{map[string]any{
+			"target_event_id": "evt_speech_cmd_argue_target_speech",
+			"target_claim_id": "T1.C1",
+			"stance":          "support",
+			"rationale":       "connects to the opening claim",
+		}},
+		"contribution_type": "support",
+		"surface_evidence":  map[string]any{"status": "posted", "kind": "discord_thread", "platform": "discord", "channel_id": "chan-quality", "thread_id": "thread-quality", "message_id": "msg-canonical-quality", "posting_path": "selected_member_profile_send", "sender_member": "agent-2", "references_event_id": "evt_prslr012_unlinked_runner_quality"},
+	}, 22*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeech(metadata, "evt_prslr012_unlinked_visible_quality", "", "agent-2", 2, nil, map[string]any{
+		"speech":   "Different visible Discord post without canonical link.",
+		"evidence": []any{map[string]any{"kind": "visible_discord_message", "status": "posted", "platform": "discord", "channel_id": "chan-quality", "thread_id": "thread-quality", "message_id": "msg-different-quality"}},
+	}, 23*time.Second))
+
+	status, err := CouncilStatusFromLog(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("CouncilStatusFromLog: %v", err)
+	}
+	quality := status["discussion_quality"].(map[string]any)
+	if quality["discussion_quality_pass"] != false {
+		t.Fatalf("unlinked visible speech should remain quality-accounted and fail as orphan: %#v", quality)
+	}
+	if quality["speech_count"] != 3 || quality["visible_delivery_echo_count"] != 0 || quality["orphan_speech_count"] != 1 {
+		t.Fatalf("unlinked visible speech must remain in canonical quality counts: %#v", quality)
+	}
+}
+
 func TestUnitCouncilArgumentGraphStatusSummarizesHandRaiseTargetLinks(t *testing.T) {
 	limits := Limits{Council: CouncilLimits{DiscussionQuality: &DiscussionQualityLimits{Mode: "quality_warn"}}}
 	sessionDir, metadata := argumentGraphCouncilForTest(t, "sess_argue_hand_raise_status", limits)

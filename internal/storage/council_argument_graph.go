@@ -532,6 +532,7 @@ func councilDiscussionQualityStatus(metadata *SessionMetadata, index *LogIndex, 
 	openingSpeechCount := 0
 	linkedSpeechCount := 0
 	orphanSpeechCount := 0
+	visibleDeliveryEchoCount := 0
 	justifiedNewAxisCount := 0
 	repeatedNewAxisCount := 0
 	targetLinkCount := 0
@@ -544,6 +545,7 @@ func councilDiscussionQualityStatus(metadata *SessionMetadata, index *LogIndex, 
 	invalidRelationRows := []map[string]any{}
 	firstOrphanEventID := ""
 	priorIndex := &LogIndex{Events: []EventEnvelope{}}
+	visibleDeliveryEchoEventIDs := selectedRunnerVisibleDeliveryEchoEventIDs(metadata, index)
 
 	addHardWarning := func(code string) {
 		if code == "" {
@@ -576,6 +578,10 @@ func councilDiscussionQualityStatus(metadata *SessionMetadata, index *LogIndex, 
 				handRaiseRelationCounts[link.stance]++
 			}
 		case "speech":
+			if _, ok := visibleDeliveryEchoEventIDs[event.EventID]; ok {
+				visibleDeliveryEchoCount++
+				continue
+			}
 			speechHardWarnings := map[string]bool{}
 			addSpeechHardWarning := func(code string) {
 				if code != "" {
@@ -678,6 +684,7 @@ func councilDiscussionQualityStatus(metadata *SessionMetadata, index *LogIndex, 
 		"opening_speech_count":                 openingSpeechCount,
 		"linked_speech_count":                  linkedSpeechCount,
 		"orphan_speech_count":                  orphanSpeechCount,
+		"visible_delivery_echo_count":          visibleDeliveryEchoCount,
 		"justified_new_axis_count":             justifiedNewAxisCount,
 		"repeated_new_axis_count":              repeatedNewAxisCount,
 		"target_link_count":                    targetLinkCount,

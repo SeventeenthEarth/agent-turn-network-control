@@ -15,6 +15,7 @@ type SelectedRunnerAccounting struct {
 	TerminalDiscardCount        int                             `json:"terminal_discard_count"`
 	DispatchFailureCount        int                             `json:"dispatch_failure_count"`
 	LinkedRunnerSpeechCount     int                             `json:"linked_runner_speech_count"`
+	VisibleDeliveryEchoCount    int                             `json:"visible_delivery_echo_count"`
 	RunnerlessSpeechCount       int                             `json:"runnerless_speech_count"`
 	ManualOrFallbackSpeechCount int                             `json:"manual_or_fallback_speech_count"`
 	Diagnostics                 []SelectedRunnerDiagnostic      `json:"diagnostics,omitempty"`
@@ -60,6 +61,7 @@ func SelectedRunnerAccountingFromIndex(metadata *SessionMetadata, index *LogInde
 	invocationToGrant := map[string]string{}
 	succeededInvocations := map[string]struct{}{}
 	linkedSpeechEvents := map[string]EventEnvelope{}
+	visibleDeliveryEchoEventIDs := selectedRunnerVisibleDeliveryEchoEventIDs(metadata, index)
 	for _, event := range index.Events {
 		switch event.Type {
 		case "speaker_selected":
@@ -149,6 +151,10 @@ func SelectedRunnerAccountingFromIndex(metadata *SessionMetadata, index *LogInde
 			}
 		case "speech":
 			if event.Runner == nil {
+				if _, ok := visibleDeliveryEchoEventIDs[event.EventID]; ok {
+					accounting.VisibleDeliveryEchoCount++
+					continue
+				}
 				accounting.RunnerlessSpeechCount++
 				grantID := selectedGrantForSpeech(event, grantIndex)
 				if grantID != "" {
@@ -611,6 +617,180 @@ func selectedRunnerDeliveryLinksSpeech(surfaceEvidence map[string]any, speechEve
 		}
 	}
 	return false
+}
+
+type selectedRunnerVisibleDeliveryEchoKey struct {
+	member string
+	turn   int
+}
+
+type selectedRunnerCanonicalDelivery struct {
+	eventID   string
+	messageID string
+}
+
+func selectedRunnerVisibleDeliveryEchoEventIDs(metadata *SessionMetadata, index *LogIndex) map[string]struct{} {
+	if index == nil {
+		return nil
+	}
+	grantIndex := map[string]int{}
+	invocationToGrant := map[string]string{}
+	grants := []SelectedRunnerGrantAccounting{}
+	canonical := map[selectedRunnerVisibleDeliveryEchoKey]selectedRunnerCanonicalDelivery{}
+	for _, event := range index.Events {
+		switch event.Type {
+		case "speaker_selected":
+			member := selectedRunnerMember(event)
+			grant := SelectedRunnerGrantAccounting{SelectedEventID: event.EventID, Member: member, RunnerStatus: "pending", SpeechLinkStatus: "pending"}
+			if turn, ok := payloadInt(event.Payload, "turn"); ok && turn > 0 {
+				grant.Turn = turn
+			}
+			grants = append(grants, grant)
+			grantIndex[event.EventID] = len(grants) - 1
+		case "runner_invocation_started":
+			grantID := matchingSelectedGrant(event, grantIndex, invocationToGrant)
+			if grantID == "" || event.Runner == nil {
+				continue
+			}
+			grant := &grants[grantIndex[grantID]]
+			if grant.Member != "" && event.Runner.Member != grant.Member {
+				continue
+			}
+			grant.RunnerStarted = true
+			grant.RunnerStatus = "started"
+			grant.RunnerStartEventIDs = appendUniqueString(grant.RunnerStartEventIDs, event.EventID)
+			if event.Runner.InvocationID != "" {
+				grant.RunnerInvocationIDs = appendUniqueString(grant.RunnerInvocationIDs, event.Runner.InvocationID)
+				invocationToGrant[event.Runner.InvocationID] = grant.SelectedEventID
+			}
+		case "runner_invocation_succeeded":
+			grantID := matchingSelectedGrant(event, grantIndex, invocationToGrant)
+			if grantID == "" || event.Runner == nil || event.Runner.Status != "succeeded" {
+				continue
+			}
+			grant := &grants[grantIndex[grantID]]
+			if grant.Member != "" && event.Runner.Member != grant.Member {
+				continue
+			}
+			if event.Runner.InvocationID != "" {
+				grant.RunnerStatus = "succeeded"
+				grant.RunnerInvocationIDs = appendUniqueString(grant.RunnerInvocationIDs, event.Runner.InvocationID)
+				grant.RunnerSucceededEventIDs = appendUniqueString(grant.RunnerSucceededEventIDs, event.EventID)
+			}
+		case "speech":
+			if event.Runner == nil {
+				continue
+			}
+			grantID := matchingSelectedGrant(event, grantIndex, invocationToGrant)
+			if grantID == "" {
+				continue
+			}
+			grant := &grants[grantIndex[grantID]]
+			if !grant.RunnerStarted || len(grant.RunnerSucceededEventIDs) == 0 || !linkedRunnerSpeechMatchesGrant(event, *grant) {
+				continue
+			}
+			if requiresSelectedRunnerDeliveryProof(metadata) {
+				if diagnostic, ok := selectedRunnerSpeechDeliveryDiagnostic(metadata, *grant, event); !ok || diagnostic.Code != "" {
+					continue
+				}
+			}
+			surfaceEvidence := anyMap(event.Payload, "surface_evidence", "plugin_evidence", "delivery_evidence", "evidence")
+			if !visibleDeliveryEvidencePosted(metadata, surfaceEvidence) {
+				continue
+			}
+			messageID := strings.TrimSpace(anyString(surfaceEvidence, "message_id"))
+			if messageID == "" {
+				continue
+			}
+			canonical[selectedRunnerVisibleDeliveryEchoKey{member: strings.TrimSpace(event.From), turn: selectedRunnerSpeechTurn(event)}] = selectedRunnerCanonicalDelivery{eventID: event.EventID, messageID: messageID}
+		}
+	}
+	if len(canonical) == 0 {
+		return nil
+	}
+	echoes := map[string]struct{}{}
+	for _, event := range index.Events {
+		if event.Type != "speech" || event.Runner != nil || event.EventID == "" || manualOrFallbackSpeech(event) {
+			continue
+		}
+		member := strings.TrimSpace(event.From)
+		turn := selectedRunnerSpeechTurn(event)
+		if member == "" || turn <= 0 {
+			continue
+		}
+		canonicalDelivery, ok := canonical[selectedRunnerVisibleDeliveryEchoKey{member: member, turn: turn}]
+		if !ok {
+			continue
+		}
+		if visibleDeliveryEchoMatchesCanonical(metadata, event, canonicalDelivery) {
+			echoes[event.EventID] = struct{}{}
+		}
+	}
+	if len(echoes) == 0 {
+		return nil
+	}
+	return echoes
+}
+
+func visibleDeliveryEchoMatchesCanonical(metadata *SessionMetadata, event EventEnvelope, canonical selectedRunnerCanonicalDelivery) bool {
+	for _, evidence := range visibleDeliveryEvidenceItems(event) {
+		if !visibleDeliveryEvidencePosted(metadata, evidence) {
+			continue
+		}
+		if selectedRunnerDeliveryLinksSpeech(evidence, canonical.eventID) {
+			return true
+		}
+		if messageID := strings.TrimSpace(anyString(evidence, "message_id")); messageID != "" && messageID == canonical.messageID {
+			return true
+		}
+	}
+	return false
+}
+
+func visibleDeliveryEvidenceItems(event EventEnvelope) []map[string]any {
+	if event.Payload == nil {
+		return nil
+	}
+	items := []map[string]any{}
+	for _, key := range []string{"surface_evidence", "plugin_evidence", "delivery_evidence", "evidence"} {
+		if evidence := anyMap(event.Payload, key); evidence != nil {
+			items = append(items, evidence)
+			continue
+		}
+		arrayItems, ok := rawObjectSlice(event.Payload[key])
+		if ok {
+			items = append(items, arrayItems...)
+		}
+	}
+	return items
+}
+
+func visibleDeliveryEvidencePosted(metadata *SessionMetadata, evidence map[string]any) bool {
+	if evidence == nil {
+		return false
+	}
+	kind := strings.TrimSpace(anyString(evidence, "kind"))
+	platform := strings.TrimSpace(anyString(evidence, "platform"))
+	status, _ := deliveryEvidenceStatus(evidence)
+	if status != "posted" {
+		return false
+	}
+	messageID := strings.TrimSpace(anyString(evidence, "message_id"))
+	if kind != "visible_discord_message" && kind != "discord_thread" && (platform != "discord" || messageID == "") {
+		return false
+	}
+	if metadata != nil && metadata.Surface != nil {
+		if expected := strings.TrimSpace(metadata.Surface.Platform); expected != "" && platform != "" && platform != expected {
+			return false
+		}
+		if expected := strings.TrimSpace(metadata.Surface.ChannelID); expected != "" && strings.TrimSpace(anyString(evidence, "channel_id")) != expected {
+			return false
+		}
+		if expected := strings.TrimSpace(metadata.Surface.ThreadID); expected != "" && strings.TrimSpace(anyString(evidence, "thread_id")) != expected {
+			return false
+		}
+	}
+	return messageID != ""
 }
 func manualOrFallbackSpeech(event EventEnvelope) bool {
 	if event.Type != "speech" || event.Runner != nil {

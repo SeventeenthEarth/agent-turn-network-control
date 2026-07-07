@@ -356,6 +356,93 @@ func TestUnitPRSLR008MissingSelectedTurnEvidenceBlocksSelectedRunnerPass(t *test
 	}
 }
 
+func TestUnitPRSLR012VisibleDeliveryEchoDoesNotCountAsRunnerlessFallbackSpeech(t *testing.T) {
+	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "visible_delivery_echo")
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeakerSelected(metadata, "evt_selected_echo", "agent-1", 1, 0))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_runner_started_echo", "runner_invocation_started", "evt_selected_echo", "run_echo", "agent-1", "started", 1*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_runner_succeeded_echo", "runner_invocation_succeeded", "evt_selected_echo", "run_echo", "agent-1", "succeeded", 2*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeech(metadata, "evt_runner_speech_echo", "evt_selected_echo", "agent-1", 1, &RunnerInfo{
+		InvocationID:    "run_echo",
+		AdapterKind:     "hermes-agent",
+		Member:          "agent-1",
+		Attempt:         1,
+		SourceCommandID: "cmd_runner_echo",
+		Status:          "succeeded",
+	}, map[string]any{"speech": "Runner-linked canonical speech.", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "platform": "discord", "channel_id": metadata.Surface.ChannelID, "thread_id": metadata.Surface.ThreadID, "message_id": "msg-runner-echo", "posting_path": "selected_member_profile_send", "sender_member": "agent-1", "references_event_id": "evt_runner_speech_echo"}}, 3*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeech(metadata, "evt_visible_echo", "", "agent-1", 1, nil, map[string]any{
+		"speech":   "Visible Discord echo of the selected-runner speech.",
+		"evidence": []any{map[string]any{"kind": "visible_discord_message", "status": "posted", "platform": "discord", "channel_id": metadata.Surface.ChannelID, "thread_id": metadata.Surface.ThreadID, "message_id": "msg-runner-echo"}},
+	}, 4*time.Second))
+
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	accounting := SelectedRunnerAccountingFromIndex(metadata, index)
+	if !accounting.SelectedRunnerPass || accounting.LinkedRunnerSpeechCount != 1 || accounting.VisibleDeliveryEchoCount != 1 {
+		t.Fatalf("selected-runner canonical speech and visible echo counts wrong: %#v", accounting)
+	}
+	if accounting.RunnerlessSpeechCount != 0 || accounting.ManualOrFallbackSpeechCount != 0 {
+		t.Fatalf("visible delivery echo must not count as runnerless/fallback speech: %#v", accounting)
+	}
+	if selectedRunnerDiagnosticsContain(accounting.Diagnostics, "runnerless_speech_not_selected_runner_evidence") || selectedRunnerDiagnosticsContain(accounting.Diagnostics, "manual_or_fallback_speech_not_selected_runner_evidence") {
+		t.Fatalf("visible echo must not emit runnerless/fallback diagnostics: %#v", accounting.Diagnostics)
+	}
+}
+
+func TestUnitPRSLR012VisibleDeliveryEchoRequiresLinkedCanonicalDelivery(t *testing.T) {
+	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "visible_delivery_echo_requires_canonical")
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeech(metadata, "evt_unselected_runner_speech", "", "agent-1", 1, &RunnerInfo{
+		InvocationID:    "run_unselected",
+		AdapterKind:     "hermes-agent",
+		Member:          "agent-1",
+		Attempt:         1,
+		SourceCommandID: "cmd_runner_unselected",
+		Status:          "succeeded",
+	}, map[string]any{"speech": "Runner speech without selected-runner grant.", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "platform": "discord", "channel_id": metadata.Surface.ChannelID, "thread_id": metadata.Surface.ThreadID, "message_id": "msg-unselected", "posting_path": "selected_member_profile_send", "sender_member": "agent-1", "references_event_id": "evt_unselected_runner_speech"}}, 1*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeech(metadata, "evt_unselected_visible_echo", "", "agent-1", 1, nil, map[string]any{
+		"speech":   "Visible Discord post that must remain runnerless without a selected grant.",
+		"evidence": []any{map[string]any{"kind": "visible_discord_message", "status": "posted", "platform": "discord", "channel_id": metadata.Surface.ChannelID, "thread_id": metadata.Surface.ThreadID, "message_id": "msg-unselected"}},
+	}, 2*time.Second))
+
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	accounting := SelectedRunnerAccountingFromIndex(metadata, index)
+	if accounting.VisibleDeliveryEchoCount != 0 || accounting.RunnerlessSpeechCount != 1 {
+		t.Fatalf("visible echo must require a selected-runner linked canonical delivery: %#v", accounting)
+	}
+}
+
+func TestUnitPRSLR012VisibleDeliveryEchoRequiresCanonicalMessageOrReference(t *testing.T) {
+	sessionDir, metadata := createSelectedRunnerAccountingSession(t, "visible_delivery_echo_requires_message")
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeakerSelected(metadata, "evt_selected_echo_message", "agent-1", 1, 0))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_runner_started_echo_message", "runner_invocation_started", "evt_selected_echo_message", "run_echo_message", "agent-1", "started", 1*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingRunnerEvent(metadata, "evt_runner_succeeded_echo_message", "runner_invocation_succeeded", "evt_selected_echo_message", "run_echo_message", "agent-1", "succeeded", 2*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeech(metadata, "evt_runner_speech_echo_message", "evt_selected_echo_message", "agent-1", 1, &RunnerInfo{
+		InvocationID:    "run_echo_message",
+		AdapterKind:     "hermes-agent",
+		Member:          "agent-1",
+		Attempt:         1,
+		SourceCommandID: "cmd_runner_echo_message",
+		Status:          "succeeded",
+	}, map[string]any{"speech": "Runner-linked canonical speech.", "surface_evidence": map[string]any{"status": "posted", "kind": "discord_thread", "platform": "discord", "channel_id": metadata.Surface.ChannelID, "thread_id": metadata.Surface.ThreadID, "message_id": "msg-canonical", "posting_path": "selected_member_profile_send", "sender_member": "agent-1", "references_event_id": "evt_runner_speech_echo_message"}}, 3*time.Second))
+	appendSelectedRunnerAccountingEvent(t, sessionDir, metadata, selectedRunnerAccountingSpeech(metadata, "evt_wrong_message_visible_echo", "", "agent-1", 1, nil, map[string]any{
+		"speech":   "Different visible Discord post on the same turn.",
+		"evidence": []any{map[string]any{"kind": "visible_discord_message", "status": "posted", "platform": "discord", "channel_id": metadata.Surface.ChannelID, "thread_id": metadata.Surface.ThreadID, "message_id": "msg-different"}},
+	}, 4*time.Second))
+
+	index, err := ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	accounting := SelectedRunnerAccountingFromIndex(metadata, index)
+	if accounting.VisibleDeliveryEchoCount != 0 || accounting.RunnerlessSpeechCount != 1 {
+		t.Fatalf("visible echo must match canonical message_id or speech reference: %#v", accounting)
+	}
+}
+
 func assertRUNFIX014FailureAccounting(t *testing.T, accounting SelectedRunnerAccounting) {
 	t.Helper()
 	if accounting.SelectedRunnerPass {
