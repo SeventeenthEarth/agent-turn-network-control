@@ -201,7 +201,7 @@ Process limits (full set in `operations.md`):
 - `preparation_timeout`: 10 minutes
 - `hand_raise_research_timeout`: 10 minutes
 - `delegation_update_timeout`: configurable per task
-- `dispatch_timeout_sec`: 30 seconds per selected-speaker runner call when no session override is set; Discord live-visible selected-runner councils must use the implemented `NEWFIX-005` policy of `dispatch_timeout_sec=120` or an explicitly approved alternative, with `selected_runner_timeout_evidence` projected through council status and `bundle_manifest.json` while `stream.status` remains unchanged. If the later daemon-effective timeout diverges from that guarded policy, selected-runner launch must fail closed and record timeout-policy diagnostic evidence.
+- `dispatch_timeout_sec`: 30 seconds per selected-speaker runner call when no session override is set; Discord live-visible selected-runner councils must use the implemented `NEWFIX-005` policy of `dispatch_timeout_sec=150` or an explicitly approved alternative, with `selected_runner_timeout_evidence` projected through council status and `bundle_manifest.json` while `stream.status` remains unchanged. If the later daemon-effective timeout diverges from that guarded policy, selected-runner launch must fail closed and record timeout-policy diagnostic evidence.
 - `clarification_response_timeout_sec`: 3600
 - `escalation_response_timeout_sec`: 86400
 - Single active session only

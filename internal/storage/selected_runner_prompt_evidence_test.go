@@ -824,8 +824,8 @@ func TestUnitNEWFIX005StreamStatusLeavesTimeoutEvidenceOutOfScope(t *testing.T) 
 	metadata.Surface = &Surface{Kind: "discord_thread", Platform: "discord", ChannelID: "chan-timeout", ThreadID: "thread-timeout"}
 	metadata.SelectedRunnerTimeoutEvidence = &SelectedRunnerTimeoutEvidence{
 		PolicyRequired:       true,
-		ConfiguredTimeoutSec: 120,
-		EffectiveTimeoutSec:  120,
+		ConfiguredTimeoutSec: 150,
+		EffectiveTimeoutSec:  150,
 		EffectiveSource:      "session_limit",
 		ApprovedAlternative:  false,
 		Compliant:            true,

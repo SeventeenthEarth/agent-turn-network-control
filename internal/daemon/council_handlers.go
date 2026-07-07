@@ -17,7 +17,7 @@ import (
 const (
 	defaultSelectedSpeakerDispatchTimeout = 30 * time.Second
 	defaultLiveVisibleMaxDiscussionTurns  = 15
-	requiredLiveVisibleDispatchTimeoutSec = 120
+	requiredLiveVisibleDispatchTimeoutSec = 150
 )
 
 func (s *Server) handleCouncilNew(request protocol.CommandRequest) protocol.CommandResponse {
@@ -359,7 +359,7 @@ func (s *Server) normalizeSelectedRunnerTimeoutRequestContext(surface *storage.S
 		}
 	} else {
 		if !present {
-			return nil, nil, storage.NewValidationError(storage.CategoryInvalidEnvelope, "request_context.selected_runner_timeout_override", "non-120 dispatch_timeout_sec for Discord live-visible selected-runner councils requires request_context.selected_runner_timeout_override")
+			return nil, nil, storage.NewValidationError(storage.CategoryInvalidEnvelope, "request_context.selected_runner_timeout_override", "non-150 dispatch_timeout_sec for Discord live-visible selected-runner councils requires request_context.selected_runner_timeout_override")
 		}
 		if override.TimeoutSec != configured {
 			return nil, nil, storage.NewValidationError(storage.CategoryInvalidEnvelope, "request_context.selected_runner_timeout_override.timeout_sec", "selected_runner_timeout_override.timeout_sec must match limits.dispatch_timeout_sec")

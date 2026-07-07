@@ -522,7 +522,7 @@ limits:
   no_progress_round_limit: 3
   preparation_timeout_sec: 600
   hand_raise_research_timeout_sec: 600
-  dispatch_timeout_sec: 30  # implemented selected-speaker default when no session override is set; live-visible councils now require the implemented NEWFIX-005 policy of 120 or an approved explicit alternative
+  dispatch_timeout_sec: 30  # implemented selected-speaker default when no session override is set; live-visible councils now require the implemented NEWFIX-005 policy of 150 or an approved explicit alternative
   clarification_response_timeout_sec: 3600
   escalation_response_timeout_sec: 86400
   runner_max_retries: 2
@@ -1332,7 +1332,7 @@ Any high-severity `changes_requested` finding should become a `revision_requeste
 
 ## Standard live-visible decision council default
 
-For Discord-origin decision-bearing councils, the moderator should run `standard_live_visible_decision_council` by default: exact live thread binding, bounded `max_discussion_turns`, selected-runner dispatch timeout defaulted to 120 seconds unless an approved alternative is recorded, lifecycle prerequisites before discussion, per-turn `poll` or hand-raise evaluation, competitive hand-raise candidates where available, `relevance` grant with a recorded reason, selected-runner linked speech only, visible delivery proof for each selected speech, one participant closeout per member after the discussion window, proposal, all-member vote, visible moderator synthesis, and terminal `council.finalize` with matching posted `surface_evidence`.
+For Discord-origin decision-bearing councils, the moderator should run `standard_live_visible_decision_council` by default: exact live thread binding, bounded `max_discussion_turns`, selected-runner dispatch timeout defaulted to 150 seconds unless an approved alternative is recorded, lifecycle prerequisites before discussion, per-turn `poll` or hand-raise evaluation, competitive hand-raise candidates where available, `relevance` grant with a recorded reason, selected-runner linked speech only, visible delivery proof for each selected speech, one participant closeout per member after the discussion window, proposal, all-member vote, visible moderator synthesis, and terminal `council.finalize` with matching posted `surface_evidence`.
 
 This is a lifecycle policy, not a `turn_mode=selected_runner` metadata switch. `turn_mode` may declare the intended floor policy such as `relevance`; the durable audit facts are the per-turn `speaker_selected.payload.selection_mode`, runner events, canonical `speech`, vote events, and final visible closeout evidence. Exploratory councils may explicitly opt out of proposal/vote, but they must still report live-visible delivery, selected-runner accounting, closeout, and terminal outcome evidence separately.
 

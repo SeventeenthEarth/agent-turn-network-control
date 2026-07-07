@@ -390,7 +390,7 @@ The daemon must not invent token or USD estimates. Missing cost does not by itse
 
 ### Timeout classes
 
-- `dispatch_timeout_sec` — per selected-speaker runner call. Implemented default is 30 seconds when no session override is set; Discord live-visible selected-runner councils must use the implemented `NEWFIX-005` policy of 120 seconds or an explicitly approved alternative, with `selected_runner_timeout_evidence` projected through council status and `bundle_manifest.json` while `stream.status` remains unchanged. If the later daemon-effective timeout diverges from that guarded timeout, selected-runner launch must fail closed with `selected_runner_timeout_policy_blocked` and diagnostic timeout evidence.
+- `dispatch_timeout_sec` — per selected-speaker runner call. Implemented default is 30 seconds when no session override is set; Discord live-visible selected-runner councils must use the implemented `NEWFIX-005` policy of 150 seconds or an explicitly approved alternative, with `selected_runner_timeout_evidence` projected through council status and `bundle_manifest.json` while `stream.status` remains unchanged. If the later daemon-effective timeout diverges from that guarded timeout, selected-runner launch must fail closed with `selected_runner_timeout_policy_blocked` and diagnostic timeout evidence.
 - `preparation_timeout_sec` — council prep. Default 600.
 - `hand_raise_research_timeout_sec` — council research window. Default 600.
 - `clarification_response_timeout_sec` — assignee clarification wait. Default 3600; the moderator may re-prompt or block.

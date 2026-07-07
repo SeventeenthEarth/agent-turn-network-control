@@ -19,7 +19,7 @@ func TestCOUNCILSTAB001LiveVisibleSelectedRunnerFifteenTurnGoldenPath(t *testing
 		"platform":   "discord",
 		"channel_id": "chan-council-stab",
 		"thread_id":  "thread-council-stab",
-	}, 120, nil)
+	}, 150, nil)
 	adapter := &fakeRunRTAdapter{}
 	for turn := 1; turn <= 15; turn++ {
 		adapter.results = append(adapter.results, fakeRunRTResult{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": turn, "speech": fmt.Sprintf("canonical selected-runner turn %02d", turn)}, Cost: &runner.Cost{TokensIn: 2, TokensOut: 3, Source: runner.HermesAgentCostSource}}})
@@ -102,6 +102,42 @@ func TestCouncilGrantDispatchesSelectedMemberRunnerAndRecordsSpeech(t *testing.T
 	}
 	if speech.Runner.InvocationID == "" || succeeded.Runner.InvocationID != started.Runner.InvocationID || speech.Runner.InvocationID != started.Runner.InvocationID || speech.Runner.Member != "agent-1" {
 		t.Fatalf("success and speech must preserve invocation/member evidence: started=%#v succeeded=%#v speech=%#v", started.Runner, succeeded.Runner, speech.Runner)
+	}
+}
+
+func TestPRSLR014CouncilSpeakRejectsVisibleEchoAfterPostedSelectedRunnerSpeech(t *testing.T) {
+	dataHome, metadata, sessionDir := createGuardedDiscussionCouncilForDispatch(t, 150, nil)
+	adapter := &fakeRunRTAdapter{
+		results:        []fakeRunRTResult{{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": 1, "speech": "canonical selected runner speech"}, Cost: &runner.Cost{Source: runner.HermesAgentCostSource}}}},
+		visibleResults: []fakeVisibleDeliveryResult{{result: runner.VisibleDeliveryResult{OK: true, Status: "posted", Kind: "discord_thread", Platform: "discord", ChannelID: "chan-guarded", ThreadID: "thread-guarded", MessageID: "msg-prslr014-canonical", PostingPath: "selected_member_profile_send", SenderMember: "agent-1"}}},
+	}
+	server := daemon.NewServer(dataHome, daemonFixedRuntime())
+	server.RunnerAdapter = adapter
+	server.DispatchLocks = &daemon.DispatchLocks{}
+	server.SelectedSpeakerTimeout = 150 * time.Second
+
+	response := server.Handle(councilGrantRequest(metadata.ID, "cmd_prslr014_echo_grant", "agent-1"))
+	if !response.OK {
+		t.Fatalf("selected-runner grant should append canonical posted speech: %+v", response)
+	}
+	if _, _, err := storage.RecordCouncilEvent(sessionDir, metadata, storage.CouncilEventSpec{Action: "speak", Actor: "agent-1", CommandID: "cmd_prslr014_visible_echo_speak", Payload: map[string]any{"turn": 1, "speech": "visible echo must not become a second speech"}, Now: daemonFixedRuntime().Now().Add(20 * time.Second)}); err == nil {
+		t.Fatalf("runnerless council.speak echo after posted selected-runner speech must fail closed")
+	} else {
+		issues := storage.Issues(err)
+		if len(issues) == 0 || issues[0].Category != storage.CategoryCommandConflict || issues[0].Path != "visible_delivery_echo" {
+			t.Fatalf("echo rejection should be a visible_delivery_echo command conflict, got %v", issues)
+		}
+	}
+	index, err := storage.ReadLogIndex(sessionDir, metadata)
+	if err != nil {
+		t.Fatalf("ReadLogIndex: %v", err)
+	}
+	if got := eventTypeCount(index.Events, "speech"); got != 1 {
+		t.Fatalf("visible echo suppression should leave exactly one canonical speech, got %d events=%#v", got, index.Events)
+	}
+	accounting := storage.SelectedRunnerAccountingFromIndex(metadata, index)
+	if accounting.RunnerlessSpeechCount != 0 || accounting.LinkedRunnerSpeechCount != 1 {
+		t.Fatalf("visible echo must not degrade selected-runner accounting: %#v", accounting)
 	}
 }
 
@@ -350,7 +386,7 @@ func TestCouncilGrantUnsupportedAdapterFailsClosedBeforeSelectedRunnerLaunch(t *
 	}
 }
 func TestCouncilGrantBlocksGuardedLiveVisibleTimeoutPolicyDrift(t *testing.T) {
-	dataHome, metadata, sessionDir := createGuardedDiscussionCouncilForDispatch(t, 120, nil)
+	dataHome, metadata, sessionDir := createGuardedDiscussionCouncilForDispatch(t, 150, nil)
 	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": 1, "speech": "should not run"}, Cost: &runner.Cost{Source: runner.HermesAgentCostSource}}}}}
 	server := daemon.NewServer(dataHome, daemonFixedRuntime())
 	server.RunnerAdapter = adapter
@@ -381,7 +417,7 @@ func TestCouncilGrantBlocksGuardedVisibleChannelFallbackTimeoutPolicyDrift(t *te
 		"kind":       "discord_channel",
 		"platform":   "discord",
 		"channel_id": "chan-guarded-fallback",
-	}, 120, nil)
+	}, 150, nil)
 	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": 1, "speech": "should not run"}, Cost: &runner.Cost{Source: runner.HermesAgentCostSource}}}}}
 	server := daemon.NewServer(dataHome, daemonFixedRuntime())
 	server.RunnerAdapter = adapter
@@ -406,12 +442,12 @@ func TestCouncilGrantBlocksGuardedVisibleChannelFallbackTimeoutPolicyDrift(t *te
 }
 
 func TestCouncilGrantAllowsGuardedLiveVisibleTimeoutWhenDaemonOverrideMatches(t *testing.T) {
-	dataHome, metadata, sessionDir := createGuardedDiscussionCouncilForDispatch(t, 120, nil)
+	dataHome, metadata, sessionDir := createGuardedDiscussionCouncilForDispatch(t, 150, nil)
 	adapter := &fakeRunRTAdapter{results: []fakeRunRTResult{{result: runner.Result{OK: true, SemanticEventType: "speech", SemanticStatus: "succeeded", Payload: map[string]any{"turn": 1, "speech": "canonical selected runner speech"}, Cost: &runner.Cost{Source: runner.HermesAgentCostSource}}}}}
 	server := daemon.NewServer(dataHome, daemonFixedRuntime())
 	server.RunnerAdapter = adapter
 	server.DispatchLocks = &daemon.DispatchLocks{}
-	server.SelectedSpeakerTimeout = 120 * time.Second
+	server.SelectedSpeakerTimeout = 150 * time.Second
 
 	response := server.Handle(councilGrantRequest(metadata.ID, "cmd_council_grant_timeout_policy_match", "agent-1"))
 	if !response.OK {

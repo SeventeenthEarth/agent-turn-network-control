@@ -686,6 +686,9 @@ func councilTransition(metadata *SessionMetadata, index *LogIndex, current Phase
 		if strings.TrimSpace(payloadStringDefault(payload, "speech", "")) == "" {
 			return "", "", "", nil, nil, NewValidationError(CategoryInvalidEnvelope, "speech", "speech is required")
 		}
+		if err := validateNoPostedSelectedRunnerVisibleEcho(index, actor, turn); err != nil {
+			return "", "", "", nil, nil, err
+		}
 		if err := validateArgumentGraphSpeech(metadata, index, actor, turn, payload); err != nil {
 			return "", "", "", nil, nil, err
 		}
@@ -860,6 +863,28 @@ func councilMember(metadata *SessionMetadata, member string) bool {
 		}
 	}
 	return false
+}
+func validateNoPostedSelectedRunnerVisibleEcho(index *LogIndex, actor string, turn int) error {
+	if index == nil || turn <= 0 || strings.TrimSpace(actor) == "" {
+		return nil
+	}
+	for _, event := range index.Events {
+		if event.Type != "speech" || strings.TrimSpace(event.From) != strings.TrimSpace(actor) || eventTurn(event) != turn {
+			continue
+		}
+		if event.Runner == nil || strings.TrimSpace(event.Runner.InvocationID) == "" {
+			continue
+		}
+		surfaceEvidence := anyMap(event.Payload, "surface_evidence")
+		if strings.TrimSpace(anyString(surfaceEvidence, "status")) != "posted" {
+			continue
+		}
+		if strings.TrimSpace(anyString(surfaceEvidence, "posting_path")) != "selected_member_profile_send" {
+			continue
+		}
+		return NewValidationError(CategoryCommandConflict, "visible_delivery_echo", "posted selected-runner speech already exists for this member and turn; do not re-record the Discord-visible echo as council.speak")
+	}
+	return nil
 }
 func fillSurfacePayload(metadata *SessionMetadata, payload map[string]any) {
 	if metadata.Surface != nil {
