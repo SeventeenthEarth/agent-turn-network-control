@@ -23,23 +23,24 @@ type SelectedRunnerAccounting struct {
 }
 
 type SelectedRunnerGrantAccounting struct {
-	SelectedEventID              string   `json:"selected_event_id"`
-	Member                       string   `json:"member,omitempty"`
-	Turn                         int      `json:"turn,omitempty"`
-	RunnerStarted                bool     `json:"runner_started"`
-	RunnerStatus                 string   `json:"runner_status"`
-	SpeechLinkStatus             string   `json:"speech_link_status"`
-	FollowupRequired             bool     `json:"followup_required"`
-	RunnerStartEventIDs          []string `json:"runner_start_event_ids,omitempty"`
-	RunnerSucceededEventIDs      []string `json:"runner_succeeded_event_ids,omitempty"`
-	RunnerInvocationIDs          []string `json:"runner_invocation_ids,omitempty"`
-	LinkedRunnerSpeechEventIDs   []string `json:"linked_runner_speech_event_ids,omitempty"`
-	LinkedRunnerDeliveryEventIDs []string `json:"linked_runner_delivery_event_ids,omitempty"`
-	TerminalFailureEventIDs      []string `json:"terminal_failure_event_ids,omitempty"`
-	TerminalDiscardEventIDs      []string `json:"terminal_discard_event_ids,omitempty"`
-	DispatchFailureEventIDs      []string `json:"dispatch_failure_event_ids,omitempty"`
-	Pass                         bool     `json:"pass"`
-	Status                       string   `json:"status"`
+	SelectedEventID              string           `json:"selected_event_id"`
+	Member                       string           `json:"member,omitempty"`
+	Turn                         int              `json:"turn,omitempty"`
+	RunnerStarted                bool             `json:"runner_started"`
+	RunnerStatus                 string           `json:"runner_status"`
+	SpeechLinkStatus             string           `json:"speech_link_status"`
+	FollowupRequired             bool             `json:"followup_required"`
+	RunnerStartEventIDs          []string         `json:"runner_start_event_ids,omitempty"`
+	RunnerSucceededEventIDs      []string         `json:"runner_succeeded_event_ids,omitempty"`
+	RunnerInvocationIDs          []string         `json:"runner_invocation_ids,omitempty"`
+	LinkedRunnerSpeechEventIDs   []string         `json:"linked_runner_speech_event_ids,omitempty"`
+	LinkedRunnerDeliveryEventIDs []string         `json:"linked_runner_delivery_event_ids,omitempty"`
+	LinkedRunnerDeliveryEvidence []map[string]any `json:"linked_runner_delivery_evidence,omitempty"`
+	TerminalFailureEventIDs      []string         `json:"terminal_failure_event_ids,omitempty"`
+	TerminalDiscardEventIDs      []string         `json:"terminal_discard_event_ids,omitempty"`
+	DispatchFailureEventIDs      []string         `json:"dispatch_failure_event_ids,omitempty"`
+	Pass                         bool             `json:"pass"`
+	Status                       string           `json:"status"`
 }
 
 type SelectedRunnerDiagnostic struct {
@@ -300,6 +301,11 @@ func SelectedRunnerAccountingFromIndex(metadata *SessionMetadata, index *LogInde
 				accounting.Diagnostics = append(accounting.Diagnostics, deliveryDiagnostic)
 			} else {
 				grant.LinkedRunnerDeliveryEventIDs = appendUniqueString(grant.LinkedRunnerDeliveryEventIDs, deliveryDiagnostic.EventID)
+				if event, ok := linkedSpeechEvents[deliveryDiagnostic.EventID]; ok {
+					if evidence := selectedRunnerLinkedDeliveryEvidence(event); evidence != nil {
+						grant.LinkedRunnerDeliveryEvidence = append(grant.LinkedRunnerDeliveryEvidence, evidence)
+					}
+				}
 				grant.Pass = true
 				grant.Status = "selected_runner_pass"
 				grant.RunnerStatus = "succeeded"
@@ -617,6 +623,24 @@ func selectedRunnerDeliveryLinksSpeech(surfaceEvidence map[string]any, speechEve
 		}
 	}
 	return false
+}
+
+func selectedRunnerLinkedDeliveryEvidence(event EventEnvelope) map[string]any {
+	surfaceEvidence := anyMap(event.Payload, "surface_evidence", "plugin_evidence", "delivery_evidence", "evidence")
+	if surfaceEvidence == nil {
+		return nil
+	}
+	evidence := clonePayload(surfaceEvidence)
+	if strings.TrimSpace(anyString(evidence, "delivered_event_id")) == "" {
+		evidence["delivered_event_id"] = event.EventID
+	}
+	if strings.TrimSpace(anyString(evidence, "references_event_id")) == "" && strings.TrimSpace(event.EventID) != "" {
+		evidence["references_event_id"] = event.EventID
+	}
+	if strings.TrimSpace(anyString(evidence, "source")) == "" {
+		evidence["source"] = "selected_runner_surface_evidence"
+	}
+	return evidence
 }
 
 type selectedRunnerVisibleDeliveryEchoKey struct {

@@ -186,6 +186,14 @@ func (s *Server) councilGrantAppendResponse(request protocol.CommandRequest, ses
 		if len(grant.LinkedRunnerSpeechEventIDs) > 0 {
 			response["linked_runner_speech_event_id"] = grant.LinkedRunnerSpeechEventIDs[0]
 		}
+		if len(grant.LinkedRunnerDeliveryEvidence) > 0 {
+			deliveryEvidence := grant.LinkedRunnerDeliveryEvidence[0]
+			response["linked_runner_delivery_evidence"] = deliveryEvidence
+			response["visible_delivery_source"] = "selected_runner_surface_evidence"
+			if messageID, _ := deliveryEvidence["message_id"].(string); strings.TrimSpace(messageID) != "" {
+				response["linked_runner_visible_message_id"] = strings.TrimSpace(messageID)
+			}
+		}
 		return protocol.SuccessResponse(request, response)
 	}
 	response["dispatch_status"] = "pending"

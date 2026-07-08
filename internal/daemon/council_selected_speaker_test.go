@@ -120,6 +120,13 @@ func TestPRSLR014CouncilSpeakRejectsVisibleEchoAfterPostedSelectedRunnerSpeech(t
 	if !response.OK {
 		t.Fatalf("selected-runner grant should append canonical posted speech: %+v", response)
 	}
+	deliveryEvidence, ok := response.Result["linked_runner_delivery_evidence"].(map[string]any)
+	if !ok {
+		t.Fatalf("grant response must expose existing selected-runner visible delivery evidence so operators do not relay-send: %+v", response.Result)
+	}
+	if deliveryEvidence["message_id"] != "msg-prslr014-canonical" || deliveryEvidence["posting_path"] != "selected_member_profile_send" || response.Result["visible_delivery_source"] != "selected_runner_surface_evidence" {
+		t.Fatalf("grant response delivery evidence mismatch: evidence=%#v result=%#v", deliveryEvidence, response.Result)
+	}
 	if _, _, err := storage.RecordCouncilEvent(sessionDir, metadata, storage.CouncilEventSpec{Action: "speak", Actor: "agent-1", CommandID: "cmd_prslr014_visible_echo_speak", Payload: map[string]any{"turn": 1, "speech": "visible echo must not become a second speech"}, Now: daemonFixedRuntime().Now().Add(20 * time.Second)}); err == nil {
 		t.Fatalf("runnerless council.speak echo after posted selected-runner speech must fail closed")
 	} else {
