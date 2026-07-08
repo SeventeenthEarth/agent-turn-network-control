@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	"atn-control/internal/protocol"
-	"atn-control/internal/registry"
-	"atn-control/internal/storage"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/registry"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/storage"
 )
 
 func (s *Server) handleDelegateNew(request protocol.CommandRequest) protocol.CommandResponse {

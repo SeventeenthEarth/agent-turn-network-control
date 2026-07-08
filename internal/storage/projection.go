@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"atn-control/internal/protocol"
-	"atn-control/internal/registry"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/registry"
 
 	"gopkg.in/yaml.v3"
 	_ "modernc.org/sqlite"

@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"atn-control/internal/daemon"
-	"atn-control/internal/protocol"
-	"atn-control/internal/registry"
-	"atn-control/internal/storage"
-	"atn-control/internal/transport"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/daemon"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/registry"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/storage"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/transport"
 )
 
 // App describes a minimal local-only command surface for the ATN binary.

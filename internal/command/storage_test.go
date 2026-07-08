@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"atn-control/internal/command"
-	"atn-control/internal/protocol"
-	"atn-control/internal/registry"
-	"atn-control/internal/storage"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/command"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/registry"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/storage"
 
 	_ "modernc.org/sqlite"
 )

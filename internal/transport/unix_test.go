@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"atn-control/internal/protocol"
-	"atn-control/internal/registry"
-	"atn-control/internal/transport"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/registry"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/transport"
 )
 
 func TestIntegrationSocketPathAndRuntimeDirAreOwnerOnly(t *testing.T) {

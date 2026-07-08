@@ -1,4 +1,4 @@
-module atn-control
+module github.com/SeventeenthEarth/agent-turn-network-control
 
 go 1.25.0
 

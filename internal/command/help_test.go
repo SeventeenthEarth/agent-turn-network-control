@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"atn-control/internal/command"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/command"
 )
 
 func TestUnitCLIHelpNamesCanonicalBinaryAndHasNoErrors(t *testing.T) {
@@ -95,6 +95,7 @@ func TestUnitVersionReportsProtocolMetadata(t *testing.T) {
 	out := stdout.String()
 	for _, want := range []string{
 		"atn-control",
+		"version=v0.1.0",
 		"protocol_version=atn-protocol-v1alpha0",
 		"schema_version=1",
 	} {

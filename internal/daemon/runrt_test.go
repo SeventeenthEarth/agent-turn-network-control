@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"atn-control/internal/daemon"
-	"atn-control/internal/registry"
-	"atn-control/internal/runner"
-	"atn-control/internal/storage"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/daemon"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/registry"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/runner"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/storage"
 )
 
 func TestRUNRTDispatcherAppendsStartedBeforeAdapterAndTerminalCost(t *testing.T) {

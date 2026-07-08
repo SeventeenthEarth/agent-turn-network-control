@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"atn-control/internal/daemon"
-	"atn-control/internal/protocol"
-	"atn-control/internal/runner"
-	"atn-control/internal/storage"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/daemon"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/runner"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/storage"
 )
 
 func TestCOUNCILSTAB001LiveVisibleSelectedRunnerFifteenTurnGoldenPath(t *testing.T) {

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"atn-control/internal/command"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/command"
 )
 
 func main() {

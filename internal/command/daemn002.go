@@ -11,15 +11,15 @@ import (
 	"strings"
 	"time"
 
-	"atn-control/internal/protocol"
-	"atn-control/internal/registry"
-	"atn-control/internal/storage"
-	"atn-control/internal/transport"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/registry"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/storage"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/transport"
 )
 
 func (a App) runVersion(args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 {
-		_, _ = fmt.Fprintf(stdout, "%s bootstrap protocol_version=%s schema_version=%d\n", a.Name, protocol.ProtocolVersion, protocol.SchemaVersion)
+		_, _ = fmt.Fprintf(stdout, "%s version=%s protocol_version=%s schema_version=%d\n", a.Name, protocol.ControlVersion, protocol.ProtocolVersion, protocol.SchemaVersion)
 		return protocol.ExitOK
 	}
 	features := false

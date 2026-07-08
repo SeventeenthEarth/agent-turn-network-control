@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"atn-control/internal/memberruntime"
-	"atn-control/internal/protocol"
-	"atn-control/internal/registry"
-	"atn-control/internal/runner"
-	"atn-control/internal/storage"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/memberruntime"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/registry"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/runner"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/storage"
 )
 
 const (

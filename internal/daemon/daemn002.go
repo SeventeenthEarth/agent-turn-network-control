@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"atn-control/internal/protocol"
-	"atn-control/internal/storage"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/storage"
 )
 
 func (s *Server) handleDAEMN002(request protocol.CommandRequest) (protocol.CommandResponse, bool) {

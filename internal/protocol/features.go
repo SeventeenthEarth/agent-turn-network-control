@@ -56,7 +56,7 @@ func NewVersionFeatures() VersionFeatures {
 	return VersionFeatures{
 		SchemaVersion:            SchemaVersion,
 		ProtocolVersion:          ProtocolVersion,
-		DaemonVersion:            "daemn-002-local",
+		DaemonVersion:            DaemonVersion,
 		MinPluginProtocolVersion: ProtocolVersion,
 		LiveReadiness:            true,
 		Features:                 append([]string(nil), groups...),

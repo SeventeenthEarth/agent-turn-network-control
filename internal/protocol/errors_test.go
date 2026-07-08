@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"atn-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
 )
 
 func TestUnitExitTaxonomyAndStructuredUnsupportedFeature(t *testing.T) {

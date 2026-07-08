@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"atn-control/internal/daemon"
-	"atn-control/internal/protocol"
-	"atn-control/internal/registry"
-	"atn-control/internal/storage"
-	"atn-control/internal/transport"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/daemon"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/registry"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/storage"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/transport"
 )
 
 func TestIntegrationDaemonLifecycleStatusHealthAndShutdown(t *testing.T) {
@@ -42,7 +42,7 @@ func TestIntegrationDaemonLifecycleStatusHealthAndShutdown(t *testing.T) {
 		t.Fatalf("status.read round trip: %v", err)
 	}
 	statusReadJSON := mustJSON(t, statusRead.Result)
-	for _, want := range []string{protocol.ProtocolVersion, "daemn-002-local", "min_plugin_protocol_version", "feature_groups", "capability_state", protocol.FeatureDiagnosticsRead, "schema_version", "fixture_manifest"} {
+	for _, want := range []string{protocol.ProtocolVersion, protocol.DaemonVersion, "min_plugin_protocol_version", "feature_groups", "capability_state", protocol.FeatureDiagnosticsRead, "schema_version", "fixture_manifest"} {
 		if !strings.Contains(statusReadJSON, want) {
 			t.Fatalf("status.read missing %q: %s", want, statusReadJSON)
 		}
@@ -68,7 +68,7 @@ func TestIntegrationDaemonLifecycleStatusHealthAndShutdown(t *testing.T) {
 		t.Fatalf("diagnostics.read round trip: %v", err)
 	}
 	diagnosticsJSON := mustJSON(t, diagnosticsRead.Result)
-	for _, want := range []string{protocol.ProtocolVersion, "daemn-002-local", "min_plugin_protocol_version", "feature_groups", "capability_state", `"categories"`, `"readiness"`, "schema_version", "fixture_manifest"} {
+	for _, want := range []string{protocol.ProtocolVersion, protocol.DaemonVersion, "min_plugin_protocol_version", "feature_groups", "capability_state", `"categories"`, `"readiness"`, "schema_version", "fixture_manifest"} {
 		if !strings.Contains(diagnosticsJSON, want) {
 			t.Fatalf("diagnostics.read missing %q: %s", want, diagnosticsJSON)
 		}
@@ -966,7 +966,7 @@ func TestUnitDaemonCompatibilityReadsExposeProtocolEvidenceWithoutChangingOperat
 		t.Fatalf("status.read should succeed: %+v", statusRead)
 	}
 	statusReadJSON := mustJSON(t, statusRead.Result)
-	for _, want := range []string{protocol.ProtocolVersion, "daemn-002-local", "min_plugin_protocol_version", "feature_groups", "capability_state", "operational_readiness", protocol.FeatureDiagnosticsRead, "schema_version", "fixture_manifest"} {
+	for _, want := range []string{protocol.ProtocolVersion, protocol.DaemonVersion, "min_plugin_protocol_version", "feature_groups", "capability_state", "operational_readiness", protocol.FeatureDiagnosticsRead, "schema_version", "fixture_manifest"} {
 		if !strings.Contains(statusReadJSON, want) {
 			t.Fatalf("status.read missing %q: %s", want, statusReadJSON)
 		}
@@ -986,7 +986,7 @@ func TestUnitDaemonCompatibilityReadsExposeProtocolEvidenceWithoutChangingOperat
 		t.Fatalf("diagnostics.read should succeed: %+v", diagnosticsRead)
 	}
 	diagnosticsJSON := mustJSON(t, diagnosticsRead.Result)
-	for _, want := range []string{protocol.ProtocolVersion, "daemn-002-local", "min_plugin_protocol_version", "feature_groups", "capability_state", `"categories"`, `"readiness"`, "schema_version", "fixture_manifest"} {
+	for _, want := range []string{protocol.ProtocolVersion, protocol.DaemonVersion, "min_plugin_protocol_version", "feature_groups", "capability_state", `"categories"`, `"readiness"`, "schema_version", "fixture_manifest"} {
 		if !strings.Contains(diagnosticsJSON, want) {
 			t.Fatalf("diagnostics.read missing %q: %s", want, diagnosticsJSON)
 		}

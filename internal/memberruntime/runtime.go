@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"atn-control/internal/protocol"
-	"atn-control/internal/storage"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/storage"
 )
 
 var ErrDurableFailureRecorded = errors.New("durable fail event recorded")

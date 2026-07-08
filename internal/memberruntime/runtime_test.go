@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"atn-control/internal/protocol"
-	"atn-control/internal/storage"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/storage"
 )
 
 func TestRuntimeReplayFirstThenLiveAckAndPersist(t *testing.T) {

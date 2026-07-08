@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"atn-control/internal/registry"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/registry"
 )
 
 const selectedRunnerPromptEvidenceEventType = "selected_runner_prompt_evidence"

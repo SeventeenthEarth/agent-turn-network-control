@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"atn-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
 )
 
 var delegationPhases = map[Phase]struct{}{

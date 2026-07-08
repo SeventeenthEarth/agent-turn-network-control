@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"time"
 
-	"atn-control/internal/registry"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/registry"
 )
 
 const HermesAgentKind = "hermes-agent"

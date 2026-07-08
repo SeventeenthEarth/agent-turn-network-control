@@ -6,7 +6,7 @@
     "schema_version": 1,
     "fixture_manifest": "testdata/conformance/manifest.json",
     "protocol_version": "atn-protocol-v1alpha0",
-    "daemon_version": "daemn-002-local",
+    "daemon_version": "v0.1.0",
     "min_plugin_protocol_version": "atn-protocol-v1alpha0",
     "features": [
       "version.read",

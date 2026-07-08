@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"atn-control/internal/runner"
-	"atn-control/internal/storage"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/runner"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/storage"
 )
 
 // ParticipantSession is the control-owned PRSLR-004 local participant runtime

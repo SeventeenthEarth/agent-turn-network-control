@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "protocol_version": "atn-protocol-v1alpha0",
-  "daemon_version": "daemn-002-local",
+  "daemon_version": "v0.1.0",
   "min_plugin_protocol_version": "atn-protocol-v1alpha0",
   "live_readiness": true,
   "features": [

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"atn-control/internal/registry"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/registry"
 )
 
 func TestUnitResolveDataHomePrecedence(t *testing.T) {

@@ -820,6 +820,9 @@ func TestUnitConformanceVersionFixtureMatchesRequiredGroups(t *testing.T) {
 	if features.ProtocolVersion != ProtocolVersion {
 		t.Fatalf("version fixture protocol = %q, want %q", features.ProtocolVersion, ProtocolVersion)
 	}
+	if features.DaemonVersion != DaemonVersion {
+		t.Fatalf("version fixture daemon_version = %q, want %q", features.DaemonVersion, DaemonVersion)
+	}
 	if !features.LiveReadiness {
 		t.Fatal("version fixture live_readiness must be true for approved live-local testing")
 	}

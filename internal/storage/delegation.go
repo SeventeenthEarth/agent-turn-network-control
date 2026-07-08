@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"atn-control/internal/protocol"
-	"atn-control/internal/registry"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/registry"
 )
 
 type DelegationStartSpec struct {

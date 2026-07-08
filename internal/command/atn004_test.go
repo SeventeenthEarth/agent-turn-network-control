@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"atn-control/internal/command"
-	"atn-control/internal/registry"
-	"atn-control/internal/transport"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/command"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/registry"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/transport"
 )
 
 func TestUnitATN004CanonicalBinarySurfacesHaveNoLegacyPublicAliases(t *testing.T) {

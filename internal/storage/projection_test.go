@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"atn-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
 
 	_ "modernc.org/sqlite"
 )

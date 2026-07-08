@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"atn-control/internal/protocol"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/protocol"
 )
 
 func TestUnitParticipantRuntimeReadinessRequiresSubscriberCursorHeartbeatAttendanceAndPreparation(t *testing.T) {

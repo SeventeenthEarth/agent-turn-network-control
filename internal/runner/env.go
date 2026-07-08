@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"atn-control/internal/registry"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/registry"
 )
 
 func EnvForMember(member registry.Member, runtime registry.Runtime) []string {

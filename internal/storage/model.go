@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"atn-control/internal/registry"
+	"github.com/SeventeenthEarth/agent-turn-network-control/internal/registry"
 )
 
 type SessionType string
